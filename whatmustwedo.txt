@@ -1,7 +1,11 @@
 --Notes for what needs to be done--
 
-The driver module:
+The driver module: Need control of elevator using go-esque techniques  
 
 The network module:
 
-The optimalization module:
+The optimalization module: Is this going to adapt itself to a bigger number of elevators?
+
+
+
+We also need to find out the interfaces between the different modules. Expect tons of work the next two weeks.
