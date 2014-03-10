@@ -2,14 +2,13 @@ package main
 
 import 
 (
-	"driver"
-	"errors"
+	"./driver"
 	"fmt"
 )
 
 
 func main() {
-	err = driver.elev_init()
+	var err error = driver.Elev_init()
 	if err != nil{
 		fmt.Println(err)
 	}
