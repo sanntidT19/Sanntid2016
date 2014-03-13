@@ -19,6 +19,38 @@ Yngve: Should we have a format on the messages sent in the form of that the firs
 If multiple slaves says "I'm master" at the same time, how do we decide which will be master? 
 If one elevator detects multiple new elevators, where 1 is saying "I'm master", then it should assume that its connected to an already established group and subdue to its master. 
 
+--Proposition to message types sent over the network:
+(some of these can also be merged/combined)
+1. Slave: I am slave
+2. Master: I am master
+3. Slave: I will be the next master
+4. Slave: Order received
+5. Slave: Order served/completed
+6. Slave: 
+7. Master: New order.
+8. Master: Order received
+9. Master: Serve info received
+10. Slave/Master: State changed (direction/current floor/stopped)
+11. (Should a slave tell the master that its not doing anything and is available?)
+
+
+is #10 enough to get all the elevators to be up to date about the complete elevator-structure that the master needs?
+
+
+
+--How do we choose a master?
+	- Can have the slaves wait a random seeded time to listen 	if other slaves also want to be master
+	- If a master suddenly gets messages from more than one 	other elevator and one of the elevators claim to be 	master, then it should assume that its connected to an 	established network and submit as a slave.    
+
+
+--Does master need to know about the internal orders?
+	- Slaves can tell that they have an order, and combined 	with the state information(direction/current floor), the 	optimization algorithm can mark some of the floors as
+	"low priority" or something. If all else fails, pick
+	these unattractive floors.  
+
+
+--All elevators need to have a copy of the current elevators and its orders/position/
+
 
 --The order optimalization module: Is this going to adapt itself to a bigger number of elevators? I reckon yes!
 
