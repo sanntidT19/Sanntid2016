@@ -5,7 +5,8 @@ const (
 )
 
 type Slave struct {
-	internalList [FLOORS]bool
+	nr int
+	internalList []bool
 	externalList [][]int
 	currentFloor int //get from driver/IO
 	direction    int // get from driver/IO
@@ -15,7 +16,7 @@ type Slave struct {
 /*
 Get orders from the optimalizaton algorithm
 */
-func (s Slave) Run_elevator() {
+func Slave_init() {
 
 	//communicate with driver
 
@@ -25,23 +26,33 @@ func (s Slave) Run_elevator() {
 
 }
 
-func (s Slave) Recive_orders(incomingOrderChan chan [][]int) {
-	select {
-	case o := <-incomingOrderChan:
-		//write to UDP, let master know
-		s.externalList = o
-
+func (s Slave) Recive_externalList(externalListChan chan [][]int) {
+	s.externalList = <-externalListChan
 	}
 }
 
-func (s Slave) Send_message_to_master(message string, outgoingOrderChan chan string) {
+func Send_confirmation_to_master_or_comm(message string, outgoingMessageChan chan string) {
 	//transfer to the communication module(put on correct tag)
 	outgoingOrderChan <- message
 }
 
-func (s Slave) Update_current_floor(currentFloorChan chan int) {
+func (s Slave) Update_current_floor_and_direction(currentFloorChan chan int, directionChan chan int) {
 	select {
-	case o <- currenFloorChan:
+	case o := <-currenFloorChan:
 		s.currentFloor = o
+	case o := <-directionChan:
+		s.driection = o
 	}
+
+}
+
+func (s Slave) Send_slave_to_state(slaveStateChan chan int) { //send next floor to statemachine
+	var nextFloor int
+
+	//if heading up, pick up others who is going up, both external and internal
+
+	s.externalList[][]
+	//if heading down pick up othes who iss going down, both external and internal
+
+	 slaveStateChan <- nextFloor
 }

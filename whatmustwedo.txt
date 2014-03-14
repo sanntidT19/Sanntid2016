@@ -1,11 +1,12 @@
 --Notes for what needs to be done--
 
 --The driver module: Need control of elevator using go-esque techniques
-
+******MASTER********
 *The behaviour of the master:
 Construncts the externalOrderList with help from the optimalization algorithm(OA). 
 also needs the functionality of the slave.
 
+******SLAVE*******
 *The behaviour of oue slave: 
 It should take an order from the master and take the elevator to the desired floor. When the elevator has arrived it should alert its master. 
 
@@ -16,11 +17,12 @@ The module should control all lights and keep the door open for three seconds if
 
 Think we need some channel use for the checking of elevator sensors and buttons, cant check all the time. 
 
+******NETWORK********
 --The network module:
 
 Yngve: Should we have a format on the messages sent in the form of that the first sign in the message specifies what type of message it is?
 
-If multiple slaves says "I'm master" at the same time, how do we decide which will be master? 
+If multiple slaves says "I am slave" at the same time, we will use net.setReadDeadLine hopefully with randim waittime, the first one times out will call out; i am master,
 If one elevator detects multiple new elevators, where 1 is saying "I'm master", then it should assume that its connected to an already established group and subdue to its master. 
 
 --Proposition to message types sent over the network:
@@ -32,7 +34,7 @@ nr. component: name; format
 4. Slave: Order received;"sre"
 5. Slave: 
 6. Slave: 
-7. Master: New order;"ord"
+7. Master: New external list of orders;"ord"
 8. Master: Order received;"mre"
 9. Master: Confirm slave excecuted order;"msi"
 10. Slave/Master: State changed (direction/current floor/stopped);"sch"
