@@ -15,22 +15,33 @@ type Slave struct {
 /*
 Get orders from the optimalizaton algorithm
 */
-func (s Slave) runElevator() {
+func (s Slave) Run_elevator() {
 
 	//communicate with driver
 
+	//run externalList
+
+	//internal list
+
 }
-func (s Slave) alertMaster(alertMasterChan chan string) {
+
+func (s Slave) Recive_orders(incomingOrderChan chan [][]int) {
 	select {
-	case <-alertMasterChan:
+	case o := <-incomingOrderChan:
 		//write to UDP, let master know
+		s.externalList = o
+
 	}
-
 }
 
-func reciveOrders(incomingOrderChan chan [][]int) {
+func (s Slave) Send_message_to_master(message string, outgoingOrderChan chan string) {
+	//transfer to the communication module(put on correct tag)
+	outgoingOrderChan <- message
+}
+
+func (s Slave) Update_current_floor(currentFloorChan chan int) {
 	select {
-	case <-incomingOrderChan:
-		//write to UDP, let master know
+	case o <- currenFloorChan:
+		s.currentFloor = o
 	}
 }

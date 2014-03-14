@@ -20,5 +20,3 @@ func (m Master) getOptimalExternalList(optimalityChan chan [][]int) {
 func (m Master) sendExternalListToSlaves(masterToCommunicationChan chan ) {
 	//sends new external list to communication module 
 }
-
-
