@@ -74,8 +74,6 @@ func Choose_master() {
 	ALL: set readDeadline(random time) - listening for "i am master"
 	MASTER: first one who times out broadcast "i am master".
 	ALL - MASTER: will continue listening for "i am master"
-
-
 	***We have a master***
 	*/
 	go Slave_elevator()
@@ -100,6 +98,8 @@ func Slave_elevator() {
 
 	} else { // if readdeadline kicks in
 		//first one here becomes master(?)
+
+		//this will just be called in case of there is no master
 		go Master_elevator()
 		break
 	}
