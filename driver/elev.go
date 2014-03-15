@@ -124,6 +124,17 @@ func Elev_init() error {
 	elev_set_stop_lamp(false)
 	elev_set_door_open_lamp(false)
 	elev_set_floor_indicator(0)
+
+	//Running down until it reaches a floor
+	var currentFloor := Elev_get_floor_sensor_signal()
+	Elev_set_speed(-300)    //Can we write constants here?
+	for currentFloor == -1{
+		currentFloor = Elev_get_floor_sensor_signal()
+	}
+	Elev_set_speed(0) 
+
+	//Should current floo
+
 	return nil
 }
 /*
@@ -154,10 +165,16 @@ return 1;
 
 */
 
+
+//I think that 1 is up and 0 is down. 				Needs to be checked.
+func Elev_get_direction() int {  
+	return io_read_bit(MOTORDIR)
+}
+
  // This looks good, isnt +-300 the desired speeds?
 func Elev_set_speed(speed float64) { //Float64 may be a problem later 
 //In order to sharply stop the elevator, the direction bit is toggled, before setting speed to zero
-	var last_speed float64 = 0         //Where is this otherwise, is it being used?
+	var last_speed float64 = 0         //Where is this otherwise, is it being used? Is this even necessary??? May be a bug here.
 //if to start (speed > 0)
 	if speed > 0 {
 		io_clear_bit(MOTORDIR)
@@ -169,10 +186,8 @@ func Elev_set_speed(speed float64) { //Float64 may be a problem later
 		io_set_bit(MOTORDIR)
 	}
 	last_speed = speed                                   //last_speed commented out
-
 	//Write new setting to motor
 	io_write_analog(MOTOR, 2048 + 4*int(math.Abs(speed)))
-
 }
 /*
 void elev_set_speed(int speed){
@@ -304,7 +319,7 @@ io_clear_bit(FLOOR_IND2);
 */
 
 // There is no assert in go, Looks good
-func Elev_set_button_lamp(button int, floor int, turn_on bool) error {
+func Elev_set_button_lamp(floor int, button int, turnOn bool) error {
 	
 	if floor < 0 || floor >= N_FLOORS {
 		return errors.New("Floor value not in valid region")
@@ -318,7 +333,7 @@ func Elev_set_button_lamp(button int, floor int, turn_on bool) error {
 	if button == DOWN && floor ==  0{
 		return errors.New("This floor has no defined down button")
 	}
-    if turn_on {
+    if turnOn {
     	io_set_bit(lamp_channel_matrix[floor][button])
     } else {
     	io_clear_bit(lamp_channel_matrix[floor][button])
