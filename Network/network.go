@@ -22,29 +22,58 @@ func main() {
 
 }
 */
+func Select_send() {
+
+	select {
+		case o <- masterCommOrderChan:
+			o //external list
+		case o <- masterToCommStringChan:
+			o //sends i am master
+		case o <- masterToCommConfirmRecivedChan:
+			o //send message to slave; order executed is recived
+		case o <- slaveToCommRecevedChan:
+
+		case o <- slaveToCommPerformedChan:
+
+		case o <- slaveToCommSensorChan:
+
+	}
+}
+func Select_receve() {
+	select {
+		case o <- commToMasterStirngChan:
+
+		case o <- commToSlaveOrderChan:
+
+		case o <- 
+	}
+}
+
 func Network_init() Conn {
 	fmt.Println("gi")
 	address, err := ResolveUDPAddr("udp", "129.241.187.255"+PORT) //leser bare fra porten generellt
 	c, err := DialUDP("udp", nil, address)
 
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
 	return c
 
 }
+//use chan in outer loop, who fetches to_writing
+//if chan is taken as parameter we are unable to run it in a for loop, because the channel is emptied at the first run
 func Send(c Conn, to_writing []byte) bool { //Olav: does this need a buffer as paramter aswell??
 	_, err := c.Write(to_writing)
 
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 		return false
 	}
 	time.Sleep(300 * time.Millisecond)
 	return true
 }
 
-func Recive() []byte { //does only need a connection who listen to a port like ":20019" not the entire ip adress.
+func Receive(networkToCommunicationChan chan []byte) { //does only need a connection who listen to a port like ":20019" not the entire ip adress.
 	buf := make([]byte, 1024)
 	addr, _ := ResolveUDPAddr("udp", PORT)
 	c, err := ListenUDP("udp", addr)
@@ -56,7 +85,7 @@ func Recive() []byte { //does only need a connection who listen to a port like "
 	c.SetReadDeadline(time.Now().Add(1 * time.Second)) //returns error if deadline is reached
 	_, _, err = c.ReadFromUDP(buf)                     //n contanis numbers of used bytes, fills buf with content on the connection
 	if err == nil {                                    //if error is nil, read from buffer
-		return buf
+		networkToCommunicationChan <
 	} else {
 		//break
 	}

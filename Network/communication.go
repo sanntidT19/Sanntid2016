@@ -1,100 +1,119 @@
-package modules
+package main
 
 import (
+	. "encoding/json"
 	"fmt"
-	. "json"
 	. "strings"
 )
 
+func main() {
+	fmt.Println("hei")
+}
 func Channels_init() {
-	stateElevChan := make(chan int) //int?
-	elevIOChannel := make(chan int) //int?
+	//Slave
+	slaveToCommFloorRChan := make(chan bool)          //send floor reached to master
+	slaveToCommSlaveStructChan := make(chan Slave)    // send slave struct to master
+	slaveToCommOrderRecevedChan := make(chan string)  //notity master that slave has receved order
+	slaveToCommOrderExecutedChan := make(chan string) //notify master that slave has executed order
+	slaveToCommConfirmedExecutuinChan := make(chan string)
 
-	slaveStateChan := make(chan int)
+	slaveToStateMChan := make(chan int) //send input to statemachine
 
-	stateElevChan := make(chan int)
-	slaveCommChan := make(chan string)
+	//Master
+	masterToCommOrderChan := make(chan [][]int)              //sends orders from slave to comm
+	masterToCommConfirmChan := make(chan bool)               //confirms that master har receved that slave has confirmed/receved order
+	masterToCommImMasterChan := make(chan string)            // sends i am master
+	masterToCommRecevedConfirmationChan := make(chan string) // master confirms that slave has receved order
 
-	masterSlaveOderChan := make(chan [][]int)
-	masterSlaveStringChan := make(chan string)
+	//communication channels
+	commToSlaveOrderChan := make(chan [][]int)             //receves orders from comm
+	commToSlaveMastersBackConfirmChan := make(chan string) //master confirms that order is receved
+	commToSlaveImMasterChan := make(chan string)           //im master from master
+	commToSlaveRecevedConfirmationChan := make(chan string)
 
-	masterCommOrderChan := make(chan [][]int)
-	masterCommStringChan := make(chan string)
+	commToMasterFloorRChan := make(chan bool)               //floor reached from slave to master
+	commToMasterSlaveStructChan := make(chan Slave)         //sends slave struct
+	commToMasterOrderExecuredChan := make(chan string)      //order executed sucessfully
+	commToMasterOrderRecevedChan := make(chan string)       //Slave confirmes that order is recived
+	commToMasterConfirmedExecutionChan := make(chan string) //slave confirmes order executed
 
-	commNetworkChan := make(chan []byte)
+	//network
+	commToNetwork := make(chan []byte)
+	networkToComm := make(chan []byte)
 }
 
-func Send_exteral_list(pack [][]int) []byte {
-	pack := Marshall(pack)
-	return "ord" + pack
+//Master
+func Send_order(masterToCommOrderChan chan [][]int, commToNetwork chan []byte) {
+	byteOrder, err := Marshal(<-masterToCommOrderChan)
+	prefix, err := Marshal("ord")
+	commToNetwork <- append(prefix, byteOrder)
 }
 
-func Send_i_am_slave(pack string) []byte {
-	pack := Marshall(pack)
-	return "iah" + pack
+func Send_im_master(masterToCommImMasterChan chan string, commToNetwork chan []byte) {
+	byteMessage, err := Marshal(<-masterToCommImMasterChan)
+	prefix, err := Marshal("iam")
+	commToNetwork <- append(prefix, byteMessage)
 }
 
-func Send_i_am_master(pack string) []byte {
-	pack := Marshall(pack)
-	return "iam" + pack
+func Send_order_receved(slaveToCommOrderRecivedChan chan string, commToNetwork chan []byte) {
+	byteMessage, err := Marshal(<-slaveToCommOrderRecivedChan)
+	prefix, err := Marshal("mre")
+	commToNetwork <- append(prefix, byteMessage)
 }
 
-func Send_order_performed(pack string) []byte {
-	pack := Marshall(pack)
-	return "per" + pack
+func Send_order_executed(slaveToCommOrderExecuredChan chan string, commToNetwork chan []byte) {
+	byteMessage, err := Marshal(<-slaveToCommOrderExecuredChan)
+	prefix, err := Marshal("exe")
+	commToNetwork <- append(prefix, byteMessage)
 }
 
-func Send_confirmation_from_slave(pack string) []byte {
-	pack := Marshall(pack)
-	return "sre" + pack
+func Send_receved_confirmation(masterToCommRecevedConfirmationChan chan string, commToNetwork chan []byte) {
+	byteMessage, err := Marshal(<-masterToCommRecevedConfirmationChan)
+	prefix, err := Marshal("sre")
+	commToNetwork <- append(prefix, byteMessage)
+
+}
+func Send_slave(slaveToCommSlaveStructChan chan Slave, commToNetwork chan []byte) {
+	byteSlave, err := Marshal(<-slaveToCommSlaveStructChan)
+	prefix, err := Marshal("sch")
+	commToNetwork <- append(prefix, byteSlave)
 }
 
-func Send_confirmation_from_master(pack string) []byte {
-	pack := Marshall(pack)
-	return "mre" + pack
-}
-
-func Send_state_changed(pack string) []byte {
-	pack := Marshall(pack)
-	return "sch" + pack
-}
-
-func Decrypt_message(message []byte) []byte {
+func Decrypt_message(message []byte) {
 	switch {
-	case HasPrefix(message, "ias"): //I am slave
-		message = TrimPrefix(message, "ias")
-		str := Unmarshall(message)
-		iasChan <- str
-
-	case HasPrefix(message, "iam"): //I am master
-		message = TrimPrefix(message, "iam")
-		str := Unmarshall(message)
-		iamChan <- str
-
-	case HasPrefix(message, "per"): //Order performed
-		message = TrimPrefix(message, "per")
-		str := Unmarshall(message)
-		perChan <- str
-
-	case HasPrefix(message, "sre"): //recived order from slave
-		message = TrimPrefix(message, "sec")
-		str := Unmarshall(message)
-		secChan <- str
 
 	case HasPrefix(message, "ord"): //externalorderlist
-		message = TrimPrefix(message, "ord")
-		ordrlist := Unmarshall(message)
-		ordChan <- ordrlist
+		str := string(message)
+		str = TrimPrefix(str, "ord")
+		externalOrderList := Unmarshal([]byte(message), [][]int)
+		commToSlaveOrderChan <- externalOrderList
 
-	case HasPrefix(message, "mre"): //recived order from master
-		message = TrimPrefix(message, "mre")
-		str := Unmarshall(message)
-		mreChan <- str
+	case HasPrefix(message, "iam"): //I am master
+		str := string(message)
+		str = TrimPrefix(str, "iam")
+		commToSlaveImMasterChan <- str
 
-	case HasPrefix(message, "sch"): // state changed??????????what cind of variable is this
-		message = TrimPrefix(message, "sch")
-		str := Unmarshall(message)
-		schChan <- str
+	case HasPrefix(message, "mre"): //confirm recived order from master
+		str := string(message)
+		str = TrimPrefix(str, "mre")
+		commToSlaveOrderRecevedChan <- str
+
+	case HasPrefix(message, "exe"): //Order performed from slave to master
+		str := string(message)
+		str = TrimPrefix(str, "exe")
+		commToMasterOrderExecuredChan <- str
+
+	case HasPrefix(message, "sre"): //confirmes recived order from slave to master
+		str := string(message)
+		str = TrimPrefix(str, "sre")
+		commToSlaveRecevedConfirmationChan <- str
+
+	case HasPrefix(message, "sch"): // receves a slave struct
+		str := string(message)
+		str = TrimPrefix(str, "sch")
+		messageNoPrefix := []byte(str)
+		slave := UnMarshal(messageNoPrefix, &Slave)
+		ommToMasterSlaveStructChan <- slave
 	}
-	return message
+
 }

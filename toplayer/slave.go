@@ -13,6 +13,14 @@ type Slave struct {
 
 }
 
+type Master struct {
+	nr := 1 
+	externalList  [][]int
+	currentFloors []int
+	directions    []int
+	internalList  []int
+}
+
 /*
 Get orders from the optimalizaton algorithm
 */
@@ -26,7 +34,7 @@ func Slave_init() {
 
 }
 
-func (s Slave) Recive_externalList(externalListChan chan [][]int) {
+func (s Slave) Recive_externalList_from(externalListChan chan [][]int) {
 	s.externalList = <-externalListChan
 	}
 }
@@ -56,3 +64,14 @@ func (s Slave) Send_slave_to_state(slaveStateChan chan int) { //send next floor 
 
 	 slaveStateChan <- nextFloor
 }
+
+
+func (m Master) getOptimalExternalList(optimalityChan chan [][]int) {
+	//gets new OptimnalExternalList from module
+}
+
+func (m Master) sendExternalListToSlaves(masterToCommunicationChan chan [][]int) {
+	//sends new external list to communication module 
+}
+
+func (m Master) 
