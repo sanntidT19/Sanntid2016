@@ -22,31 +22,44 @@ func main() {
 
 }
 */
+
+
 func Select_send() {
 
 	select {
-		case o <- masterCommOrderChan:
-			o //external list
-		case o <- masterToCommStringChan:
-			o //sends i am master
-		case o <- masterToCommConfirmRecivedChan:
-			o //send message to slave; order executed is recived
-		case o <- slaveToCommRecevedChan:
+		case barr <- masterCommOrderChan:
+			//external list
+		case barr <- masterToCommImMasterChan:
+			//sends i am master
+		case barr <- slaveToCommOrderRecivedChan:
+			//send message to slave; order executed is recived
+		case barr <- slaveToCommOrderExecuredChan:
 
-		case o <- slaveToCommPerformedChan:
+		case barr <- masterToCommReceivedConfirmationChan:
 
-		case o <- slaveToCommSensorChan:
+		case barr <- slaveToCommSlaveStructChan:
 
 	}
+	var confirmed bool
+	for  confirmed != true
+		confirmed = Send(c, barr)
 }
-func Select_receve() {
+func Select_receive() {
+	Receive(comToNetwork)
 	select {
-		case o <- commToMasterStirngChan:
+		case barr <- commToSlaveOrderChan:
 
-		case o <- commToSlaveOrderChan:
+		case barr <- commToSlaveImMasterChan:
 
-		case o <- 
+		case barr <- commToSlaveOrderReceivedChan:
+
+		case barr <- commToMasterOrderExecuredChan:
+
+		case barr <- commToSlaveReceivedConfirmationChan:
+
+		case barr <- commToMasterSlaveStructChan:
 	}
+
 }
 
 func Network_init() Conn {
@@ -73,23 +86,21 @@ func Send(c Conn, to_writing []byte) bool { //Olav: does this need a buffer as p
 	return true
 }
 
-func Receive(networkToCommunicationChan chan []byte) { //does only need a connection who listen to a port like ":20019" not the entire ip adress.
+func Receive(netToComm chan []byte) { //does only need a connection who listen to a port like ":20019" not the entire ip adress.
 	buf := make([]byte, 1024)
 	addr, _ := ResolveUDPAddr("udp", PORT)
 	c, err := ListenUDP("udp", addr)
 
-	//addr, err := ResolveUDPAddr("udp", PORT)
-	//c, err := ListenUDP("udp", addr)
 	defer c.Close()
 
 	c.SetReadDeadline(time.Now().Add(1 * time.Second)) //returns error if deadline is reached
 	_, _, err = c.ReadFromUDP(buf)                     //n contanis numbers of used bytes, fills buf with content on the connection
 	if err == nil {                                    //if error is nil, read from buffer
-		networkToCommunicationChan <
+		networkToComm <- buf
 	} else {
 		//break
 	}
-	return nil
+	
 }
 
 func Choose_master() {
