@@ -58,25 +58,26 @@ func (s Slave) Send_slave_to_master(slaveToCommSlaveStructChan chan Slave) {
 }
 
 func (s Slave) Send_slave_to_state(slaveStateChan chan int) { //send next floor to statemachine
-	var nextFloor int
+	if (s.externalList[currentFlorr][1] || s.internalList[currentFloor]) == 1 {
+		slaveStateChan <- s.currentFloor
 
-	//if heading up, pick up others who is going up, both external and internal
-
-
-	s.externalList[][]
-
-	s.currentFloor
-
-	s.direction
-
-	s.internalList
-	//if heading down pick up othes who iss going down, both external and internal
-
-
-
-	 slaveStateChan <- nextFloor
+	} else if s.dir == 1 { //heading upwards -> can take higher orders
+		for i := s.currentFloor; i<driver.N_FLOORS; i++ {
+			if (s.externalList[i][0] || s.internalList[i]) == 1{ // any orders on higher floors
+				slaveStateChan <- i 
+				break
+		}
+	} else if s.dir == -1 { // heading downwards -> can take lower orders
+		for i := 0; i<s.currentFloor; i++ {//any orders on lower floors
+			if (s.externalList[i][0] || s.internalList[i]) == 1{
+				slaveStateChan <- i 
+				break
+			} 
+		}
+	} else {
+		Sleep(10 * Millisecound)
+	}
 }
-
 
 type Master struct {
 	nr int 
@@ -90,11 +91,8 @@ func Send_external_list_to_slaves(masterToCommOrderChan chan [][]int) {
 	//sends new external list to communication module 
 	masterToCommOrderChan <- Get_optimal_externalList()
 }
-func (m Master) Get_optimal_externalList(newExternalList chan [][]int) [][]int{
-	//gets new OptimnalExternalList from module
-	m.externalList
-	m.nr 
-	m.currentFloors
-	m.directions
-	m.internalList
+func (m Master) Get_optimal_externalList(masterToCommOrderChan chan [][]int) {
+	newExternalList := updateExternalList()
+	m.externalList = newExternalList 
+	masterToCommOrderChan <- newExternalList
 }
