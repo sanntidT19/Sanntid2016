@@ -37,7 +37,7 @@ The elevator manager
 
 
 */
-func Elevator_manager(orderArrayChan [][] chan int/* this may need to have a different name ->  ,currentStateChan chan State*/) {
+func Elevator_manager(orderArrayChan chan [][] int/* this may need to have a different name ->  ,currentStateChan chan State*/) {
 	driver.Elev_init() 
 	goToFloorChan := make(chan int)
 	currentFloorChan := make(chan int)
@@ -114,8 +114,30 @@ func Elevator_worker(goToFloorChan chan int, currentStateChan chan State, served
  	}
 }
 // logic here, no problemo, motherfucker
-func Choose_next_order(orderArrayChan [][] chan int, currentStateChan chan State ) {
-	
+func Choose_next_order(orderArrayChan [][] chan int, currentStateChan chan State, orders chan [] Button̈́) {
+	var currentFloor int
+	var currentDir int
+	var dirIter //Deciding where to iterate first 
+	var orderArray [][] int 
+	for{
+		select{
+			case currentState := <-currentStateChan:
+			currentFloor = currentState.floor
+			currentDir = currentState.direction
+			case orderArray <- orderArrayChan:
+				//Makin a slice of sorted orders and sending it to the elevator manager.
+				resultOrderSlice := make([] Button, driver.N_FLOORS*driver.N_BUTTONS)  //This needs to be printed
+				resultIter := 0
+				 i := currentFloor
+				dirIterator = 1  
+				if currentDir == 1{
+					dirIterator = -1
+				}
+				
+		}
+
+		
+	}
 }
 
 //This one creates the basic button slice for our friends
