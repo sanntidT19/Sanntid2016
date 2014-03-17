@@ -37,7 +37,7 @@ The elevator manager
 
 
 */
-func Elevator_manager(orderArrayChan chan [][] int/* this may need to have a different name ->  ,currentStateChan chan State*/) {
+func Elevator_manager(orderArrayChan chan [][] int /* this may need to have a different name ->  ,currentStateChan chan State*/) {
 	driver.Elev_init() 
 	goToFloorChan := make(chan int)
 	currentFloorChan := make(chan int)
@@ -47,13 +47,15 @@ func Elevator_manager(orderArrayChan chan [][] int/* this may need to have a dif
 	servedOrderChan := make(chan bool)
 	go Button_updater(buttonPressedChan chan Button, buttonUpdatedChan chan Button)
 	go Light_updater(setLightChan chan Button)
-	go Choose_next_order(orderArrayChan /*Updated order array here?*/, currentStateChan /* We need to send the state to the mothership aswell*/)
-	go Elevator_worker(goToFloorChan, currentStateChan, servedOrderChan)
+	go Choose_next_order(orderArrayChan /*Updated order array here?*/, currentStateChan /* We need to send the state to the mothership aswell*/, ordersCalculatedChan)
+	go Elevator_worker(orderToWorkerChan, currentStateChan, orderServedChan)
+	go Send_orders_to_worker(orderToWorkerChan, ordersCalculatedChan, orderServedChan)
+
 }
 
 
-//Going where it is told to go, based on information on where it is.
-func Elevator_worker(goToFloorChan chan int, currentStateChan chan State, servedOrderChan chan bool) {
+//Going where it is told to go, based on information on where it is.   Gotofloor needs to be buttonized.
+func Elevator_worker(goToFloorChan chan int, currentStateChan chan State, orderServedChan chan bool) {
               //Initiates the
 	speedChan := make(chan float64) //This channel is only between the statemachine and its functions
 	privateSensorChan := make(chan int)
@@ -73,7 +75,7 @@ func Elevator_worker(goToFloorChan chan int, currentStateChan chan State, served
 			//You are in the floor, order served immediatly, maybe this if can be implemented in another case, but its here for now.
 			if gtf == driver.Elev_get_floor_sensor_signal() {
 				speedChan <- SPEED_STOP
-				servedOrderChan <- true
+				orderServedChan <- true
 				Open_door() //Dont think we want this select loop to do anything else while the door is open. Solve with go open_door() if its not the case
 				//You know you are under/above the current floor
 			} else if gtf < currentFloor {
@@ -82,6 +84,7 @@ func Elevator_worker(goToFloorChan chan int, currentStateChan chan State, served
 
 				currentDir = DIR_DOWN
 				currentStateChan <- State{currentDir, currentFloor}     //Do this for all? Should we send if its already going down (no state changed then)
+
 
 
 
@@ -107,36 +110,107 @@ func Elevator_worker(goToFloorChan chan int, currentStateChan chan State, served
 			currentFloorChan <- State{currentFloor
 			if orderedFloor == currentFloor {
 				speedChan <- SPEED_STOP
-				servedOrderChan <- true
+				orderServedChan <- true
 				Open_door()
 			}
 		}
  	}
 }
+
+//This function has control over the orderlist and speaks directly to the worker.
+func Send_orders_to_worker(orderToWorkerChan chan Button /*fix this for the worker as well*/, ordersCalculatedChan chan [] Button, orderServedChan chan Button){
+	var currentOrderList [] Button
+	var currentOrderIter int
+	for{
+		select{
+		//New orders sorted, picked. scrap the old one
+		case currentOrderList := <- ordersCalculatedChan:
+			currentOrderIter = 0
+			orderToWorkerChan <- currentOrderList[currentOrderIter]
+			currentOrderIter++
+		case <- orderServedChan: //This also needs to be sent upwards somehow
+			if  currentOrderList[currentOrderIter] != nil /*this need to be checked*/{
+				orderToWorkerChan<-currentOrderList[currentOrderIter]
+				currentOrderIter++
+			}
+		}
+		
+	}
+
+} 
+
+//Swapping : x,y = y,x
 // logic here, no problemo, motherfucker
-func Choose_next_order(orderArrayChan [][] chan int, currentStateChan chan State, orders chan [] Button̈́) {
+func Choose_next_order(orderArrayChan [][] chan int, commandOrderChan[] currentStateChan chan State, ordersCalculatedChan chan [] Button̈́) {
 	var currentFloor int
 	var currentDir int
-	var dirIter //Deciding where to iterate first 
+	var dirIter int //Deciding where to iterate first 
 	var orderArray [][] int 
+	var commandList[] int
+	var firstPriority, secondPriority int
 	for{
 		select{
 			case currentState := <-currentStateChan:
-			currentFloor = currentState.floor
-			currentDir = currentState.direction
-			case orderArray <- orderArrayChan:
+				currentFloor = currentState.floor
+				currentDir = currentState.direction
+			case orderArray <- orderArrayChan || commandList<-commandOrderChan: //If this not work, make bool flow
 				//Makin a slice of sorted orders and sending it to the elevator manager.
 				resultOrderSlice := make([] Button, driver.N_FLOORS*driver.N_BUTTONS)  //This needs to be printed
 				resultIter := 0
-				 i := currentFloor
-				dirIterator = 1  
-				if currentDir == 1{
-					dirIterator = -1
-				}
 				
-		}
-
-		
+				dirIter = 1
+				firstPriority = driver.UP
+				secondPriority = driver.DOWN
+				if currentDir == DIR_DOWN{
+					dirIter = -1
+					firstPriority = driver.DOWN
+					secondPriority = driver.UP
+				}
+				//If we are above/below the floor we need to prioritize that as one of the less attractive ones
+				if Elev_get_floor_sensor_signal != currentFloor{ //Maybe assign a value here
+					currentFloor += dirIter  //Setting the startingfloor to iterate from
+				}
+				i := currentFloor
+				// Iterating in the most desirable direction
+				for i; i < driver.N_FLOORS && i >= 0; i += dirIter{
+					if isCommandOrder :=commandList[i]; isCommandOrder == 1{
+						resultOrderSlice[resultIter] = Button{i,driver.COMMAND,true}
+						resultIter++
+					}
+					if isOrder := orderArray[i][firstPriority]; isOrder == 1{
+						resultOrderSlice[resultIter] = Button{i,firstPriority,true}
+						resultIter++
+					}
+				}
+				//Now going from top/bottom and checking the orders in the other direction, as well as commands not yet checked
+				dirIter = dirIter*-1
+				firstPriority, secondPriority = secondPriority, firstPriority
+				canCheckCommand = false 
+				for i; i < driver.N_FLOORS && i >= 0; i += dirIter{
+					if canCheckCommand{
+						if isCommandOrder := commandList[i]; isCommandOrder == 1{
+							resultOrderSlice[resultIter] := Button{i,driver.COMMAND,true}
+							resultIter++
+						}
+					}
+					if i == currentFloor{
+						canCheckCommand = true
+					}
+					if isOrder := orderArray[i][firstPriority]; isOrder == 1{
+						resultOrderSlice[resultIter] = Button{i,firstPriority,true}
+						resultIter++
+					}
+				}
+				//Lowest priority: checking from bottom/top to current floor if there are any bastards wanting an elevated experience all commands have been checked
+				dirIter = dirIter*-1
+				firstPriority, secondPriority = secondPriority, firstPriority
+				for i; i != currentFloor; i+= dirIter{
+					if isOrder := orderArray[i][firstPriority]; isOrder == 1{
+						resultOrderSlice[resultIter] = Button{i,firstPriority,true}
+						resultIter++
+				}
+				ordersCalculatedChan <- resultOrderSlice
+		}		
 	}
 }
 
@@ -149,6 +223,7 @@ func Create_button_chan_slice() []chan Button { //A little unsure of this
 	}
 	return chanSlice
 }
+
 /*
 func old_Button_updater(buttonSlice []chan Button) { //Sending the struct a level up, to the state machine setting and turning off lights.
 	var buttonMatrix [][]int
