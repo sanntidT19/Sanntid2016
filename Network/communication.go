@@ -13,11 +13,10 @@ func main() {
 	fmt.Println("hei")
 }
 
-/*
 func Channels_init() {
 
 	slaveToCommSlaveChan := make(chan Slave)                   //"sla"
-	slaveToCommOrd_eceivedChan := make(chan []int)           //"ore"
+	slaveToCommOrd_eceivedChan := make(chan []int)             //"ore"
 	slaveToCommOrderExecutedChan := make(chan []int)           //"oex"
 	slaveToCommOrderConfirmedReceivedChan := make(chan []int)  //"ocr"
 	slaveToCommOrderConfirmedExecutuinChan := make(chan []int) //"oce"
@@ -30,7 +29,7 @@ func Channels_init() {
 
 	//communication channels
 	//commToMasterSlaveChan := make(chan Slave)                   //"sla"
-	commToMasterOrd_eceivedChan := make(chan []int)           //"ore"
+	commToMasterOrd_eceivedChan := make(chan []int)             //"ore"
 	commToMasterOrderExecutedChan := make(chan []int)           //"oex"
 	commToMasterOrderConfirmedReceivedChan := make(chan []int)  //"ocr"
 	commToMasterOrderConfirmedExecutionChan := make(chan []int) //"oce"
@@ -46,7 +45,7 @@ func Channels_init() {
 	commToNetwork := make(chan []byte)
 	networkToComm := make(chan []byte)
 }
-*/
+
 //Master
 func Send_order(externalOrderList [][]int, commToNetwork chan []byte) { //send exectuionOrderList
 	byteOrder, _ := Marshal(externalOrderList)
