@@ -13,7 +13,6 @@ type Cabin struct {
 	Name int
 	Position int // current Position
 	Direction bool // true if elevator is going up
-	Movement bool // true if elevator is moving
 	Buttons[]bool // list of current orders from cabin
 	Timeload int // current load of elevator
 	LowestFloor int
@@ -129,7 +128,6 @@ func main() {
 	fmt.Println("Name = ",C[i].Name)
 	fmt.Println("Position",i, " = ",C[i].Position)
 	fmt.Println(C[i].Direction)
-	fmt.Println(C[i].Movement)
 	fmt.Println(C[i].Buttons[0:4])
 	fmt.Println("HighestFloor",i, " = ", C[i].HighestFloor)
 	fmt.Println("LowestFloor",i, " = ", C[i].LowestFloor)
