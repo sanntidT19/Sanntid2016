@@ -2,13 +2,18 @@ package statemachine
 
 import (
 	"./driver"
+	"fmt"
 	"time"
 )
-
 
 const MAX_SPEED_UP = 300
 const MAX_SPEED_DOWN = -300
 const SPEED_STOP = 0
+
+
+// Get it confirmed that this is the case
+const DIR_UP = 0
+const DIR_DOWN = 1
 
 //if we get errors, this bool might be the bad guy
 type Button struct {
@@ -17,107 +22,170 @@ type Button struct {
 	turnOn     bool
 }
 
+type State struct {
+	direction int
+	currentFloor int
+}
+
 //Functions used when running the elevator, find out better name and add prefix
+/*
+The elevator manager 
+	- Takes in an array, and updates buttons/lights to be cleared/set, comparing with its own private array, only sends to a channel if something is different
+	- Has a logic function sending the correct order to the elevator_worker
+	- Sends these updates to the mothership: state(struct) updated, order (button struct) served, has/has not command (bool?)
 
 
-func State_machine(goToFloorChan chan int, currentFloorChan chan int, currentDirChan chan int, buttonSliceChan [] chan int, /*lightSliceChan [] chan int,*/ servedOrderChan chan bool) {
-	driver.Elev_init() //Initiates the 
-	motorChan := make(chan int)  //This channel is only between the statemachine and its functions
+
+*/
+func Elevator_manager(orderArrayChan [][] chan int/* this may need to have a different name ->  ,currentStateChan chan State*/) {
+	driver.Elev_init() 
+	goToFloorChan := make(chan int)
+	currentFloorChan := make(chan int)
+	currentDirChan := make(chan int)
+	buttonSliceChan := Create_button_chan_slice()
+	lightSliceChan := Create_button_chan_slice()
+	servedOrderChan := make(chan bool)
+	go Button_updater(buttonPressedChan chan Button, buttonUpdatedChan chan Button)
+	go Light_updater(setLightChan chan Button)
+	go Choose_next_order(orderArrayChan /*Updated order array here?*/, currentStateChan /* We need to send the state to the mothership aswell*/)
+	go Elevator_worker(goToFloorChan, currentStateChan, servedOrderChan)
+}
+
+
+//Going where it is told to go, based on information on where it is.
+func Elevator_worker(goToFloorChan chan int, currentStateChan chan State, servedOrderChan chan bool) {
+              //Initiates the
+	speedChan := make(chan float64) //This channel is only between the statemachine and its functions
 	privateSensorChan := make(chan int)
-	var currentFloor =: driver.Elev_get_floor_sensor_signal() //We know that we are in a floor at this point.
-	var previousFloor := -1
-	var gtf int 
-	go motor_control(speedChan)
-	go button_updater(buttonSliceChan)
-	/*go light_updater(buttonSliceChanlightSliceChan)*/
-	go floor_reached(privateSensorChan)
+	currentDir := driver.Elev_get_direction()
+	currentFloor := driver.Elev_get_floor_sensor_signal() //We know that we are in a floor at this point.
+	previousFloor := -1
+	var orderedFloor int
+	go Motor_control(speedChan)
+	go Is_floor_reached(privateSensorChan)
 	// This is where the statemachine is implemented, should it be a select case?
-	
-
-
-	go func() {
-		for{
-			select{
-			//Slave could send a new command while the statemachine is serving another command, but it should fix the logic by itself
-			// New order
-			case gtf <-goToFloorChan:
-				//You are in the floor, order served immediatly, maybe this if can be implemented in another case, but its here for now.
-				if gtf == driver.Elev_get_floor_sensor_signal() {
-					speedChan <- SPEED_STOP
-					servedOrderChan <- true
-					open_door() //Dont think we want this select loop to do anything else while the door is open. Solve with go open_door() if its not the case
+	for {
+		select {
+		//Slave could send a new command while the statemachine is serving another command, but it should fix the logic by itself
+		// New order
+		case gtf := <-goToFloorChan:
+			orderedFloor = gtf
+			//You are in the floor, order served immediatly, maybe this if can be implemented in another case, but its here for now.
+			if gtf == driver.Elev_get_floor_sensor_signal() {
+				speedChan <- SPEED_STOP
+				servedOrderChan <- true
+				Open_door() //Dont think we want this select loop to do anything else while the door is open. Solve with go open_door() if its not the case
 				//You know you are under/above the current floor
-				}else if gtf < currentFloor {
-					speedChan <- MAX_SPEED_DOWN
-					currentDirChan <- -1
-				}else if gtf > currentFloor{
+			} else if gtf < currentFloor {
+				speedChan <- MAX_SPEED_DOWN
+				
+
+				currentDir = DIR_DOWN
+				currentStateChan <- State{currentDir, currentFloor}     //Do this for all? Should we send if its already going down (no state changed then)
+
+
+
+			} else if gtf > currentFloor {
+				speedChan <- MAX_SPEED_UP
+				currentDirChan <- 1
+				//Your last floor was the current floor, but something may have been pulled, so you dont know where you lie relative to it. Cant use direction.
+			} else if gtf == currentFloor { //this may now go all the time
+				//Using previousfloor can give you an idea in some cases.
+				if previousFloor > currentFloor {
 					speedChan <- MAX_SPEED_UP
 					currentDirChan <- 1
-				//Your last floor was the current floor, but something may have been pulled, so you dont know where you lie relative to it. Cant use direction.
-				}else if gtf == currentFloor{
-					//Using previousfloor can give you an idea in some cases.
-					if previousFloor > currentFloor{
-						speedchan <- MAX_SPEED_UP
-						currentDirChan <- 1
-					}else if previousFloor < currentFloor{  //This will also be the case if prevFloor is undefined (-1) They can never be the same.
-						speedchan <- MAX_SPEED_DOWN
-						currentDirChan <- -1
+				} else if previousFloor < currentFloor { //This will also be the case if prevFloor is undefined (-1) They can never be the same.
+					speedChan <- MAX_SPEED_DOWN
+					currentDirChan <- -1
 					//If someone has dragged
 				}
-			//New floor is reached and therefore shit is updated
-			case cf := <-privateSensorChan:
-				previousFloor = currentFloor
-				currentFloor = cf
-			case gtf == currentFloor{ //This will go immediatly after the case above has done its job, hopefully. Maybe need some extra care here.
-				speedchan <- SPEED_STOP
+			}
+		//New floor is reached and therefore shit is updated
+		case cf := <-privateSensorChan:
+			previousFloor = currentFloor
+			currentFloor = cf
+			currentFloorChan <- State{currentFloor
+			if orderedFloor == currentFloor {
+				speedChan <- SPEED_STOP
 				servedOrderChan <- true
-				open_door()
-
+				Open_door()
 			}
-
-
-
-
-			}
-			
 		}
-
-	}
+ 	}
+}
+// logic here, no problemo, motherfucker
+func Choose_next_order(orderArrayChan [][] chan int, currentStateChan chan State ) {
+	
 }
 
 //This one creates the basic button slice for our friends
-func Create_button_chan_slice()  [] chan Button //A little unsure of this
-{
-	chanSlice := make([] chan Button, N_FLOORS)
-	var i = 0
-	for i; i < N_FLOORS; i++ {
+func Create_button_chan_slice() []chan Button { //A little unsure of this
+	//fmt.Println("making slice for you, sir")
+	chanSlice := make([]chan Button, driver.N_FLOORS)
+	for i := 0; i < driver.N_FLOORS; i++ {
 		chanSlice[i] = make(chan Button)
 	}
 	return chanSlice
 }
-
-bui
-
-func Button_updater(buttonSlice [] chan Button) { //Sending the struct a level up, to the state machine setting and turning off lights.
+/*
+func old_Button_updater(buttonSlice []chan Button) { //Sending the struct a level up, to the state machine setting and turning off lights.
 	var buttonMatrix [][]int
 	buttonMatrix = make([][]int, driver.N_FLOORS)
-	var i int = 0
-	var j int
-	for i; i < driver.N_FLOORS; i++ {
+	for i := 0; i < driver.N_FLOORS; i++ {
 		buttonMatrix[i] = make([]int, driver.N_BUTTONS) //Golang creates a slice of zeros by default
+	}
+	fmt.Print(buttonMatrix)
+	go func
+	//Continious checking of buttons, buttonChan is a buffered channel who can fit N_FLOORS*N_BUTTONS elements
+	for {
+		time.Sleep(time.Millisecond * 20) //Need a proper time to wait.
+		for i := 0; i < driver.N_FLOORS; i++ {
+			for j := 0; j < driver.N_BUTTONS; j++ {
+				if buttonVar := driver.Elev_get_button_signal(i, j); buttonVar != buttonMatrix[i][j] { //Sending the struct if its pushed and hasnt been sent already
+					fmt.Println("Here is drivers version of button pressed: ", buttonVar)
+					fmt.Println("floor and button:", i, j)
+					if buttonVar == 1 {
+
+						buttonSlice[i] <- Button{i, j, true} //This might give an error
+					}
+					buttonMatrix[i][j] = buttonVar
+				}
+			}
+		}
+	}
+}
+*/
+//Slave should only send to buttonUpdated if something comes from above, ie not from button_updater
+func Button_updater(buttonPressedChan chan Button, buttonUpdatedChan chan Button) { //Sending the struct a level up, to the state machine setting and turning off lights.
+	var buttonMatrix [][]int
+	buttonMatrix = make([][]int, driver.N_FLOORS)
+	for i := 0; i < driver.N_FLOORS; i++ {
+		buttonMatrix[i] = make([]int, driver.N_BUTTONS) //Golang creates a slice of zeros by default
+	}
+	fmt.Print(buttonMatrix)
+	go func(){
+		for{
+			butt := <-buttonUpdatedChan //Word from above that some button is 
+			if butt.turnOn{
+				buttonMatrix[butt.floor][butt.buttonType] = 1
+			}else{
+				buttonMatrix[butt.floor][butt.buttonType] = 1
+			}
+		}
 	}
 	//Continious checking of buttons, buttonChan is a buffered channel who can fit N_FLOORS*N_BUTTONS elements
 	for {
-		sleep(time.Millisecond*20)  //Need a proper time to wait.
-		i = 0
-		for i; i < driver.N_FLOORS; i++ {
-			j = 0
-			for j; j < driver.N_BUTTONS; j++ {
-				if buttonVar = driver.Elev_get_button_signal(i, j); buttonVar != buttonMatrix[i][j] { //Sending the struct if its pushed and hasnt been sent already
+		time.Sleep(time.Millisecond * 20) //Need a proper time to wait.
+		for i := 0; i < driver.N_FLOORS; i++ {
+			for j := 0; j < driver.N_BUTTONS; j++ {
+				if buttonVar := driver.Elev_get_button_signal(i, j); buttonVar != buttonMatrix[i][j] { //Sending the struct if its pushed and hasnt been sent already
+					fmt.Println("Here is drivers version of button pressed: ", buttonVar)
+					fmt.Println("floor and button:", i, j)
 					if buttonVar == 1 {
-						buttonSlice[i] <- Button(i, j, true)  //This might give an error
+
+						buttonPressedChan <- Button{i, j, true}
 					}
-					buttonMatrix[i][j] = buttonVar
+					buttonMatrix[i][j] = 1  //Confirm press to avoid spamming
 				}
 			}
 		}
@@ -127,35 +195,27 @@ func Button_updater(buttonSlice [] chan Button) { //Sending the struct a level u
 //Try having a dedicated channel for each floor. Light updater will receive a floor command, and set the light on or off
 //This will receive commands from two different holds, and only one will be served. I dont think this will be a problem
 
-//If we get time: see how we can make this more dynamic.
-func Light_updater(buttonSlice [] chan Button){
-	for{
-		select{
-			case butt := <- buttonSlice[0]:
-				driver.Elev_set_button_lamp(butt.floor, butt.ButtonType, butt.TurnOn)
-			case butt := <- buttonSlice[1]:
-				driver.Elev_set_button_lamp(butt.floor, butt.ButtonType, butt.TurnOn)
-			case butt := <- buttonSlice[2]:
-				driver.Elev_set_button_lamp(butt.floor, butt.ButtonType, butt.TurnOn)
-			case butt := <- buttonSlice[3]:
-				driver.Elev_set_button_lamp(butt.floor, butt.ButtonType, butt.TurnOn)
-		}
-		
+//If we get time: see how we can make this more dynamic. Yhis also turns off if the bool is false.
+func Light_updater(setLightChan chan Button) {
+	for {
+		butt := <-setLightChan
+		_ = driver.Elev_set_button_lamp(butt.floor, butt.buttonType, butt.turnOn)
 	}
 }
-
 
 func Motor_control(speedChan chan float64) { //I think speedchan should not be buffered
 	for {
 		speedVal := <-speedChan
-		driver.Elev_set_speed(speedVal)
+		if speedVal == 0{
+			driver.Elev_stop_elevator()
+		} else {
+			driver.Elev_set_speed(speedVal)
+		}
 	}
 }
 
-
-
 // Gets sensor signal and tells which floor is the current
-func Floor_reached(sensorChan chan int) {
+func Is_floor_reached(sensorChan chan int) {
 	var previousFloor int = -1
 	for {
 		if currentFloor := driver.Elev_get_floor_sensor_signal(); currentFloor != -1 && currentFloor != previousFloor {
@@ -168,10 +228,10 @@ func Floor_reached(sensorChan chan int) {
 	}
 }
 
-func Open_door(){
+func Open_door() {
 	driver.Elev_set_door_open_lamp(true)
-	time.Sleep(time.Second*3)
-	drive.Elev_set_door_open_lamp(false)
+	time.Sleep(time.Second * 3)
+	driver.Elev_set_door_open_lamp(false)
 }
 
 /*func main() {
@@ -190,4 +250,3 @@ func Open_door(){
 
 }
 */
-
