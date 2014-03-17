@@ -13,32 +13,60 @@ func main() {
 	fmt.Println("hei")
 }
 
-/*
-func Channels_init() {
+type CommunicationExternalChannels struct{
 
-	slaveToCommSlaveChan := make(chan Slave)                   //"sla"
-	slaveToCommOrd_eceivedChan := make(chan []int)           //"ore"
-	slaveToCommOrderExecutedChan := make(chan []int)           //"oex"
-	slaveToCommOrderConfirmedReceivedChan := make(chan []int)  //"ocr"
-	slaveToCommOrderConfirmedExecutuinChan := make(chan []int) //"oce"
+	slaveToCommSlaveChan chan Slave                   //"sla"
+	slaveToCommOrd_eceivedChan chan []int         //"ore"
+	slaveToCommOrderExecutedChan chan []int          //"oex"
+	slaveToCommOrderConfirmedReceivedChan chan []int //"ocr"
+	slaveToCommOrderConfirmedExecutuinChan chan []int //"oce"
 
 	//Master
-	masterToCommOrderListChan := make(chan [][]int)          //"exo"
-	masterToCommImMasterChan := make(chan string)            //"iam"
-	masterToCommReceivedConfirmationChan := make(chan []int) //"rco"
-	masterToCommExecutedConfirmationChan := make(chan []int) //"eco"
+	masterToCommOrderListChan chan [][]int          //"exo"
+	masterToCommImMasterChan chan string           //"iam"
+	masterToCommReceivedConfirmationChan chan []int //"rco"
+	masterToCommExecutedConfirmationChan chan []int //"eco"
+
+	//communication channels
+	commToMasterSlaveChan := make(chan Slave)        //"sla"
+	commToMasterOrd_eceivedChan chan []int          //"ore"
+	commToMasterOrderExecutedChan chan []int          //"oex"
+	commToMasterOrderConfirmedReceivedChan chan []int  //"ocr"
+	commToMasterOrderConfirmedExecutionChan chan []int //"oce"
+
+	commToSlaveOrderListChan chan [][]int          //"exo"
+	commToSlaveImMasterChan chan string           //"iam"
+	commToSlaveReceivedConfirmationChan chan []int //"rco"
+	commToSlaveExecutedConfirmationChan chan []int //"eco"
+
+}
+
+
+func (c CommunicationChannels)Channels_init() {
+
+	c.slaveToCommSlaveChan := make(chan Slave)                   //"sla"
+	c.slaveToCommOrd_eceivedChan := make(chan []int)           //"ore"
+	c.slaveToCommOrderExecutedChan := make(chan []int)           //"oex"
+	c.slaveToCommOrderConfirmedReceivedChan := make(chan []int)  //"ocr"
+	c.slaveToCommOrderConfirmedExecutuinChan := make(chan []int) //"oce"
+
+	//Master
+	c.masterToCommOrderListChan := make(chan [][]int)          //"exo"
+	c.masterToCommImMasterChan := make(chan string)            //"iam"
+	c.masterToCommReceivedConfirmationChan := make(chan []int) //"rco"
+	c.masterToCommExecutedConfirmationChan := make(chan []int) //"eco"
 
 	//communication channels
 	//commToMasterSlaveChan := make(chan Slave)                   //"sla"
-	commToMasterOrd_eceivedChan := make(chan []int)           //"ore"
-	commToMasterOrderExecutedChan := make(chan []int)           //"oex"
-	commToMasterOrderConfirmedReceivedChan := make(chan []int)  //"ocr"
-	commToMasterOrderConfirmedExecutionChan := make(chan []int) //"oce"
+	c.commToMasterOrd_eceivedChan := make(chan []int)           //"ore"
+	c.commToMasterOrderExecutedChan := make(chan []int)           //"oex"
+	c.commToMasterOrderConfirmedReceivedChan := make(chan []int)  //"ocr"
+	c.commToMasterOrderConfirmedExecutionChan := make(chan []int) //"oce"
 
-	commToSlaveOrderListChan := make(chan [][]int)          //"exo"
-	commToSlaveImMasterChan := make(chan string)            //"iam"
-	commToSlaveReceivedConfirmationChan := make(chan []int) //"rco"
-	commToSlaveExecutedConfirmationChan := make(chan []int) //"eco"
+	c.commToSlaveOrderListChan := make(chan [][]int)          //"exo"
+	c.commToSlaveImMasterChan := make(chan string)            //"iam"
+	c.commToSlaveReceivedConfirmationChan := make(chan []int) //"rco"
+	c.commToSlaveExecutedConfirmationChan := make(chan []int) //"eco"
 
 	newExternalList := make(chan [][]int)
 	slaveToStateMChan := make(chan int) //send input to statemachine
@@ -46,7 +74,7 @@ func Channels_init() {
 	commToNetwork := make(chan []byte)
 	networkToComm := make(chan []byte)
 }
-*/
+
 //Master
 func Send_order(externalOrderList [][]int, commToNetwork chan []byte) { //send exectuionOrderList
 	byteOrder, _ := Marshal(externalOrderList)

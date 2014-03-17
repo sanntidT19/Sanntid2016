@@ -6,11 +6,15 @@ const (
 
 type Slave struct {
 	nr int
+	exececutionList []int
 	internalList []bool
 	externalList [][]int
 	currentFloor int //get from driver/IO
 	direction    int // get from driver/IO
 
+}
+type Master struct {
+	s []Slaves
 }
 
 /*
@@ -79,13 +83,7 @@ func (s Slave) Send_slave_to_state(slaveStateChan chan int) { //send next floor 
 	}
 }
 
-type Master struct {
-	nr int 
-	externalList  [][]int
-	currentFloors []int
-	directions    []int
-	internalList  []int
-}
+
 
 func Send_external_list_to_slaves(masterToCommOrderChan chan [][]int) {
 	//sends new external list to communication module 
