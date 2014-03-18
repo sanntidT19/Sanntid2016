@@ -1,7 +1,7 @@
 package statemachine
 
 import (
-	"./driver"
+	"driver"
 	"fmt"
 	"time"
 )
@@ -9,6 +9,9 @@ import (
 const MAX_SPEED_UP = 300
 const MAX_SPEED_DOWN = -300
 const SPEED_STOP = 0
+
+const BUTT_PRESS = 1
+const BUTT_NPRESS = -1
 
 // Get it confirmed that this is the case
 const DIR_UP = 0
@@ -53,9 +56,15 @@ func Internal_state_machine_channels_init() {
 
 }
 
+// /*orderArrayChan chan [][] int   <- this will come from above, but not in this test program */ /* this may need to have a different name ->  ,currentStateChan chan State*/
 
-func Elevator_manager( /*orderArrayChan chan [][] int   <- this will come from above, but not in this test program */ /* this may need to have a different name ->  ,currentStateChan chan State*/) {
+func Elevator_manager() {
 	driver.Elev_init()
+
+	//This must be done more smoothly later
+	currentStateChan := make(chan State)
+	//currentStateChan <- State{driver.Elev_get_direction(), driver.Elev_get_floor_sensor_signal()}
+	
 
 	var orderArray [driver.N_FLOORS][2]int // Up and down goes here
 	var commandOrderList [driver.N_FLOORS]int
@@ -66,7 +75,6 @@ func Elevator_manager( /*orderArrayChan chan [][] int   <- this will come from a
 	orderArrayChan := make(chan [driver.N_FLOORS][2]int)
 	setLightChan := make(chan Button)
 	commandOrderChan := make(chan [driver.N_FLOORS]int)
-	currentStateChan := make(chan State)
 	ordersCalculatedChan := make(chan []Button)
 	orderToWorkerChan := make(chan int)
 	orderServedChan := make(chan bool)
@@ -84,34 +92,43 @@ func Elevator_manager( /*orderArrayChan chan [][] int   <- this will come from a
 	go Elevator_worker(orderToWorkerChan, currentStateChan, orderServedChan)
 	go Send_orders_to_worker(orderToManagerChan, ordersCalculatedChan, tempOrderServedChan)
 
-	//This logic below should be done somewhere else, I think
 	for {
-		fmt.Println("I've come this far!")
 		select {
 		//If something is pressed, the channels are updated
 		case orderButt := <-internalButtPressChan:
 
 			commandOrderList[orderButt.floor] = 1
+			//fmt.Println("Command order pressed: ", commandOrderList)
+			
+			orderArrayChan <- orderArray
 			commandOrderChan <- commandOrderList
+			
 			setLightChan <- orderButt
 		case orderButt := <-externalButtPressChan:
 
 			orderArray[orderButt.floor][orderButt.buttonType] = 1
+			//fmt.Println("External order pressed: ", orderArray)
+			
 			orderArrayChan <- orderArray
+			commandOrderChan <- commandOrderList
+			
 			setLightChan <- orderButt
-		case managersCurrentOrder := <-orderToManagerChan: //Just so the manager can keep up with the current order
-
+		case managersCurrentOrder = <-orderToManagerChan: //Just so the manager can keep up with the current order
+			//fmt.Println("managersCurrentOrder:", managersCurrentOrder)
 			orderToWorkerChan <- managersCurrentOrder.floor
 		case <-orderServedChan:
-			fmt.Println("I'm in this case!")
-
+			//fmt.Println("Order Served!")
+			//fmt.Println("managersCurrentOrder:", managersCurrentOrder)
 			if managersCurrentOrder.buttonType == driver.COMMAND {
 				commandOrderList[managersCurrentOrder.floor] = 0
 			} else {
 				orderArray[managersCurrentOrder.floor][managersCurrentOrder.buttonType] = 0
 			}
-			tempOrderServedChan <- true
+			//fmt.Println("CommandOrderlist: ", commandOrderList)
+			//fmt.Println("External order array: ", orderArray)
 			setLightChan <- Button{managersCurrentOrder.floor, managersCurrentOrder.buttonType, false}
+			time.Sleep(time.Second*1)
+			tempOrderServedChan <- true
 		}
 	}
 
@@ -180,16 +197,16 @@ func Elevator_worker(goToFloorChan chan int, currentStateChan chan State, orderS
 func Send_orders_to_worker(orderToManagerChan chan Button, ordersCalculatedChan chan []Button, tempOrderServedChan chan bool) {
 	var currentOrderList []Button
 	var currentOrderIter int
-	emptyButton := Button{}
 	for {
 		select {
 		//New orders sorted, picked. scrap the old one
-		case currentOrderList := <-ordersCalculatedChan:
+		case currentOrderList = <-ordersCalculatedChan:
 			currentOrderIter = 0
+			//fmt.Println("Currentorderlist: ",currentOrderList)
 			orderToManagerChan <- currentOrderList[currentOrderIter]
 			currentOrderIter++
-		case <-tempOrderServedChan: //This also needs to be sent upwards somehow
-			if currentOrderList[currentOrderIter] != emptyButton /*this need to be checked*/ {
+		case <-tempOrderServedChan:
+			if currentOrderList[currentOrderIter].turnOn /*All unsetted orders have turnOn = false by default*/ {
 				orderToManagerChan <- currentOrderList[currentOrderIter]
 				currentOrderIter++
 			}
@@ -205,26 +222,32 @@ func Choose_next_order(orderArrayChan chan [driver.N_FLOORS][2]int, commandOrder
 	var orderArray [driver.N_FLOORS][2]int
 	var commandList [driver.N_FLOORS]int
 	var firstPriority, secondPriority int
-	incomingUpdateChan := make(chan bool)
+	/*
+	go func(){
+		for{
+			select{
+				case orderArray = <-orderArrayChan:
+					fmt.Println("I am also in this choosenextorder-case")
+					incomingUpdateChan <- true
+				case commandList = <-commandOrderChan:
+					fmt.Println("hope im not here")
+					incomingUpdateChan <- true
+				}
+			}
+
+		}()
+	*/
 	for {
 		select {
 		case currentState := <-currentStateChan:
 			currentFloor = currentState.currentFloor
 			currentDir = currentState.direction
 		case orderArray = <-orderArrayChan:
-			fmt.Println("I am also in this choosenextorder-case")
-			incomingUpdateChan <- true
-		case commandList = <-commandOrderChan:
-			fmt.Println("hope im not here")
-			incomingUpdateChan <- true
-		case fucker := <-incomingUpdateChan:
-			fmt.Println("which means im here aswell")
+			commandList = <-commandOrderChan
+			//fmt.Println("I CALCULATE FOR YOU BOSS                                   YOLO")
 			//Makin a slice of sorted orders and sending it to the elevator manager.
 			resultOrderSlice := make([]Button, driver.N_FLOORS*driver.N_BUTTONS) //This needs to be printed
 			resultIter := 0
-			if fucker {
-				fmt.Println("fuck")
-			}
 			dirIter = 1
 			firstPriority = driver.UP
 			secondPriority = driver.DOWN
@@ -239,7 +262,7 @@ func Choose_next_order(orderArrayChan chan [driver.N_FLOORS][2]int, commandOrder
 			}
 			i := currentFloor
 			// Iterating in the most desirable direction
-			for ; i < driver.N_FLOORS && i >= 0; i += dirIter {
+			for i < driver.N_FLOORS && i >= 0{
 				if isCommandOrder := commandList[i]; isCommandOrder == 1 {
 					resultOrderSlice[resultIter] = Button{i, driver.COMMAND, true}
 					resultIter++
@@ -248,12 +271,14 @@ func Choose_next_order(orderArrayChan chan [driver.N_FLOORS][2]int, commandOrder
 					resultOrderSlice[resultIter] = Button{i, firstPriority, true}
 					resultIter++
 				}
+				i += dirIter 
 			}
+			i -= dirIter
 			//Now going from top/bottom and checking the orders in the other direction, as well as commands not yet checked
 			dirIter = dirIter * -1
 			firstPriority, secondPriority = secondPriority, firstPriority
 			canCheckCommand := false
-			for ; i < driver.N_FLOORS && i >= 0; i += dirIter {
+			for i < driver.N_FLOORS && i >= 0 {
 				if canCheckCommand {
 					if isCommandOrder := commandList[i]; isCommandOrder == 1 {
 						resultOrderSlice[resultIter] = Button{i, driver.COMMAND, true}
@@ -267,18 +292,21 @@ func Choose_next_order(orderArrayChan chan [driver.N_FLOORS][2]int, commandOrder
 					resultOrderSlice[resultIter] = Button{i, firstPriority, true}
 					resultIter++
 				}
+				i += dirIter
 			}
+			i -= dirIter
+
 			//Lowest priority: checking from bottom/top to current floor if there are any bastards wanting an elevated experience all commands have been checked
 			dirIter = dirIter * -1
 			firstPriority, secondPriority = secondPriority, firstPriority
-			for ; i != currentFloor; i += dirIter {
+			for i != currentFloor {
 				if isOrder := orderArray[i][firstPriority]; isOrder == 1 {
 					resultOrderSlice[resultIter] = Button{i, firstPriority, true}
 					resultIter++
 				}
-
-				ordersCalculatedChan <- resultOrderSlice
+				i += dirIter
 			}
+			ordersCalculatedChan <- resultOrderSlice
 		}
 	}
 }
@@ -328,6 +356,10 @@ func Button_updater(externalButtPressChan chan Button, internalButtPressChan cha
 	for i := 0; i < driver.N_FLOORS; i++ {
 		buttonMatrix[i] = make([]int, driver.N_BUTTONS) //Golang creates a slice of zeros by default
 	}
+
+	buttonMatrix[driver.N_FLOORS-1][driver.UP] = -1
+	buttonMatrix[0][driver.DOWN] = -1
+
 	//fmt.Print(buttonMatrix)
 	go func() {
 		for {
@@ -336,6 +368,7 @@ func Button_updater(externalButtPressChan chan Button, internalButtPressChan cha
 				buttonMatrix[butt.floor][butt.buttonType] = 1
 			} else {
 				buttonMatrix[butt.floor][butt.buttonType] = 0
+
 			}
 		}
 	}()
@@ -348,12 +381,15 @@ func Button_updater(externalButtPressChan chan Button, internalButtPressChan cha
 					//fmt.Println("Here is drivers version of button pressed: ", buttonVar)
 					//fmt.Println("floor and button:", i, j)
 					if buttonVar == 1 && j != driver.COMMAND {
-
+						fmt.Println("Button has been pushed")
 						externalButtPressChan <- Button{i, j, true} //   YO!   Need to make this one sexier. Maybe one channel for each button
+						buttonMatrix[i][j] = 1 //Confirm press to avoid spamming
 					} else if buttonVar == 1 && j == driver.COMMAND {
+						fmt.Println("Button has been pushed")
+						buttonMatrix[i][j] = 1 //Confirm press to avoid spamming
+
 						internalButtPressChan <- Button{i, j, true}
 					}
-					buttonMatrix[i][j] = 1 //Confirm press to avoid spamming
 				}
 			}
 		}
@@ -402,20 +438,3 @@ func Open_door() {
 	time.Sleep(time.Second * 3)
 	driver.Elev_set_door_open_lamp(false)
 }
-
-/*func main() {
-	var err error = driver.Elev_init()
-	sensorlightchan := make(chan int)
-	buttonSliceChan := make
-	if err != nil {
-		fmt.Println(err)
-	}
-	go light_setter(sensorlightchan)
-	go light_getter(sensorlightchan)
-	driver.Elev_set_speed(-300)
-
-	time.Sleep(time.Second * 8)
-	driver.Elev_set_speed(0)
-
-}
-*/

@@ -135,7 +135,7 @@ func Elev_set_speed(speed float64) { //Float64 may be a problem later
 
 // Check this motherfucker
 func Elev_get_speed() float64 {
-	return float64(Io_read_analog(MOTOR)/4 - 2048)
+	return float64(Io_read_analog(MOTOR) - 2048)/4
 }
 
 func Elev_stop_elevator() {
@@ -146,11 +146,19 @@ func Elev_stop_elevator() {
 		fmt.Println("toggledir:", toggleDir)
 		toggleDir = -1
 	}
-	if math.Abs(Elev_get_speed()) > 10 { //If the speed is over some value, you should brake that shit.
+	if  x:=math.Abs(Elev_get_speed()); x > 10 { //If the speed is over some value, you should brake that shit.
+		fmt.Println("calculated speed",x)
 		Elev_set_speed(300 * toggleDir)
 		time.Sleep(time.Millisecond * 10)
+		Elev_set_speed(0)
 	}
-	Elev_set_speed(0)
+	
+	//Toggling the direction bit, since we have gone the other way for some time
+	if Elev_get_direction() == 1{
+		io_clear_bit(MOTORDIR)
+	}else if Elev_get_direction() == 0 {
+		io_set_bit(MOTORDIR)
+	}
 }
 
 // This looks good. I suggest we find a smart use of channels to read and write light-bits
