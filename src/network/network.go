@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	. "net"
-	"time"
+	."time"
 )
 
 const (
@@ -24,6 +24,7 @@ func main() {
 type NetworkExternalChannels struct {
 	ToNetwork chan []byte
 	ToComm chan []byte
+
 }
 func network_external_chan_init() {
 	ExNetChan.ToNetwork = make(chan []byte)
@@ -63,7 +64,7 @@ func Receive(networkToComm chan []byte) { //does only need a connection who list
 
 	defer c.Close()
 
-	c.SetReadDeadline(time.Now().Add(1 * time.Second)) //returns error if deadline is reached
+	c.SetReadDeadline(time.Now().Add(300 * MilliSecond)) //returns error if deadline is reached
 	_, _, err = c.ReadFromUDP(buf)                     //n contanis numbers of used bytes, fills buf with content on the connection
 	if err == nil {                                    //if error is nil, read from buffer
 		ExNetChan.ToComm <- buf
@@ -74,18 +75,6 @@ func Receive(networkToComm chan []byte) { //does only need a connection who list
 }
 
 func Choose_master() {
-	//all say i am slave with random timeout time
-	//all will obey if one is master
-
-	//when time runs out it calls out i am master
-
-	/*PSUDO
-	ALL: broadcast "i am slave"
-	ALL: set readDeadline(random time) - listening for "i am master"
-	MASTER: first one who times out broadcast "i am master".
-	ALL - MASTER: will continue listening for "i am master"
-	***We have a master***
-	*/
 	go Slave_elevator()
 }
 
@@ -99,13 +88,15 @@ func Slave_elevator() {
 
 	for {
 		//rand := Random_int(600, 1000)
-		c.SetReadDeadline(time.Now().Add(10 * time.Millisecond))
+		c.SetReadDeadline(time.Now().Add(300 * Millisecond))
 		_, _, err := c.ReadFromUDP(buf) //n contanis numbers of used bytes
 
 		if err == nil { // of readdeadline dont kicks in
 			//decrypt buf
 			//if decryptet buf equals iam
 			//keep on serching
+			Decrypt_message(buf)
+			<-ExComChans.ToSlaveImMasterChan
 
 		} else { // if readdeadline kicks in
 			//first one here becomes master(?)
@@ -119,16 +110,10 @@ func Slave_elevator() {
 }
 
 func Master_elevator() {
-	address, _ := ResolveUDPAddr("udp", "129.241.187.255"+PORT)
-	c, _ := DialUDP("udp", nil, address)
-
-	fmt.Println("primary")
+	
 	for {
-		_, err := c.Write([]byte("iam"))
-		if err != nil {
-			fmt.Println("fail")
-		}
-		time.Sleep(200 * time.Millisecond)
+		MC.ToCommImMasterChan <- true
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 

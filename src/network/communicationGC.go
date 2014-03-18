@@ -11,8 +11,8 @@ const (
 	FLOORS = 4
 )
 
-var ExComChans ExternalCommunicationChannels
-var InComChans InternalCommunicationChannels
+var ExCommChans ExternalCommunicationChannels
+var InCommChans InternalCommunicationChannels
 
 type ExternalCommunicationChannels struct {
 
@@ -31,25 +31,25 @@ type ExternalCommunicationChannels struct {
 }
 type InternalCommunicationChannels struct {
 	newExternalList   chan [][]int
-	slaveToStateMChan chan int //send input to statemachine
+	slaveToStateExMasterChanshan chan int //send input to statemachine
 }
 
 func external_comm_channels_init() {
-	ExComChans.ToMasterSlaveChan = make(chan Slave)                   //"sla"
-	ExComChans.ToMasterOrderReceivedChan = make(chan []int)           //"ore"
-	ExComChans.ToMasterOrderExecutedChan = make(chan []int)           //"oex"
-	ExComChans.ToMasterOrderConfirmedReceivedChan = make(chan []int)  //"ocr"
-	ExComChans.ToMasterOrderConfirmedExecutionChan = make(chan []int) //"oce"
+	ExCommChans.ToMasterSlaveChan = make(chan Slave)                   //"sla"
+	ExCommChans.ToMasterOrderReceivedChan = make(chan []int)           //"ore"
+	ExCommChans.ToMasterOrderExecutedChan = make(chan []int)           //"oex"
+	ExCommChans.ToMasterOrderConfirmedReceivedChan = make(chan []int)  //"ocr"
+	ExCommChans.ToMasterOrderConfirmedExecutionChan = make(chan []int) //"oce"
 
-	ExComChans.ToSlaveOrderListChan = make(chan [][]int)          //"exo"
-	ExComChans.ToSlaveImMasterChan = make(chan string)            //"iam"
-	ExComChans.ToSlaveReceivedConfirmationChan = make(chan []int) //"rco"
-	ExComChans.ToSlaveExecutedConfirmationChan = make(chan []int) //"eco"
+	ExCommChans.ToSlaveOrderListChan = make(chan [][]int)          //"exo"
+	ExCommChans.ToSlaveImMasterChan = make(chan string)            //"iam"
+	ExCommChans.ToSlaveReceivedConfirmationChan = make(chan []int) //"rco"
+	ExCommChans.ToSlaveExecutedConfirmationChan = make(chan []int) //"eco"
 
 }
 func internal_comm_chans_init() {
-	InComChans.newExternalList = make(chan [][]int)
-	InComChans.slaveToStateMChan = make(chan int) //send input to statemachine
+	InCommChans.newExternalList = make(chan [][]int)
+	InCommChans.slaveToStateExMasterChanshan = make(chan int) //send input to statemachine
 	//network
 
 }
@@ -61,10 +61,9 @@ func Send_order(externalOrderList [][]int) { //send exectuionOrderList
 	ExNetChan.ToNetwork <- append(prefix, byteOrder...)
 }
 
-func Send_im_master(message string) { //send I am master
-	byteMessage, _ := Marshal(message)
+func Send_im_master() { //send I am master
+	byteMessage, _ := Marshal("im master")
 	prefix, _ := Marshal("iam")
-	fmt.Println("to network", string(byteMessage))
 	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
 
 }
@@ -119,58 +118,58 @@ func Decrypt_message(message []byte) {
 		noPrefix := message[5:]
 		var s Slave
 		_ = Unmarshal(noPrefix, &s)
-		ExComChans.ToMasterSlaveChan <- s
+		ExCommChans.ToMasterSlaveChan <- s
 
 	case string(message[1:4]) == "ore":
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		ExComChans.ToMasterOrderReceivedChan <- order
+		ExCommChans.ToMasterOrderReceivedChan <- order
 
 	case string(message[1:4]) == "oex":
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		ExComChans.ToMasterOrderExecutedChan <- order
+		ExCommChans.ToMasterOrderExecutedChan <- order
 
 	case string(message[1:4]) == "ocr":
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		ExComChans.ToMasterOrderConfirmedReceivedChan <- order
+		ExCommChans.ToMasterOrderConfirmedReceivedChan <- order
 
 	case string(message[1:4]) == "oce":
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		ExComChans.ToMasterOrderConfirmedExecutionChan <- order
+		ExCommChans.ToMasterOrderConfirmedExecutionChan <- order
 
 	//Slave
 	case string(message[1:4]) == "exo":
 		noPrefix := message[5:]
 		externalOrderList := make([][]int, FLOORS)
 		_ = Unmarshal(noPrefix, &externalOrderList)
-		ExComChans.ToSlaveOrderListChan <- externalOrderList
+		ExCommChans.ToSlaveOrderListChan <- externalOrderList
 
 	case string(message[1:4]) == "iam":
 		fmt.Println("iam trigger")
 		noPrefix := message[5:]
 		stringMessage := string(noPrefix)
 		fmt.Println(stringMessage)
-		ExComChans.ToSlaveImMasterChan <- stringMessage
+		ExCommChans.ToSlaveImMasterChan <- stringMessage
 		fmt.Println("channel output")
 
 	case string(message[1:4]) == "rco":
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		ExComChans.ToSlaveReceivedConfirmationChan <- order
+		ExCommChans.ToSlaveReceivedConfirmationChan <- order
 
 	case string(message[1:4]) == "eco":
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		ExComChans.ToSlaveExecutedConfirmationChan <- order
+		ExCommChans.ToSlaveExecutedConfirmationChan <- order
 	}
 }
 func Select_send() {
@@ -178,25 +177,26 @@ func Select_send() {
 	for {
 		select {
 		//Master
-		case externalOrderList := <-MC.ToCommOrderListChan:
+
+		case externalOrderList := <-ExMasterChans.ToCommOrderListChan:
 			Send_order(externalOrderList)
-		case message := <-MC.ToCommImMasterChan:
-			fmt.Println("meessage", message, "select send")
-			Send_im_master(message)
-		case order := <-MC.ToCommReceivedConfirmationChan:
+		case <-ExMasterChans.ToCommImMasterChan:
+			Send_im_master()
+		case order := <-ExMasterChans.ToCommReceivedConfirmationChan:
 			Send_received_confirmation(order)
-		case order := <-MC.ToCommExecutedConfirmationChan:
+		case order := <-ExMasterChans.ToCommExecutedConfirmationChan:
 			Send_executed_confirmation(order)
 		//Slave
-		case slave := <-SC.ToCommSlaveChan:
+
+		case slave := <-ExSlaveChans.ToCommSlaveChan:
 			Send_slave(slave)
-		case order := <-SC.ToCommOrderReceivedChan:
+		case order := <-ExSlaveChans.ToCommOrderReceivedChan:
 			Send_order_received(order)
-		case order := <-SC.ToCommOrderConfirmedReceivedChan:
+		case order := <-ExSlaveChans.ToCommOrderConfirmedReceivedChan:
 			Send_order_executed(order)
-		case order := <-SC.ToCommOrderConfirmedReceivedChan:
+		case order := <-ExSlaveChans.ToCommOrderConfirmedReceivedChan:
 			Send_order_confirmed_received(order)
-		case order := <-SC.ToCommOrderConfirmedExecutuinChan:
+		case order := <-ExSlaveChans.ToCommOrderConfirmedExecutuinChan:
 			Send_order_confirmed_executed(order)
 		}
 	}
