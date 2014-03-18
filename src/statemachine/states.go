@@ -14,6 +14,9 @@ const SPEED_STOP = 0
 const DIR_UP = 0
 const DIR_DOWN = 1
 
+var ExStateMChans ExternalStateMachineChannels
+var InStateMChans InternalStateMachineChannels
+
 //if we get errors, this bool might be the bad guy
 type Button struct {
 	floor      int
@@ -36,6 +39,21 @@ The elevator manager
 
 
 */
+type ExternalStateMachineChannels struct {
+
+}
+type InternalStateMachineChannels struct {
+
+}
+
+func External_state_machine_channels_init() {
+
+}
+func Internal_state_machine_channels_init() {
+
+}
+
+
 func Elevator_manager( /*orderArrayChan chan [][] int   <- this will come from above, but not in this test program */ /* this may need to have a different name ->  ,currentStateChan chan State*/) {
 	driver.Elev_init()
 

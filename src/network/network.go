@@ -1,8 +1,6 @@
 package network
 
-//https://groups.google.com/forum/#!topic/golang-china/KG0Bgf0CAQc
 import (
-	//"bytes"
 	"fmt"
 	"math/rand"
 	. "net"
@@ -24,11 +22,11 @@ func main() {
 */
 
 type NetworkExternalChannels struct {
-	ToNetwork = make(chan []byte)
-	ToComm = make(chan []byte)
+	ToNetwork chan []byte
+	ToComm chan []byte
 }
-func network_external_chan_init() {
-	ExComChan.ToNetwork = make(chan []byte)
+func network_external_chan_init() {
+	ExNetChan.ToNetwork = make(chan []byte)
 	ExNetChan.ToComm = make(chan []byte)
 }
 

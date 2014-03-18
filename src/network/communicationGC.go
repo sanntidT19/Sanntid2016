@@ -4,6 +4,7 @@ import (
 	. "encoding/json"
 	"fmt"
 	//. "time"
+	."toplayer"
 )
 
 const (
@@ -57,57 +58,57 @@ func internal_comm_chans_init() {
 func Send_order(externalOrderList [][]int) { //send exectuionOrderList
 	byteOrder, _ := Marshal(externalOrderList)
 	prefix, _ := Marshal("exo")
-	ExNetChans.ToNetwork <- append(prefix, byteOrder...)
+	ExNetChan.ToNetwork <- append(prefix, byteOrder...)
 }
 
 func Send_im_master(message string) { //send I am master
 	byteMessage, _ := Marshal(message)
 	prefix, _ := Marshal("iam")
 	fmt.Println("to network", string(byteMessage))
-	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
 
 }
 func Send_received_confirmation(order []int) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("rco")
-	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
 }
 
 func Send_executed_confirmation(order []int) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("eco")
-	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
 }
 
 //Slave
-func Send_slave(s Slave, commToNetwork chan []byte) {
+func Send_slave(s Slave) {
 	byteSlave, _ := Marshal(s)
 	prefix, _ := Marshal("sla")
-	ExNetChans.ToNetwork <- append(prefix, byteSlave...)
+	ExNetChan.ToNetwork <- append(prefix, byteSlave...)
 }
 
 func Send_order_received(order []int) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("ore")
-	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
 }
 
 func Send_order_executed(order []int) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("oex")
-	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
 }
 
 func Send_order_confirmed_received(order []int) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("ocr")
-	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
 }
 
 func Send_order_confirmed_executed(order []int) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("oce")
-	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
 }
 
 func Decrypt_message(message []byte) {
@@ -188,7 +189,7 @@ func Select_send() {
 			Send_executed_confirmation(order)
 		//Slave
 		case slave := <-SC.ToCommSlaveChan:
-			Send_slave(slave, commToNetwork)
+			Send_slave(slave)
 		case order := <-SC.ToCommOrderReceivedChan:
 			Send_order_received(order)
 		case order := <-SC.ToCommOrderConfirmedReceivedChan:
@@ -204,7 +205,7 @@ func Select_receive() {
 	var barr []byte
 	fmt.Println("Select_receive")
 	for {
-		barr = <-ExNetChans.ToComm
+		barr = <-ExNetChan.ToComm
 		Decrypt_message(barr)
 	}
 }
