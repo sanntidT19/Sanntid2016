@@ -10,53 +10,54 @@ const (
 
 
 //Global chans
-var SC SlaveChans
-var MC MasterChans
+var ExSlaveChans ExternalSlaveChannels
+var ExMasterChans ExternalMasterChannels
 
 type Slave struct {
 	nr int
 	internalList []int
 	externalList [][]int
-	currentFloor int //get from driver/IO
-	direction    int // get from driver/IO
-
+	currentFloor int 
+	direction    int 
 }
-
 
 type Master struct {
-	s []Slave
+	m []Slave
 }
-type SlaveChans struct {
+type ExternalSlaveChannels struct {
 	ToCommSlaveChan                   chan Slave //"sla"
 	ToCommOrderReceivedChan           chan []int //"ore"
 	ToCommOrderExecutedChan           chan []int //"oex"
 	ToCommOrderConfirmedReceivedChan  chan []int //"ocr"
 	ToCommOrderConfirmedExecutuinChan chan []int //"oce"
 }
-type MasterChans struct {
+type ExternalMasterChannels struct {
 	ToCommOrderListChan            chan [][]int //"exo"
-	ToCommImMasterChan             chan string  //"iam"
 	ToCommReceivedConfirmationChan chan []int   //"rco"
 	ToCommExecutedConfirmationChan chan []int   //"eco"
 }
 func Slave_chans_init() {
-	SC.ToCommSlaveChan = make(chan Slave) //"sla"
-	SC.ToCommOrderReceivedChan = make(chan []int) //"ore"
-	SC.ToCommOrderExecutedChan = make(chan []int) //"oex"
-	SC.ToCommOrderConfirmedReceivedChan = make(chan []int) //"ocr"
-	SC.ToCommOrderConfirmedExecutuinChan = make(chan []int) //"oce"
+	ExSlaveChans.ToCommSlaveChan = make(chan Slave) //"sla"
+	ExSlaveChans.ToCommOrderReceivedChan = make(chan []int) //"ore"
+	ExSlaveChans.ToCommOrderExecutedChan = make(chan []int) //"oex"
+	ExSlaveChans.ToCommOrderConfirmedReceivedChan = make(chan []int) //"ocr"
+	ExSlaveChans.ToCommOrderConfirmedExecutuinChan = make(chan []int) //"oce"
 }
 func Master_chans_init() {
-	MC.ToCommOrderListChan = make(chan [][]int) //"exo"
-	MC.ToCommImMasterChan = make(chan string)  //"iam"
-	MC.ToCommReceivedConfirmationChan = make(chan []int)   //"rco"
-	MC.ToCommExecutedConfirmationChan = make(chan []int)   //"eco"
+	ExMasterChans.ToCommOrderListChan = make(chan [][]int) //"exo"
+	ExMasterChans.ToCommReceivedConfirmationChan = make(chan []int)   //"rco"
+	ExMasterChans.ToCommExecutedConfirmationChan = make(chan []int)   //"eco"
 }
 
-/*
-Get orders from the optimalizaton algorithm
-*/
 func Slave_init() {
+	connSend, connReceive := Network_init()
+	.SetReadDeadline(time.Now().Add(Random_init(10, 100) * MilliSecond))
+	
+	s Slave{}
+	go Select_send()
+	go Select_receive()
+
+
 	//communicate with statemachine
 	go Recive_externalList()
 
@@ -64,21 +65,31 @@ func Slave_init() {
 
 func Master_init() {
 
+	//intial sending contianing: ipadress, initialization, 
+	//just listen to this
+	m Master{}
+	go Select_send()
+	go Select_receive()
+	//if call for new optimalization
+	//send it futher
+
+	//recive it and  iterate slaves slaves
+	go Send_im_master()
 }
 
 func (s Slave) Recive_externalList() {
 	for {
-	s.externalList = <- ExCommChans.ToSlaveOrderListChan 
+	s.externalList = <- ExComExMasterChanshans.ToSlaveOrderListChan 
 	}
 }
 
 func Send_confirmation_to_master(message string) {
 	//when recieved from state machine
 
-	<- SC.ToCommOrderReceivedChan 
-	<- SC.ToCommOrderExecutedChan 
-	<- SC.ToCommOrderConfirmedReceivedChan 
-	<- SC.ToCommOrderConfirmedExecutuinChan 
+	<- ExSlaveChans.ToCommOrderReceivedChan 
+	<- ExSlaveChans.ToCommOrderExecutedChan 
+	<- ExSlaveChans.ToCommOrderConfirmedReceivedChan 
+	<- ExSlaveChans.ToCommOrderConfirmedExecutuinChan 
 
 	
 }
@@ -98,7 +109,7 @@ func (s Slave) Update_current_floor_and_direction(currentFloorChan chan int, dir
 }
 
 func (s Slave) Send_slave_to_master() {
-	SC.ToCommSlaveChan <- s
+	ExSlaveChans.ToCommSlaveChan <- s
 }
 
 func (s Slave) Send_slave_to_state(slaveStateChan chan int) { //send next floor to statemachine
@@ -126,12 +137,12 @@ func (s Slave) Send_slave_to_state(slaveStateChan chan int) { //send next floor 
 
 
 
-func Send_external_list_to_slaves() {
+func Distribute_orders() {
 	//sends new external list to communication module 
-	MC.ToCommOrderChan <- Get_optimal_externalList()
+	ExMasterChans.ToCommOrderChan <- Get_optimal_externalList()
 }
 func (m Master) Get_optimal_externalList() {
 	//newExternalList := updateExternalList()
 	//m.externalList = newExternalList 
-	//MC.ToCommOrderChan <- newExternalList
+	//ExMasterChans.ToCommOrderChan <- newExternalList
 }
