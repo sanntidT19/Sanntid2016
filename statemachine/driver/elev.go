@@ -133,11 +133,9 @@ func Elev_set_speed(speed float64) { //Float64 may be a problem later
 	io_write_analog(MOTOR, 2048+4*int(math.Abs(speed)))
 }
 
-
-
 // Check this motherfucker
-func Elev_get_speed() int {
-	return Io_read_analog(motor)/4 -2048;
+func Elev_get_speed() float64 {
+	return float64(Io_read_analog(MOTOR)/4 - 2048)
 }
 
 func Elev_stop_elevator() {
@@ -148,7 +146,7 @@ func Elev_stop_elevator() {
 		fmt.Println("toggledir:", toggleDir)
 		toggleDir = -1
 	}
-	if math.Abs(Elev_get_speed()) > 10){  //If the speed is over some value, you should brake that shit. 
+	if math.Abs(Elev_get_speed()) > 10 { //If the speed is over some value, you should brake that shit.
 		Elev_set_speed(300 * toggleDir)
 		time.Sleep(time.Millisecond * 10)
 	}
