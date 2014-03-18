@@ -13,7 +13,7 @@ const (
 	MAXWAIT = time.Second
 	PORT    = ":20019"
 )
-
+var ExNetChan NetworkExternalChannels
 /*
 func main() {
 	nr := backup()
@@ -22,6 +22,16 @@ func main() {
 
 }
 */
+
+type NetworkExternalChannels struct {
+	ToNetwork = make(chan []byte)
+	ToComm = make(chan []byte)
+}
+func network_external_chan_init() {
+	ExComChan.ToNetwork = make(chan []byte)
+	ExNetChan.ToComm = make(chan []byte)
+}
+
 
 func Network_init() Conn {
 	fmt.Println("gi")
@@ -58,7 +68,7 @@ func Receive(networkToComm chan []byte) { //does only need a connection who list
 	c.SetReadDeadline(time.Now().Add(1 * time.Second)) //returns error if deadline is reached
 	_, _, err = c.ReadFromUDP(buf)                     //n contanis numbers of used bytes, fills buf with content on the connection
 	if err == nil {                                    //if error is nil, read from buffer
-		networkToComm <- buf
+		ExNetChan.ToComm <- buf
 	} else {
 		//break
 	}

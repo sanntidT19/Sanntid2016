@@ -3,233 +3,208 @@ package network
 import (
 	. "encoding/json"
 	"fmt"
+	//. "time"
 )
 
 const (
 	FLOORS = 4
 )
 
-func main() {
-	fmt.Println("hei")
-}
+var ExComChans ExternalCommunicationChannels
+var InComChans InternalCommunicationChannels
 
-type CommunicationExternalChannels struct{
-
-	slaveToCommSlaveChan chan Slave                   //"sla"
-	slaveToCommOrd_eceivedChan chan []int         //"ore"
-	slaveToCommOrderExecutedChan chan []int          //"oex"
-	slaveToCommOrderConfirmedReceivedChan chan []int //"ocr"
-	slaveToCommOrderConfirmedExecutuinChan chan []int //"oce"
-
-	//Master
-	masterToCommOrderListChan chan [][]int          //"exo"
-	masterToCommImMasterChan chan string           //"iam"
-	masterToCommReceivedConfirmationChan chan []int //"rco"
-	masterToCommExecutedConfirmationChan chan []int //"eco"
+type ExternalCommunicationChannels struct {
 
 	//communication channels
-	commToMasterSlaveChan := make(chan Slave)        //"sla"
-	commToMasterOrd_eceivedChan chan []int          //"ore"
-	commToMasterOrderExecutedChan chan []int          //"oex"
-	commToMasterOrderConfirmedReceivedChan chan []int  //"ocr"
-	commToMasterOrderConfirmedExecutionChan chan []int //"oce"
+	ToMasterSlaveChan                   chan Slave //"sla"
+	ToMasterOrderReceivedChan           chan []int //"ore"
+	ToMasterOrderExecutedChan           chan []int //"oex"
+	ToMasterOrderConfirmedReceivedChan  chan []int //"ocr"
+	ToMasterOrderConfirmedExecutionChan chan []int //"oce"
 
-	commToSlaveOrderListChan chan [][]int          //"exo"
-	commToSlaveImMasterChan chan string           //"iam"
-	commToSlaveReceivedConfirmationChan chan []int //"rco"
-	commToSlaveExecutedConfirmationChan chan []int //"eco"
+	ToSlaveOrderListChan            chan [][]int //"exo"
+	ToSlaveImMasterChan             chan string  //"iam"
+	ToSlaveReceivedConfirmationChan chan []int   //"rco"
+	ToSlaveExecutedConfirmationChan chan []int   //"eco"
 
 }
+type InternalCommunicationChannels struct {
+	newExternalList   chan [][]int
+	slaveToStateMChan chan int //send input to statemachine
+}
 
+func external_comm_channels_init() {
+	ExComChans.ToMasterSlaveChan = make(chan Slave)                   //"sla"
+	ExComChans.ToMasterOrderReceivedChan = make(chan []int)           //"ore"
+	ExComChans.ToMasterOrderExecutedChan = make(chan []int)           //"oex"
+	ExComChans.ToMasterOrderConfirmedReceivedChan = make(chan []int)  //"ocr"
+	ExComChans.ToMasterOrderConfirmedExecutionChan = make(chan []int) //"oce"
 
-func (c CommunicationChannels)Channels_init() {
+	ExComChans.ToSlaveOrderListChan = make(chan [][]int)          //"exo"
+	ExComChans.ToSlaveImMasterChan = make(chan string)            //"iam"
+	ExComChans.ToSlaveReceivedConfirmationChan = make(chan []int) //"rco"
+	ExComChans.ToSlaveExecutedConfirmationChan = make(chan []int) //"eco"
 
-	c.slaveToCommSlaveChan := make(chan Slave)                   //"sla"
-	c.slaveToCommOrd_eceivedChan := make(chan []int)           //"ore"
-	c.slaveToCommOrderExecutedChan := make(chan []int)           //"oex"
-	c.slaveToCommOrderConfirmedReceivedChan := make(chan []int)  //"ocr"
-	c.slaveToCommOrderConfirmedExecutuinChan := make(chan []int) //"oce"
-
-	//Master
-	c.masterToCommOrderListChan := make(chan [][]int)          //"exo"
-	c.masterToCommImMasterChan := make(chan string)            //"iam"
-	c.masterToCommReceivedConfirmationChan := make(chan []int) //"rco"
-	c.masterToCommExecutedConfirmationChan := make(chan []int) //"eco"
-
-	//communication channels
-	//commToMasterSlaveChan := make(chan Slave)                   //"sla"
-	c.commToMasterOrd_eceivedChan := make(chan []int)           //"ore"
-	c.commToMasterOrderExecutedChan := make(chan []int)           //"oex"
-	c.commToMasterOrderConfirmedReceivedChan := make(chan []int)  //"ocr"
-	c.commToMasterOrderConfirmedExecutionChan := make(chan []int) //"oce"
-
-	c.commToSlaveOrderListChan := make(chan [][]int)          //"exo"
-	c.commToSlaveImMasterChan := make(chan string)            //"iam"
-	c.commToSlaveReceivedConfirmationChan := make(chan []int) //"rco"
-	c.commToSlaveExecutedConfirmationChan := make(chan []int) //"eco"
-
-	newExternalList := make(chan [][]int)
-	slaveToStateMChan := make(chan int) //send input to statemachine
+}
+func internal_comm_chans_init() {
+	InComChans.newExternalList = make(chan [][]int)
+	InComChans.slaveToStateMChan = make(chan int) //send input to statemachine
 	//network
-	commToNetwork := make(chan []byte)
-	networkToComm := make(chan []byte)
+
 }
 
 //Master
-func Send_order(externalOrderList [][]int, commToNetwork chan []byte) { //send exectuionOrderList
+func Send_order(externalOrderList [][]int) { //send exectuionOrderList
 	byteOrder, _ := Marshal(externalOrderList)
 	prefix, _ := Marshal("exo")
-	commToNetwork <- append(prefix, byteOrder...)
+	ExNetChans.ToNetwork <- append(prefix, byteOrder...)
 }
 
-func Send_im_master(message string, commToNetwork chan []byte) { //send I am master
+func Send_im_master(message string) { //send I am master
 	byteMessage, _ := Marshal(message)
 	prefix, _ := Marshal("iam")
 	fmt.Println("to network", string(byteMessage))
-	commToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 
 }
-func Send_received_confirmation(order []int, commToNetwork chan []byte) {
+func Send_received_confirmation(order []int) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("rco")
-	commToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
-func Send_executed_confirmation(order []int, commToNetwork chan []byte) {
+func Send_executed_confirmation(order []int) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("eco")
-	commToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
-/*
 //Slave
 func Send_slave(s Slave, commToNetwork chan []byte) {
 	byteSlave, _ := Marshal(s)
 	prefix, _ := Marshal("sla")
-	commToNetwork <- append(prefix, byteSlave...)
+	ExNetChans.ToNetwork <- append(prefix, byteSlave...)
 }
-*/
-func Send_order_received(order []int, commToNetwork chan []byte) {
+
+func Send_order_received(order []int) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("ore")
-	commToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
-func Send_order_executed(order []int, commToNetwork chan []byte) {
+func Send_order_executed(order []int) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("oex")
-	commToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
-func Send_order_confirmed_received(order []int, commToNetwork chan []byte) {
+func Send_order_confirmed_received(order []int) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("ocr")
-	commToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
-func Send_order_confirmed_executed(order []int, commToNetwork chan []byte) {
+func Send_order_confirmed_executed(order []int) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("oce")
-	commToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
-func Decrypt_message(message []byte, commToMasterOrderReceivedChan chan []int, commToMasterOrderExecutedChan chan []int, commToMasterOrderConfirmedReceivedChan chan []int, commToMasterOrderConfirmedExecutionChan chan []int, commToSlaveOrderListChan chan [][]int, commToSlaveImMasterChan chan string, commToSlaveReceivedConfirmationChan chan []int, commToSlaveExecutedConfirmationChan chan []int) {
+func Decrypt_message(message []byte) {
 
 	switch {
 	//Master
-	/*case string(message[1:4] == "sla"):
-	noPrefix := message[5:]
-	var s Slave
-	_ := Unmarshal(noPrefix, &s)
-	commToMasterSlaveChan <- s
-	*/
+	case string(message[1:4]) == "sla":
+		noPrefix := message[5:]
+		var s Slave
+		_ = Unmarshal(noPrefix, &s)
+		ExComChans.ToMasterSlaveChan <- s
+
 	case string(message[1:4]) == "ore":
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		commToMasterOrderReceivedChan <- order
+		ExComChans.ToMasterOrderReceivedChan <- order
 
 	case string(message[1:4]) == "oex":
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		commToMasterOrderExecutedChan <- order
+		ExComChans.ToMasterOrderExecutedChan <- order
 
 	case string(message[1:4]) == "ocr":
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		commToMasterOrderConfirmedReceivedChan <- order
+		ExComChans.ToMasterOrderConfirmedReceivedChan <- order
 
 	case string(message[1:4]) == "oce":
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		commToMasterOrderConfirmedExecutionChan <- order
+		ExComChans.ToMasterOrderConfirmedExecutionChan <- order
 
 	//Slave
 	case string(message[1:4]) == "exo":
 		noPrefix := message[5:]
 		externalOrderList := make([][]int, FLOORS)
 		_ = Unmarshal(noPrefix, &externalOrderList)
-		commToSlaveOrderListChan <- externalOrderList
+		ExComChans.ToSlaveOrderListChan <- externalOrderList
 
 	case string(message[1:4]) == "iam":
 		fmt.Println("iam trigger")
 		noPrefix := message[5:]
 		stringMessage := string(noPrefix)
 		fmt.Println(stringMessage)
-		commToSlaveImMasterChan <- stringMessage
+		ExComChans.ToSlaveImMasterChan <- stringMessage
 		fmt.Println("channel output")
 
 	case string(message[1:4]) == "rco":
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		commToSlaveReceivedConfirmationChan <- order
+		ExComChans.ToSlaveReceivedConfirmationChan <- order
 
 	case string(message[1:4]) == "eco":
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		commToSlaveExecutedConfirmationChan <- order
+		ExComChans.ToSlaveExecutedConfirmationChan <- order
 	}
 }
-func Select_send(commToNetwork chan []byte, slaveToCommOrderReceivedChan chan []int, slaveToCommOrderExecutedChan chan []int, slaveToCommOrderConfirmedReceivedChan chan []int, slaveToCommOrderConfirmedExecutuinChan chan []int, masterToCommOrderListChan chan [][]int, masterToCommImMasterChan chan string, masterToCommReceivedConfirmationChan chan []int, masterToCommExecutedConfirmationChan chan []int) {
+func Select_send() {
 
 	for {
 		select {
 		//Master
-		case externalOrderList := <-masterToCommOrderListChan:
-			Send_order(externalOrderList, commToNetwork)
-		case message := <-masterToCommImMasterChan:
+		case externalOrderList := <-MC.ToCommOrderListChan:
+			Send_order(externalOrderList)
+		case message := <-MC.ToCommImMasterChan:
 			fmt.Println("meessage", message, "select send")
-			Send_im_master(message, commToNetwork)
-		case order := <-masterToCommReceivedConfirmationChan:
-			Send_received_confirmation(order, commToNetwork)
-		case order := <-masterToCommExecutedConfirmationChan:
-			Send_executed_confirmation(order, commToNetwork)
+			Send_im_master(message)
+		case order := <-MC.ToCommReceivedConfirmationChan:
+			Send_received_confirmation(order)
+		case order := <-MC.ToCommExecutedConfirmationChan:
+			Send_executed_confirmation(order)
 		//Slave
-		/*
-			case slave := <-slaveToCommSlaveChan:
-				Send_slave(slave, commToNetwork)
-		*/
-		case order := <-slaveToCommOrderReceivedChan:
-			Send_order_received(order, commToNetwork)
-		case order := <-slaveToCommOrderConfirmedReceivedChan:
-			Send_order_executed(order, commToNetwork)
-		case order := <-slaveToCommOrderConfirmedReceivedChan:
-			Send_order_confirmed_received(order, commToNetwork)
-		case order := <-slaveToCommOrderConfirmedExecutuinChan:
-			Send_order_confirmed_executed(order, commToNetwork)
+		case slave := <-SC.ToCommSlaveChan:
+			Send_slave(slave, commToNetwork)
+		case order := <-SC.ToCommOrderReceivedChan:
+			Send_order_received(order)
+		case order := <-SC.ToCommOrderConfirmedReceivedChan:
+			Send_order_executed(order)
+		case order := <-SC.ToCommOrderConfirmedReceivedChan:
+			Send_order_confirmed_received(order)
+		case order := <-SC.ToCommOrderConfirmedExecutuinChan:
+			Send_order_confirmed_executed(order)
 		}
 	}
 }
-func Select_receive(networkToComm chan []byte /*commToMasterSlaveChan chan Slave,*/, commToMasterOrderReceivedChan chan []int, commToMasterOrderExecutedChan chan []int, commToMasterOrderConfirmedReceivedChan chan []int, commToMasterOrderConfirmedExecutionChan chan []int, commToSlaveOrderListChan chan [][]int, commToSlaveImMasterChan chan string, commToSlaveReceivedConfirmationChan chan []int, commToSlaveExecutedConfirmationChan chan []int) {
+func Select_receive() {
 	var barr []byte
 	fmt.Println("Select_receive")
 	for {
-		barr = <-networkToComm
-		Decrypt_message(barr, commToMasterOrderReceivedChan, commToMasterOrderExecutedChan, commToMasterOrderConfirmedReceivedChan, commToMasterOrderConfirmedExecutionChan, commToSlaveOrderListChan, commToSlaveImMasterChan, commToSlaveReceivedConfirmationChan, commToSlaveExecutedConfirmationChan)
+		barr = <-ExNetChans.ToComm
+		Decrypt_message(barr)
 	}
 }

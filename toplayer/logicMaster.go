@@ -4,17 +4,48 @@ const (
 	FLOORS = 4
 )
 
+
+//Global chans
+var SC SlaveChans
+var MC MasterChan
+
 type Slave struct {
 	nr int
-	exececutionList []int
-	internalList []bool
+	internalList []int
 	externalList [][]int
 	currentFloor int //get from driver/IO
 	direction    int // get from driver/IO
 
 }
+
 type Master struct {
 	s []Slaves
+}
+type SlaveChans {
+	ToCommSlaveChan                   chan Slave //"sla"
+	ToCommOrderReceivedChan           chan []int //"ore"
+	ToCommOrderExecutedChan           chan []int //"oex"
+	ToCommOrderConfirmedReceivedChan  chan []int //"ocr"
+	ToCommOrderConfirmedExecutuinChan chan []int //"oce"
+}
+type MasterChans {
+	ToCommOrderListChan            chan [][]int //"exo"
+	ToCommImMasterChan             chan string  //"iam"
+	ToCommReceivedConfirmationChan chan []int   //"rco"
+	ToCommExecutedConfirmationChan chan []int   //"eco"
+}
+func Slave_chans_init() {
+	SC.ToCommSlaveChan := make(chan Slave) //"sla"
+	SC.ToCommOrderReceivedChan := make(chan []int) //"ore"
+	SC.ToCommOrderExecutedChan := make(chan []int) //"oex"
+	SC.ToCommOrderConfirmedReceivedChan := make(chan []int) //"ocr"
+	SC.ToCommOrderConfirmedExecutuinChan := make(chan []int) //"oce"
+}
+func Master_chans_init() {
+	MC.ToCommOrderListChan := make(chan [][]int) //"exo"
+	MC.ToCommImMasterChan := make(chan string)  //"iam"
+	MC.ToCommReceivedConfirmationChan := make(chan []int)   //"rco"
+	MC.ToCommExecutedConfirmationChan := make(chan []int)   //"eco"
 }
 
 /*
@@ -34,16 +65,16 @@ func Master_init() {
 }
 
 func (s Slave) Recive_externalList_from(externalListChan chan [][]int) {
-	s.externalList = <- commToSlaveOrderChan
+	s.externalList = <- CO.ToSlaveOrderChan
 	}
 }
 
-func Send_confirmation_to_master_or_comm(message string, commToSlaveMastersBackConfirmChan chan string) {
+func Send_confirmation_to_master_or_comm(message string) {
 	//transfer to the communication module(put on correct tag)
-	commToSlaveMastersBackConfirmChan <- message
+	CC.ToSlaveMastersBackConfirmChan <- message
 }
 
-func (s Slave) Update_current_floor_and_direction(currentFloorChan chan int, directionChan chan int, slaveToCommSlaveStructChan chan int) {
+func (s Slave) Update_current_floor_and_direction(currentFloorChan chan int, directionChan chan int, ToCommSlaveStructChan chan int) {
 	select {
 	case floor := <-currenFloorChan:
 		s.currentFloor = floor
@@ -52,13 +83,13 @@ func (s Slave) Update_current_floor_and_direction(currentFloorChan chan int, dir
 	}
 
 
-	s.Send_slave_to_master(slaveToCommSlaveStructChan chan Slave)
+	s.Send_slave_to_master(SC.ToCommSlaveStructChan chan Slave)
 
 
 }
 
-func (s Slave) Send_slave_to_master(slaveToCommSlaveStructChan chan Slave) {
-	slaveToCommSlaveStructChan <- s
+func (s Slave) Send_slave_to_master() {
+	SC.ToCommSlaveStructChan <- s
 }
 
 func (s Slave) Send_slave_to_state(slaveStateChan chan int) { //send next floor to statemachine
@@ -85,12 +116,12 @@ func (s Slave) Send_slave_to_state(slaveStateChan chan int) { //send next floor 
 
 
 
-func Send_external_list_to_slaves(masterToCommOrderChan chan [][]int) {
+func Send_external_list_to_slaves() {
 	//sends new external list to communication module 
-	masterToCommOrderChan <- Get_optimal_externalList()
+	MC.ToCommOrderChan <- Get_optimal_externalList()
 }
-func (m Master) Get_optimal_externalList(masterToCommOrderChan chan [][]int) {
+func (m Master) Get_optimal_externalList() {
 	newExternalList := updateExternalList()
 	m.externalList = newExternalList 
-	masterToCommOrderChan <- newExternalList
+	MC.ToCommOrderChan <- newExternalList
 }
