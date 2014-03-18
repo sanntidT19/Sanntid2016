@@ -33,7 +33,6 @@ type ExternalSlaveChannels struct {
 }
 type ExternalMasterChannels struct {
 	ToCommOrderListChan            chan [][]int //"exo"
-	ToCommImMasterChan             chan bool  //"iam"
 	ToCommReceivedConfirmationChan chan []int   //"rco"
 	ToCommExecutedConfirmationChan chan []int   //"eco"
 }
@@ -46,15 +45,14 @@ func Slave_chans_init() {
 }
 func Master_chans_init() {
 	ExMasterChans.ToCommOrderListChan = make(chan [][]int) //"exo"
-	ExMasterChans.ToCommImMasterChan = make(chan bool)  //"iam"
 	ExMasterChans.ToCommReceivedConfirmationChan = make(chan []int)   //"rco"
 	ExMasterChans.ToCommExecutedConfirmationChan = make(chan []int)   //"eco"
 }
 
-/*
-Get orders from the optimalizaton algorithm
-*/
 func Slave_init() {
+	connSend, connReceive := Network_init()
+	.SetReadDeadline(time.Now().Add(Random_init(10, 100) * MilliSecond))
+	
 	s Slave{}
 	go Select_send()
 	go Select_receive()
@@ -66,6 +64,9 @@ func Slave_init() {
 }
 
 func Master_init() {
+
+	//intial sending contianing: ipadress, initialization, 
+	//just listen to this
 	m Master{}
 	go Select_send()
 	go Select_receive()
@@ -81,20 +82,6 @@ func (s Slave) Recive_externalList() {
 	s.externalList = <- ExComExMasterChanshans.ToSlaveOrderListChan 
 	}
 }
-func Send_im_master() {
-	for {
-		ExMasterChans.ToCommImMasterChan <- bool
-		Sleep(10 * Millisecond)
-	}
-}
-
-func Recive_im_master() {
-	for {
-
-		 <- ExSlaveChans.ToSlaveImMasterChan
-	}
-}
-
 
 func Send_confirmation_to_master(message string) {
 	//when recieved from state machine
@@ -150,7 +137,7 @@ func (s Slave) Send_slave_to_state(slaveStateChan chan int) { //send next floor 
 
 
 
-func Send_external_list_to_slaves() {
+func Distribute_orders() {
 	//sends new external list to communication module 
 	ExMasterChans.ToCommOrderChan <- Get_optimal_externalList()
 }

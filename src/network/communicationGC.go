@@ -24,7 +24,7 @@ type ExternalCommunicationChannels struct {
 	ToMasterOrderConfirmedExecutionChan chan []int //"oce"
 
 	ToSlaveOrderListChan            chan [][]int //"exo"
-	ToSlaveImMasterChan             chan string  //"iam"
+	//ToSlaveImMasterChan             chan string  //"iam"
 	ToSlaveReceivedConfirmationChan chan []int   //"rco"
 	ToSlaveExecutedConfirmationChan chan []int   //"eco"
 
@@ -42,7 +42,7 @@ func external_comm_channels_init() {
 	ExCommChans.ToMasterOrderConfirmedExecutionChan = make(chan []int) //"oce"
 
 	ExCommChans.ToSlaveOrderListChan = make(chan [][]int)          //"exo"
-	ExCommChans.ToSlaveImMasterChan = make(chan string)            //"iam"
+	//ExCommChans.ToSlaveImMasterChan = make(chan string)            //"iam"
 	ExCommChans.ToSlaveReceivedConfirmationChan = make(chan []int) //"rco"
 	ExCommChans.ToSlaveExecutedConfirmationChan = make(chan []int) //"eco"
 
@@ -180,8 +180,6 @@ func Select_send() {
 
 		case externalOrderList := <-ExMasterChans.ToCommOrderListChan:
 			Send_order(externalOrderList)
-		case <-ExMasterChans.ToCommImMasterChan:
-			Send_im_master()
 		case order := <-ExMasterChans.ToCommReceivedConfirmationChan:
 			Send_received_confirmation(order)
 		case order := <-ExMasterChans.ToCommExecutedConfirmationChan:
@@ -198,6 +196,8 @@ func Select_send() {
 			Send_order_confirmed_received(order)
 		case order := <-ExSlaveChans.ToCommOrderConfirmedExecutuinChan:
 			Send_order_confirmed_executed(order)
+		default:
+			Send_im_master()
 		}
 	}
 }

@@ -32,21 +32,29 @@ func network_external_chan_init() {
 }
 
 
-func Network_init() Conn {
+func Network_init() Conn, Conn {
 	fmt.Println("gi")
-	address, err := ResolveUDPAddr("udp", "129.241.187.255"+PORT) //leser bare fra porten generellt
-	c, err := DialUDP("udp", nil, address)
+	addr, err := ResolveUDPAddr("udp", "129.241.187.255"+PORT) //leser bare fra porten generellt
+	c1, err := DialUDP("udp", nil, address)
 
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	return c
+
+	addr, _ := ResolveUDPAddr("udp", PORT)
+	c2, err := ListenUDP("udp", addr)
+
+	defer c.Close()
+
+	c.SetReadDeadline(time.Now().Add(300 * MilliSecond)) //returns error if deadline is reached
+	n, _, err = c.ReadFromUDP(buf)    
+
+	return c1,c2
 
 }
 
-//use chan in outer loop, who fetches to_writing
-//if chan is taken as parameter we are unable to run it in a for loop, because the channel is emptied at the first run
-func Send(c Conn, to_writing []byte) { //Olav: does this need a buffer as paramter aswell??
+func Send(c Conn) { 
+	to_writing <- ExNetChan.ToNetwork
 	for {
 		_, err := c.Write(to_writing)
 
@@ -57,23 +65,24 @@ func Send(c Conn, to_writing []byte) { //Olav: does this need a buffer as paramt
 	}
 }
 
-func Receive(networkToComm chan []byte) { //does only need a connection who listen to a port like ":20019" not the entire ip adress.
-	buf := make([]byte, 1024)
+func Receive() { //will error trigger if just read fails? or will it only go on deadline?
 	addr, _ := ResolveUDPAddr("udp", PORT)
 	c, err := ListenUDP("udp", addr)
 
 	defer c.Close()
 
 	c.SetReadDeadline(time.Now().Add(300 * MilliSecond)) //returns error if deadline is reached
-	_, _, err = c.ReadFromUDP(buf)                     //n contanis numbers of used bytes, fills buf with content on the connection
+	n, _, err = c.ReadFromUDP(buf)                     //n contanis numbers of used bytes, fills buf with content on the connection
+
 	if err == nil {                                    //if error is nil, read from buffer
-		ExNetChan.ToComm <- buf
+		ExNetChan.ToComm <- buf[0:n]
+		ExSlaveChans.ToSlaveImMasterChan <- true
 	} else {
-		//break
+		ExSlaveChans.ToSlaveImMasterChan <- false
 	}
 
 }
-
+/*
 func Choose_master() {
 	go Slave_elevator()
 }
@@ -116,7 +125,7 @@ func Master_elevator() {
 		time.Sleep(50 * time.Millisecond)
 	}
 }
-
+*/
 func Random_int(min int, max int) int { //gives a random int for waiting
 	rand.Seed(time.Now().UTC().UnixNano())
 	return min + rand.Intn(max-min)
