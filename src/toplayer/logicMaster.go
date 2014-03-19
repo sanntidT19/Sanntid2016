@@ -50,32 +50,36 @@ func Master_chans_init() {
 }
 
 func Slave_init() {
+	buf := make([]byte,1024)
 	connSend, connReceive := Network_init()
-	.SetReadDeadline(time.Now().Add(Random_init(10, 100) * MilliSecond))
-	
-	s Slave{}
-	go Select_send()
-	go Select_receive()
+	_, _, err := connReceive.SetReadDeadline(time.Now().Add(Random_init(10, 100) * MilliSecond))
+	_, _, err := connReceive.ReadFromUDP(buf) //n contanis numbers of used bytes
+	if err != nil { //run master if connection fails
+		go Master_init()
+	} else {
+		s Slave{}
+		go Select_send_slave(connSend)
+		go Select_receive()
 
-
-	//communicate with statemachine
-	go Recive_externalList()
-
+		//communicate with statemachine
+		go Recive_externalList()
+	}
 }
 
 func Master_init() {
-
+	connSend, _ := Network_init()
+	ExNetChans.connSend <- connSend
+	
 	//intial sending contianing: ipadress, initialization, 
 	//just listen to this
 	m Master{}
-	go Select_send()
+	go Select_send_master(c)
 	go Select_receive()
 	//if call for new optimalization
-	//send it futher
+	
 
 	//recive it and  iterate slaves slaves
-	go Send_im_master()
-}
+	}
 
 func (s Slave) Recive_externalList() {
 	for {
@@ -92,6 +96,24 @@ func Send_confirmation_to_master(message string) {
 	<- ExSlaveChans.ToCommOrderConfirmedExecutuinChan 
 
 	
+}
+func Get_order_executed_from_slave() []int {
+	order := <- ExCommChans.ToMasterOrderReceivedChan
+	Send_order_executed_confirmation_to_slave(order)
+	//delete from externalList
+	return order
+}
+func Send_order_executed_to_master(order []int) {
+	ExSlaveChans.ToCommOrderReceivedChan <- order
+}
+
+func Send_order_executed_confirmation_to_slave(order) {
+	ExCommChans.ToSlaveConfirmedExecutionChan <- order
+}
+func Get_order_confirmation_from_master() {
+	order := <- ExSlaveChans.ToSlaveConfirmedExecutionChan
+	//turn off ligths
+
 }
 
 func (s Slave) Update_current_floor_and_direction(currentFloorChan chan int, directionChan chan int, ToCommSlaveStructChan chan int) {
@@ -110,6 +132,9 @@ func (s Slave) Update_current_floor_and_direction(currentFloorChan chan int, dir
 
 func (s Slave) Send_slave_to_master() {
 	ExSlaveChans.ToCommSlaveChan <- s
+}
+func (m Master) Get_slave_from_slave() {
+
 }
 
 func (s Slave) Send_slave_to_state(slaveStateChan chan int) { //send next floor to statemachine

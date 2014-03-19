@@ -11,7 +11,7 @@ const (
 	MAXWAIT = time.Second
 	PORT    = ":20019"
 )
-var ExNetChan NetworkExternalChannels
+var ExNetChans NetworkExternalChannels
 /*
 func main() {
 	nr := backup()
@@ -24,11 +24,13 @@ func main() {
 type NetworkExternalChannels struct {
 	ToNetwork chan []byte
 	ToComm chan []byte
+	ConnChan chan Conn
 
 }
 func network_external_chan_init() {
-	ExNetChan.ToNetwork = make(chan []byte)
-	ExNetChan.ToComm = make(chan []byte)
+	ExNetChans.ToNetwork = make(chan []byte)
+	ExNetChans.ToComm = make(chan []byte)
+	ExNetChans.ConnChan = make(chan Conn)
 }
 
 
@@ -53,15 +55,19 @@ func Network_init() Conn, Conn {
 
 }
 
-func Send(c Conn) { 
-	to_writing <- ExNetChan.ToNetwork
+func Send() { 
+	c := <- ExNetChans.ConnChan
+	to_writing <- ExNetChans.ToNetwork
 	for {
 		_, err := c.Write(to_writing)
 
 		if err != nil {
 			fmt.Println(err.Error())
+		} else {
+			//break
 		}
 		time.Sleep(50 * time.Millisecond)
+
 	}
 }
 
@@ -70,12 +76,12 @@ func Receive() { //will error trigger if just read fails? or will it only go on 
 	c, err := ListenUDP("udp", addr)
 
 	defer c.Close()
-
+	//this will also check if the master is still there.
 	c.SetReadDeadline(time.Now().Add(300 * MilliSecond)) //returns error if deadline is reached
 	n, _, err = c.ReadFromUDP(buf)                     //n contanis numbers of used bytes, fills buf with content on the connection
 
 	if err == nil {                                    //if error is nil, read from buffer
-		ExNetChan.ToComm <- buf[0:n]
+		ExNetChans.ToComm <- buf[0:n]
 		ExSlaveChans.ToSlaveImMasterChan <- true
 	} else {
 		ExSlaveChans.ToSlaveImMasterChan <- false

@@ -55,59 +55,68 @@ func internal_comm_chans_init() {
 }
 
 //Master
-func Send_order(externalOrderList [][]int) { //send exectuionOrderList
+func Send_order(externalOrderList [][]int, c Conn) { //send exectuionOrderList
 	byteOrder, _ := Marshal(externalOrderList)
 	prefix, _ := Marshal("exo")
-	ExNetChan.ToNetwork <- append(prefix, byteOrder...)
+	ExNetChans.ConnChan <- c
+	ExNetChans.ToNetwork <- append(prefix, byteOrder...)
 }
 
-func Send_im_master() { //send I am master
+func Send_im_master(c Conn) { //send I am master
 	byteMessage, _ := Marshal("im master")
 	prefix, _ := Marshal("iam")
-	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ConnChan <- c
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 
 }
-func Send_received_confirmation(order []int) {
+func Send_received_confirmation(order []int, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("rco")
-	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ConnChan <- c
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
-func Send_executed_confirmation(order []int) {
+func Send_executed_confirmation(order []int, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("eco")
-	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ConnChan <- c
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
 //Slave
-func Send_slave(s Slave) {
+func Send_slave(s Slave, c Conn) {
 	byteSlave, _ := Marshal(s)
 	prefix, _ := Marshal("sla")
-	ExNetChan.ToNetwork <- append(prefix, byteSlave...)
+	ExNetChans.ConnChan <- c
+	ExNetChans.ToNetwork <- append(prefix, byteSlave...)
 }
 
-func Send_order_received(order []int) {
+func Send_order_received(order []int, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("ore")
-	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ConnChan <- c
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
-func Send_order_executed(order []int) {
+func Send_order_executed(order []int, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("oex")
-	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ConnChan <- c
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
-func Send_order_confirmed_received(order []int) {
+func Send_order_confirmed_received(order []int, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("ocr")
-	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ConnChan <- c
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
-func Send_order_confirmed_executed(order []int) {
+func Send_order_confirmed_executed(order []int, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("oce")
-	ExNetChan.ToNetwork <- append(prefix, byteMessage...)
+	ExNetChans.ConnChan <- c
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
 func Decrypt_message(message []byte) {
@@ -172,32 +181,37 @@ func Decrypt_message(message []byte) {
 		ExCommChans.ToSlaveExecutedConfirmationChan <- order
 	}
 }
-func Select_send() {
+func Select_send_master(c Conn) {
 
 	for {
 		select {
 		//Master
 
 		case externalOrderList := <-ExMasterChans.ToCommOrderListChan:
-			Send_order(externalOrderList)
+			Send_order(externalOrderList, c)
 		case order := <-ExMasterChans.ToCommReceivedConfirmationChan:
-			Send_received_confirmation(order)
+			Send_received_confirmation(order,c)
 		case order := <-ExMasterChans.ToCommExecutedConfirmationChan:
-			Send_executed_confirmation(order)
-		//Slave
-
-		case slave := <-ExSlaveChans.ToCommSlaveChan:
-			Send_slave(slave)
-		case order := <-ExSlaveChans.ToCommOrderReceivedChan:
-			Send_order_received(order)
-		case order := <-ExSlaveChans.ToCommOrderConfirmedReceivedChan:
-			Send_order_executed(order)
-		case order := <-ExSlaveChans.ToCommOrderConfirmedReceivedChan:
-			Send_order_confirmed_received(order)
-		case order := <-ExSlaveChans.ToCommOrderConfirmedExecutuinChan:
-			Send_order_confirmed_executed(order)
+			Send_executed_confirmation(order,c)
 		default:
-			Send_im_master()
+			Send_im_master(c)
+		}
+	}
+}
+func Select_send_slave(c Conn) {
+	for {
+		select {
+		//Slave
+		case slave := <-ExSlaveChans.ToCommSlaveChan:
+			Send_slave(slave, c)
+		case order := <-ExSlaveChans.ToCommOrderReceivedChan:
+			Send_order_received(order, c)
+		case order := <-ExSlaveChans.ToCommOrderConfirmedReceivedChan:
+			Send_order_executed(order, c)
+		case order := <-ExSlaveChans.ToCommOrderConfirmedReceivedChan:
+			Send_order_confirmed_received(order, c)
+		case order := <-ExSlaveChans.ToCommOrderConfirmedExecutuinChan:
+			Send_order_confirmed_executed(order, c)
 		}
 	}
 }
@@ -205,7 +219,7 @@ func Select_receive() {
 	var barr []byte
 	fmt.Println("Select_receive")
 	for {
-		barr = <-ExNetChan.ToComm
+		barr = <-ExNetChans.ToComm
 		Decrypt_message(barr)
 	}
 }

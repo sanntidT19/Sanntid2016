@@ -1,11 +1,33 @@
 package main
 
 import (
-	. "./Network"
+	//. "./Network"
 	"fmt"
-	. "time"
+	//. "time"
+	"os"
+	"net"
 )
+/* LookupHost
+ */
 
+func main() {
+ if len(os.Args) != 3 {
+ fmt.Fprintf(os.Stderr,"Usage: %s network-type service\n",os.Args[0])
+ os.Exit(1)
+ }
+ networkType := os.Args[1]
+ service := os.Args[2]
+ port, err := net.LookupPort(networkType, service)
+ if err != nil {
+ fmt.Println("Error: ", err.Error())
+ os.Exit(2)
+ }
+ fmt.Println("Service port ", port)
+ os.Exit(0)
+}
+
+
+/*
 type Slave struct {
 	nr           int
 	internalList []bool
@@ -52,7 +74,7 @@ func main() {
 
 	masterToCommImMasterChan <- "hu og hei"
 
-	go Select_receive(networkToComm /*commToMasterSlaveChan chan Slave,*/, commToMasterOrderReceivedChan, commToMasterOrderExecutedChan, commToMasterOrderConfirmedReceivedChan, commToMasterOrderConfirmedExecutionChan, commToSlaveOrderListChan, commToSlaveImMasterChan, commToSlaveReceivedConfirmationChan, commToSlaveExecutedConfirmationChan)
+	go Select_receive(networkToComm /*commToMasterSlaveChan chan Slave,, commToMasterOrderReceivedChan, commToMasterOrderExecutedChan, commToMasterOrderConfirmedReceivedChan, commToMasterOrderConfirmedExecutionChan, commToSlaveOrderListChan, commToSlaveImMasterChan, commToSlaveReceivedConfirmationChan, commToSlaveExecutedConfirmationChan)
 	fmt.Println("commToNetwork")
 
 	sending := <-commToNetwork
@@ -68,3 +90,4 @@ func main() {
 	Sleep(10 * Second)
 
 }
+*/
