@@ -30,8 +30,8 @@ type ExternalSlaveChannels struct {
 	ToCommSlaveChan                   chan Slave //"sla"
 	ToCommOrderReceivedChan           chan []int //"ore"
 	ToCommOrderExecutedChan           chan []int //"oex"
-	ToCommOrderConfirmedReceivedChan  chan []int //"ocr"
-	ToCommOrderConfirmedExecutuinChan chan []int //"oce"
+	ToCommOrderListReceivedChan  chan []int //"ocr"
+	ToCommOrderConfirmedExecutionChan chan []int //"oce"
 	ToCommExternalButtonPushedChan chan []int //"ebp"
 }
 type ExternalMasterChannels struct {
@@ -47,8 +47,8 @@ func Slave_external_chans_init() {
 	ExSlaveChans.ToCommSlaveChan = make(chan Slave) //"sla"
 	ExSlaveChans.ToCommOrderReceivedChan = make(chan []int) //"ore"
 	ExSlaveChans.ToCommOrderExecutedChan = make(chan []int) //"oex"
-	ExSlaveChans.ToCommOrderConfirmedReceivedChan = make(chan []int) //"ocr"
-	ExSlaveChans.ToCommOrderConfirmedExecutuinChan = make(chan []int) //"oce"
+	ExSlaveChans.ToCommOrderListReceivedChan = make(chan []int) //"ocr"
+	ExSlaveChans.ToCommOrderConfirmedExecutionChan = make(chan []int) //"oce"
 	ExSlaveChans.ToCommExternalButtonPushedChan = make(chan []int)	//"ebp"
 }
 func Master_external_chans_init() {
@@ -77,6 +77,11 @@ func Slave_init() {
 		//communicate with statemachine
 		go Recive_externalList()
 
+		// ##1 Send order received <- update external list in struct
+
+		// ##2 send floor reached <- get order from statemachine
+		// <- receive confirmation on order executed and set lights
+		
 
 	}
 }
@@ -90,12 +95,18 @@ func Master_init(s Slave) {
 	m Master{s}
 	go Select_send_master(c)
 	go Select_receive()
-
-
 	//if call for new optimalization
 	//recive it and  iterate slaves laves
 	go Interuption_killer()
+
+	go ()
+	// ##1 wait for order received <- stop send orders
+
+	// ##2 wait for floor reacehed <- delete order from masters externalList 
+	// <- send to all order executed <- all slaves must update the externalpanel
+
 	}
+
 func Interuption_killer() {
 	signal.Notify(InSlaveChans.InteruptChan, os.Interrupt)
 	signal.Notify(InSlaveChans.InteruptChan, syscall.SIGTERM)
@@ -109,70 +120,45 @@ func Interuption_killer() {
 func Error() { // handle error here?
 
 }
-
-func (s Slave) Recive_externalList() {
+func Send_to_slave() {
+	ExMasterChans.ToCommOrderListChan 
+	ExMasterChans.ToCommReceivedConfirmationChan 
+	ExMasterChans.ToCommExecutedConfirmationChan 
 	for {
-	s.externalList = <- ExComExMasterChanshans.ToSlaveOrderListChan 
+		select {
+			case order := <-ExCommChans.ToSlaveReceivedOrderListConfirmationChan:
+
+			case order := <-ExCommChans.ToSlaveExecutedConfirmationChan:
+				ExToCommChans.ToSlaveExecutedConfirmationCHan
+			case order := <-ExCommChans.ToSlaveOrderListChan:
+				ExToCommChans.ToSlaveOrderListChan <- order
+		}
 	}
 }
-
-func Send_confirmation_to_master(message string) {
+func Send_confirmation_to_master() {
 	//when recieved from state machine
 	for {
 		select {
 			case order := <-ExStateChans.ToSlaveExButtonPushedChan
 				ExSlaveChans.ToCommExternalButtonPushedChan <- order
-			//case order := //?????????????
-			//	ExSlaveChans.ToCommOrderReceivedChan <- order
+
+			case order := <- ExStateChans.ToSlaveOrderListReceivedChan:
+				ExSlaveChans.ToCommOrderListReceivedChan <- order 
+
 			case order := <- ExStateChans.ToSlaveExecutedOrderChan:
 				ExSlaveChans.ToCommOrderExecutedChan <- order
 				////internl chans:
 			//case order := : 
-			//	order <- ExSlaveChans.ToCommOrderConfirmedReceivedChan 
+			//	order <- ExSlaveChans.ToCommOrderListReceivedChan 
 			case order <- InSlaveChans.OrderConfirmedExecutedChan: 
-				ExSlaveChans.ToCommOrderConfirmedExecutuinChan <- order
+				ExSlaveChans.ToCommOrderConfirmedExecutionChan <- order
 
 		}
 	}
 }
-func Get_order_executed_from_slave() []int {
-	order := <- ExCommChans.ToMasterOrderReceivedChan
-	Send_order_executed_confirmation_to_slave(order)
-	//delete from externalList
-	return order
-}
-func Send_order_executed_to_master(order []int) {
-	ExSlaveChans.ToCommOrderReceivedChan <- order
-}
-
-func Send_order_executed_confirmation_to_slave(order) {
-	ExCommChans.ToSlaveConfirmedExecutionChan <- order
-}
-func Get_order_confirmation_from_master() {
-	order := <- ExSlaveChans.ToSlaveConfirmedExecutionChan
-	//turn off ligths
-
-}
-
-func (s Slave) Update_current_floor_and_direction(currentFloorChan chan int, directionChan chan int, ToCommSlaveStructChan chan int) {
-	/*
-	select {
-	case floor := <-currenFloorChan:
-		s.currentFloor = floor
-	case dir := <-directionChan:
-		s.driection = dir
-	}
-
-	s.Send_slave_to_master()
-*/
-
-}
 
 func (s Slave) Send_slave_to_master() {
 	ExSlaveChans.ToCommSlaveChan <- s
-}
-func (m Master) Get_slave_from_slave() {
-
 }
 
 func (s Slave) Send_slave_to_state(slaveStateChan chan int) { //send next floor to statemachine
@@ -198,14 +184,3 @@ func (s Slave) Send_slave_to_state(slaveStateChan chan int) { //send next floor 
 	}
 }
 
-
-
-func Distribute_orders() {
-	//sends new external list to communication module 
-	ExMasterChans.ToCommOrderChan <- Get_optimal_externalList()
-}
-func (m Master) Get_optimal_externalList() {
-	//newExternalList := updateExternalList()
-	//m.externalList = newExternalList 
-	//ExMasterChans.ToCommOrderChan <- newExternalList
-}

@@ -18,37 +18,35 @@ type ExternalCommunicationChannels struct {
 
 	//communication channels
 	ToMasterSlaveChan                   chan Slave //"sla"
-	ToMasterOrderReceivedChan           chan []int //"ore"
+	ToMasterOrderListReceivedChan       chan []int //"ore"
 	ToMasterOrderExecutedChan           chan []int //"oex"
-	ToMasterOrderConfirmedReceivedChan  chan []int //"ocr"
+	ToMasterOrderListReceivedChan       chan []int //"ocr"
 	ToMasterOrderConfirmedExecutionChan chan []int //"oce"
-	ToMasterExternalButtonPushed 		chan []int //"ebp"
+	ToMasterExternalButtonPushed        chan []int //"ebp"
 
-	ToSlaveOrderListChan            chan [][]int //"exo"
+	ToSlaveOrderListChan chan [][]int //"exo"
 	//ToSlaveImMasterChan             chan string  //"iam"
-	ToSlaveReceivedConfirmationChan chan []int   //"rco"
-	ToSlaveExecutedConfirmationChan chan []int   //"eco"
+	ToSlaveReceivedOrderListConfirmationChan chan []int //"rco"
+	ToSlaveExecutedConfirmationChan          chan []int //"eco"
 
 }
 type InternalCommunicationChannels struct {
-	newExternalList   chan [][]int
+	newExternalList              chan [][]int
 	slaveToStateExMasterChanshan chan int //send input to statemachine
 }
 
 func external_comm_channels_init() {
 	ExCommChans.ToMasterSlaveChan = make(chan Slave)                   //"sla"
-	ExCommChans.ToMasterOrderReceivedChan = make(chan []int)           //"ore"
+	ExCommChans.ToMasterOrderListReceivedChan = make(chan []int)       //"ore"
 	ExCommChans.ToMasterOrderExecutedChan = make(chan []int)           //"oex"
-	ExCommChans.ToMasterOrderConfirmedReceivedChan = make(chan []int)  //"ocr"
+	ExCommChans.ToMasterOrderListReceivedChan = make(chan []int)       //"ocr"
 	ExCommChans.ToMasterOrderConfirmedExecutionChan = make(chan []int) //"oce"
-	ExCommChans.ToMasterExternalButtonPushedChan = make(chan []int)			//"ebp"
+	ExCommChans.ToMasterExternalButtonPushedChan = make(chan []int)    //"ebp"
 
-	ExCommChans.ToSlaveOrderListChan = make(chan [][]int)          //"exo"
+	ExCommChans.ToSlaveOrderListChan = make(chan [][]int) //"exo"
 	//ExCommChans.ToSlaveImMasterChan = make(chan string)            //"iam"
-	ExCommChans.ToSlaveReceivedConfirmationChan = make(chan []int) //"rco"
-	ExCommChans.ToSlaveExecutedConfirmationChan = make(chan []int) //"eco"
-
-
+	ExCommChans.ToSlaveReceivedOrderListConfirmationChan = make(chan []int) //"rco"
+	ExCommChans.ToSlaveExecutedConfirmationChan = make(chan []int)          //"eco"
 
 }
 func internal_comm_chans_init() {
@@ -143,7 +141,7 @@ func Decrypt_message(message []byte) {
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		ExCommChans.ToMasterOrderReceivedChan <- order
+		ExCommChans.ToMasterOrderListReceivedChan <- order
 
 	case string(message[1:4]) == "oex":
 		noPrefix := message[5:]
@@ -155,7 +153,7 @@ func Decrypt_message(message []byte) {
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		ExCommChans.ToMasterOrderConfirmedReceivedChan <- order
+		ExCommChans.ToMasterOrderListReceivedChan <- order
 
 	case string(message[1:4]) == "oce":
 		noPrefix := message[5:]
@@ -166,7 +164,7 @@ func Decrypt_message(message []byte) {
 	//Slave
 	case string(message[1:4]) == "ebp":
 		noPrefix := message[5:]
-		order := make([]int,2)
+		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
 		ExCommChans.ToMasterExternalButtonPushedChan
 
@@ -188,7 +186,7 @@ func Decrypt_message(message []byte) {
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		ExCommChans.ToSlaveReceivedConfirmationChan <- order
+		ExCommChans.ToSlaveReceivedOrderListConfirmationChan <- order
 
 	case string(message[1:4]) == "eco":
 		noPrefix := message[5:]
@@ -206,9 +204,9 @@ func Select_send_master(c Conn) {
 		case externalOrderList := <-ExMasterChans.ToCommOrderListChan:
 			Send_order(externalOrderList, c)
 		case order := <-ExMasterChans.ToCommReceivedConfirmationChan:
-			Send_received_confirmation(order,c)
+			Send_received_confirmation(order, c)
 		case order := <-ExMasterChans.ToCommExecutedConfirmationChan:
-			Send_executed_confirmation(order,c)
+			Send_executed_confirmation(order, c)
 		default:
 			Send_im_master(c)
 		}
