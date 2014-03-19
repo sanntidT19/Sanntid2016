@@ -1,29 +1,32 @@
 package main
 
 import (
-	//. "./Network"
-	"fmt"
-	//. "time"
-	"os"
-	"net"
+    "fmt"
+    "os"
+    "os/signal"
+    "syscall"
+    "time" // or "runtime"
 )
-/* LookupHost
- */
+
+func cleanup() {
+    fmt.Println("cleanup")
+}
 
 func main() {
- if len(os.Args) != 3 {
- fmt.Fprintf(os.Stderr,"Usage: %s network-type service\n",os.Args[0])
- os.Exit(1)
- }
- networkType := os.Args[1]
- service := os.Args[2]
- port, err := net.LookupPort(networkType, service)
- if err != nil {
- fmt.Println("Error: ", err.Error())
- os.Exit(2)
- }
- fmt.Println("Service port ", port)
- os.Exit(0)
+    c := make(chan os.Signal)
+    
+    go func() {
+    	signal.Notify(c, os.Interrupt)
+    	signal.Notify(c, syscall.SIGTERM)
+        <-c
+        cleanup()
+        os.Exit(1)
+    }()
+
+    for {
+        fmt.Println("sleeping...")
+        time.Sleep(10 * time.Second) // or runtime.Gosched() or similar per @misterbee
+    }
 }
 
 

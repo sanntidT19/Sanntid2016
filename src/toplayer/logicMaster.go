@@ -3,6 +3,7 @@ package toplayer
 //export GOPATH =$HOME/Elevator-progress-/
 import(
 	."time"
+	."os"
 )
 const (
 	N_FLOORS = 4
@@ -12,6 +13,7 @@ const (
 //Global chans
 var ExSlaveChans ExternalSlaveChannels
 var ExMasterChans ExternalMasterChannels
+var InSlaveChans InternalSlaveChannels
 
 type Slave struct {
 	nr int
@@ -30,32 +32,43 @@ type ExternalSlaveChannels struct {
 	ToCommOrderExecutedChan           chan []int //"oex"
 	ToCommOrderConfirmedReceivedChan  chan []int //"ocr"
 	ToCommOrderConfirmedExecutuinChan chan []int //"oce"
+	ToCommExternalButtonPushedChan chan []int //"ebp"
 }
 type ExternalMasterChannels struct {
 	ToCommOrderListChan            chan [][]int //"exo"
 	ToCommReceivedConfirmationChan chan []int   //"rco"
 	ToCommExecutedConfirmationChan chan []int   //"eco"
 }
-func Slave_chans_init() {
+type InternalSlaveChannels struct {
+	OrderConfirmedExecutedChan chan []int
+	InteruptChan chan os.Signal
+}
+func Slave_external_chans_init() {
 	ExSlaveChans.ToCommSlaveChan = make(chan Slave) //"sla"
 	ExSlaveChans.ToCommOrderReceivedChan = make(chan []int) //"ore"
 	ExSlaveChans.ToCommOrderExecutedChan = make(chan []int) //"oex"
 	ExSlaveChans.ToCommOrderConfirmedReceivedChan = make(chan []int) //"ocr"
 	ExSlaveChans.ToCommOrderConfirmedExecutuinChan = make(chan []int) //"oce"
+	ExSlaveChans.ToCommExternalButtonPushedChan = make(chan []int)	//"ebp"
 }
-func Master_chans_init() {
+func Master_external_chans_init() {
 	ExMasterChans.ToCommOrderListChan = make(chan [][]int) //"exo"
 	ExMasterChans.ToCommReceivedConfirmationChan = make(chan []int)   //"rco"
 	ExMasterChans.ToCommExecutedConfirmationChan = make(chan []int)   //"eco"
 }
+func Slave_internal_chans_init(){
+	InSlaveChans.OrderConfirmedExecutedChan = make(chan []int)
+	InSlaveChans.InteruptChan = make(chan os.Signal,1) //must be buffered see package declaration
+}
 
 func Slave_init() {
 	buf := make([]byte,1024)
+	s Slave{}
 	connSend, connReceive := Network_init()
 	_, _, err := connReceive.SetReadDeadline(time.Now().Add(Random_init(10, 100) * MilliSecond))
 	_, _, err := connReceive.ReadFromUDP(buf) //n contanis numbers of used bytes
 	if err != nil { //run master if connection fails
-		go Master_init()
+		go Master_init(s)
 	} else {
 		s Slave{}
 		go Select_send_slave(connSend)
@@ -63,23 +76,39 @@ func Slave_init() {
 
 		//communicate with statemachine
 		go Recive_externalList()
+
+
 	}
 }
 
-func Master_init() {
+func Master_init(s Slave) {
 	connSend, _ := Network_init()
 	ExNetChans.connSend <- connSend
 	
 	//intial sending contianing: ipadress, initialization, 
 	//just listen to this
-	m Master{}
+	m Master{s}
 	go Select_send_master(c)
 	go Select_receive()
-	//if call for new optimalization
-	
 
-	//recive it and  iterate slaves slaves
+
+	//if call for new optimalization
+	//recive it and  iterate slaves laves
+	go Interuption_killer()
 	}
+func Interuption_killer() {
+	signal.Notify(InSlaveChans.InteruptChan, os.Interrupt)
+	signal.Notify(InSlaveChans.InteruptChan, syscall.SIGTERM)
+	<- InSlaveChans.InteruptChan
+	//what should be done when ctrl-c is pressed????? 
+	//<- goes here.
+	fmt.Println("Got ctrl-c signal")
+	Exit(0)
+}
+
+func Error() { // handle error here?
+
+}
 
 func (s Slave) Recive_externalList() {
 	for {
@@ -89,13 +118,22 @@ func (s Slave) Recive_externalList() {
 
 func Send_confirmation_to_master(message string) {
 	//when recieved from state machine
+	for {
+		select {
+			case order := <-ExStateChans.ToSlaveExButtonPushedChan
+				ExSlaveChans.ToCommExternalButtonPushedChan <- order
+			//case order := //?????????????
+			//	ExSlaveChans.ToCommOrderReceivedChan <- order
+			case order := <- ExStateChans.ToSlaveExecutedOrderChan:
+				ExSlaveChans.ToCommOrderExecutedChan <- order
+				////internl chans:
+			//case order := : 
+			//	order <- ExSlaveChans.ToCommOrderConfirmedReceivedChan 
+			case order <- InSlaveChans.OrderConfirmedExecutedChan: 
+				ExSlaveChans.ToCommOrderConfirmedExecutuinChan <- order
 
-	<- ExSlaveChans.ToCommOrderReceivedChan 
-	<- ExSlaveChans.ToCommOrderExecutedChan 
-	<- ExSlaveChans.ToCommOrderConfirmedReceivedChan 
-	<- ExSlaveChans.ToCommOrderConfirmedExecutuinChan 
-
-	
+		}
+	}
 }
 func Get_order_executed_from_slave() []int {
 	order := <- ExCommChans.ToMasterOrderReceivedChan

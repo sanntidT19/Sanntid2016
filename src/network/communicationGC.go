@@ -22,6 +22,7 @@ type ExternalCommunicationChannels struct {
 	ToMasterOrderExecutedChan           chan []int //"oex"
 	ToMasterOrderConfirmedReceivedChan  chan []int //"ocr"
 	ToMasterOrderConfirmedExecutionChan chan []int //"oce"
+	ToMasterExternalButtonPushed 		chan []int //"ebp"
 
 	ToSlaveOrderListChan            chan [][]int //"exo"
 	//ToSlaveImMasterChan             chan string  //"iam"
@@ -40,11 +41,14 @@ func external_comm_channels_init() {
 	ExCommChans.ToMasterOrderExecutedChan = make(chan []int)           //"oex"
 	ExCommChans.ToMasterOrderConfirmedReceivedChan = make(chan []int)  //"ocr"
 	ExCommChans.ToMasterOrderConfirmedExecutionChan = make(chan []int) //"oce"
+	ExCommChans.ToMasterExternalButtonPushedChan = make(chan []int)			//"ebp"
 
 	ExCommChans.ToSlaveOrderListChan = make(chan [][]int)          //"exo"
 	//ExCommChans.ToSlaveImMasterChan = make(chan string)            //"iam"
 	ExCommChans.ToSlaveReceivedConfirmationChan = make(chan []int) //"rco"
 	ExCommChans.ToSlaveExecutedConfirmationChan = make(chan []int) //"eco"
+
+
 
 }
 func internal_comm_chans_init() {
@@ -89,6 +93,12 @@ func Send_slave(s Slave, c Conn) {
 	prefix, _ := Marshal("sla")
 	ExNetChans.ConnChan <- c
 	ExNetChans.ToNetwork <- append(prefix, byteSlave...)
+}
+func Send_ex_button_push(order []int, c Conn) {
+	byteMessage, _ := Marshal(order)
+	prefix, _ := Marshal("ebp")
+	ExNetChans.ConnChan <- c
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
 func Send_order_received(order []int, c Conn) {
@@ -154,6 +164,12 @@ func Decrypt_message(message []byte) {
 		ExCommChans.ToMasterOrderConfirmedExecutionChan <- order
 
 	//Slave
+	case string(message[1:4]) == "ebp":
+		noPrefix := message[5:]
+		order := make([]int,2)
+		_ = Unmarshal(noPrefix, &order)
+		ExCommChans.ToMasterExternalButtonPushedChan
+
 	case string(message[1:4]) == "exo":
 		noPrefix := message[5:]
 		externalOrderList := make([][]int, FLOORS)
@@ -204,6 +220,8 @@ func Select_send_slave(c Conn) {
 		//Slave
 		case slave := <-ExSlaveChans.ToCommSlaveChan:
 			Send_slave(slave, c)
+		case order := <-ExSlaveChans.ToCommExternalButtonPushedChan:
+			Send_ex_button_push(order, c)
 		case order := <-ExSlaveChans.ToCommOrderReceivedChan:
 			Send_order_received(order, c)
 		case order := <-ExSlaveChans.ToCommOrderConfirmedReceivedChan:
