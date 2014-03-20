@@ -145,19 +145,40 @@ func (m Master) Master_communication() {
 	for {
 		select {
 			//triggers new optimization when new order received
-			case order := <- ExCommChans.ToMasterExternalButtonPushed   
+			case order := <- ExCommChans.ToMasterExternalButtonPushed 
+				
 				InMasterChans.OptimizationTriggerChan <- order
-			//receives new optimized orderList
+ 
+
+				//Need to have same queueing system as order executed if different orders are coming in
+				//Same things need to be done, but we must also calculate some optimizationø
+				//We compute optimization again if the queue is not empty
+				//receives new optimized orderList
 			case orderList := <- InMasterChans.OptimizationReturnChan
 				//send to slaves master
 				ExMasterChans.ToCommOrderListChan: <- orderList
 
 			case order := <-ExCommChans.ToMasterOrderExecutedChan://to spesific IP
+				if notInQueue(order){
+					externalPushQueue = appendElement(externalPushQueue, order)
+					externalPushChannel <- externalPushQueue //Where its sending must sending the first element in the list if its not empty. otherwise just update
+				} 
+
 				ExMasterChans.ToCommExecutedConfirmationChan <- order
-			
-			//Resopnd on orderList received
+				//Master gets a message that order is executed.
+				//Save the order in a temp variable
+				//calls ordere_executed_manager
+				//order_exe sends to channel when its done
+
+				//if any other incoming orders are coming while order_exe is running, queue them in a list
+				//reset the temp var if order_exe is done and queue is empty
+				// if not empty, extract first in queue and set to temp var
+
+
+			//Respond on orderList received
 			case order := <-ExCommChans.ToMasterOrderListReceivedChan://with spesific IP
 				InMasterChans.OrderReceivedMangerChan <- order
+				//Done
 
 
 			case slave <- ExCommChans.ToMasterSlaveChan:
@@ -169,12 +190,14 @@ func (s Slave) Slave_communication() {
 	
 	for {
 		select {
+
+			//These two needs must trigger a send_state that doesnt end until master has confirmed receiving it.
 			case slave := <-ExStateChans.DirectionUpdate:
 				ExCommChans.ToMasterSlaveChan <- slave
 			case slave := <-ExStateChans.CurrentFloorUpdate:
 				ExCommChans.ToMasterSlaveChan <- slave
 
-			//checks new button pressed
+			//checks new button pressed, send to master until confirmation
 			case order := <-ExStateChans.ToSlaveExButtonPushedChan:
 				ExSlaveChans.ToCommExternalButtonPushedChan <- order
 			
