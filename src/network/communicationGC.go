@@ -3,15 +3,25 @@ package network
 import (
 	. "encoding/json"
 	"fmt"
-	. "toplayer"
+	. "net"
+	"time"
 )
 
 const (
-	FLOORS = 4
+	N_FLOORS = 4
 )
 
 var ExCommChans ExternalCommunicationChannels
 var InCommChans InternalCommunicationChannels
+
+type Slave struct {
+	nr           int
+	ip           IP
+	internalList []int
+	externalList [][]int
+	currentFloor int
+	direction    int
+}
 
 type ExternalCommunicationChannels struct {
 
@@ -19,13 +29,12 @@ type ExternalCommunicationChannels struct {
 	ToMasterSlaveChan                        chan ipSlave        //"sla"
 	ToMasterOrderListReceivedChan            chan ipOrderMessage //"ore"
 	ToMasterOrderExecutedChan                chan ipOrderMessage //"oex"
-	ToMasterOrderListReceivedChan            chan ipOrderMessage //"ocr"
 	ToMasterOrderConfirmedExecutionChan      chan ipOrderMessage //"oce"
-	ToMasterExternalButtonPushed             chan ipOrderMessage //"ebp"
+	ToMasterExternalButtonPushedChan         chan ipOrderMessage //"ebp"
 	ToSlaveOrderListChan                     chan [][]int        //"exo"
 	ToSlaveReceivedOrderListConfirmationChan chan ipOrderMessage //"rco"
 	ToSlaveExecutedConfirmationChan          chan ipOrderMessage //"eco"
-	//ToSlaveImMasterChan chan string  					//"iam"
+	ToSlaveImMasterChan                      chan string         //"iam"
 
 }
 type InternalCommunicationChannels struct {
@@ -57,7 +66,6 @@ func internal_comm_chans_init() {
 	InCommChans.newExternalList = make(chan [][]int)
 	InCommChans.slaveToStateExMasterChanshan = make(chan int) //send input to statemachine
 	//network
-
 }
 
 //Master
@@ -68,11 +76,10 @@ func Send_order(externalOrderList [][]int, c Conn) { //send exectuionOrderList
 	for {
 		Send(byteOrder, c)
 		select {
-		case <-ExCommChan.ToMasterOrderListReceivedChan:
+		case <-ExCommChans.ToMasterOrderListReceivedChan:
 			return
 		default:
-			Sleep(10 * Millisecond)
-
+			time.Sleep(10 * time.Millisecond)
 		}
 	}
 }
@@ -135,14 +142,13 @@ func Send_order_confirmed_executed(order []int, c Conn) {
 	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
-/*
 func Send_im_master(c Conn) { //send I am master
 	byteMessage, _ := Marshal("im master")
 	prefix, _ := Marshal("iam")
 	ExNetChans.ConnChan <- c
 	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 
-}*/
+}
 
 func Select_send_master(c Conn) {
 
@@ -171,11 +177,9 @@ func Select_send_slave(c Conn) {
 			Send_ex_button_push(order, c)
 		case order := <-ExSlaveChans.ToCommOrderReceivedChan:
 			Send_order_received(order, c)
-		case order := <-ExSlaveChans.ToCommOrderConfirmedReceivedChan:
+		case order := <-ExSlaveChans.ToCommOrderListReceivedChan:
 			Send_order_executed(order, c)
-		case order := <-ExSlaveChans.ToCommOrderConfirmedReceivedChan:
-			Send_order_confirmed_received(order, c)
-		case order := <-ExSlaveChans.ToCommOrderConfirmedExecutuinChan:
+		case order := <-ExSlaveChans.ToCommOrderConfirmedExecutionChan:
 			Send_order_confirmed_executed(order, c)
 		}
 	}
@@ -240,7 +244,7 @@ func Decrypt_message(message []byte, addr *UDPAddr) {
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
-		ExCommChans.ToSlaveExecutedConfirmationChan <- ipOrderMessage{arrd, order}
+		ExCommChans.ToSlaveExecutedConfirmationChan <- ipOrderMessage{addr, order}
 		/*
 			case string(message[1:4]) == "iam":
 				noPrefix := message[5:]
