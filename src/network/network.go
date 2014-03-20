@@ -25,12 +25,14 @@ type NetworkExternalChannels struct {
 	ToNetwork chan []byte
 	ToComm chan []byte
 	ConnChan chan Conn
+	ToCommAddr chan *UDPADddr
 
 }
 func network_external_chan_init() {
 	ExNetChans.ToNetwork = make(chan []byte)
 	ExNetChans.ToComm = make(chan []byte)
 	ExNetChans.ConnChan = make(chan Conn)
+	ExNetChans.ToCommAddr = make(chan *UDPAddr)
 }
 
 
@@ -63,9 +65,7 @@ func Send(to_writing []byte, c Conn) {
 		} else {
 			//break
 		}
-		
 	}
-	
 }
 
 func Receive() { //will error trigger if just read fails? or will it only go on deadline?
@@ -77,14 +77,18 @@ func Receive() { //will error trigger if just read fails? or will it only go on 
 	c.SetReadDeadline(time.Now().Add(300 * Millisecond)) //returns error if deadline is reached
 	n, sendingAddr, err = c.ReadFromUDP(buf)                     //n contanis numbers of used bytes, fills buf with content on the connection
 
-	if err == nil {                                    //if error is nil, read from buffer
+	if err == nil {//if error is nil, read from buffer
 		ExNetChans.ToComm <- buf[0:n]
+		ExNetChans.ToCommAddr <- addr
+		
 		ExSlaveChans.ToSlaveImMasterChan <- true
 	} else {
 		ExSlaveChans.ToSlaveImMasterChan <- false
 	}
 
 }
+
+
 /*
 func Choose_master() {
 	go Slave_elevator()
