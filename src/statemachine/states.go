@@ -43,10 +43,8 @@ The elevator manager
 
 */
 type ExternalStateMachineChannels struct {
-
 }
 type InternalStateMachineChannels struct {
-
 }
 
 func External_state_machine_channels_init() {
@@ -64,7 +62,6 @@ func Elevator_manager() {
 	//This must be done more smoothly later
 	currentStateChan := make(chan State)
 	//currentStateChan <- State{driver.Elev_get_direction(), driver.Elev_get_floor_sensor_signal()}
-	
 
 	var orderArray [driver.N_FLOORS][2]int // Up and down goes here
 	var commandOrderList [driver.N_FLOORS]int
@@ -99,19 +96,19 @@ func Elevator_manager() {
 
 			commandOrderList[orderButt.floor] = 1
 			//fmt.Println("Command order pressed: ", commandOrderList)
-			
+
 			orderArrayChan <- orderArray
 			commandOrderChan <- commandOrderList
-			
+
 			setLightChan <- orderButt
 		case orderButt := <-externalButtPressChan:
 
 			orderArray[orderButt.floor][orderButt.buttonType] = 1
 			//fmt.Println("External order pressed: ", orderArray)
-			
+
 			orderArrayChan <- orderArray
 			commandOrderChan <- commandOrderList
-			
+
 			setLightChan <- orderButt
 		case managersCurrentOrder = <-orderToManagerChan: //Just so the manager can keep up with the current order
 			//fmt.Println("managersCurrentOrder:", managersCurrentOrder)
@@ -127,7 +124,7 @@ func Elevator_manager() {
 			//fmt.Println("CommandOrderlist: ", commandOrderList)
 			//fmt.Println("External order array: ", orderArray)
 			setLightChan <- Button{managersCurrentOrder.floor, managersCurrentOrder.buttonType, false}
-			time.Sleep(time.Second*1)
+			time.Sleep(time.Second * 1)
 			tempOrderServedChan <- true
 		}
 	}
@@ -223,19 +220,19 @@ func Choose_next_order(orderArrayChan chan [driver.N_FLOORS][2]int, commandOrder
 	var commandList [driver.N_FLOORS]int
 	var firstPriority, secondPriority int
 	/*
-	go func(){
-		for{
-			select{
-				case orderArray = <-orderArrayChan:
-					fmt.Println("I am also in this choosenextorder-case")
-					incomingUpdateChan <- true
-				case commandList = <-commandOrderChan:
-					fmt.Println("hope im not here")
-					incomingUpdateChan <- true
+		go func(){
+			for{
+				select{
+					case orderArray = <-orderArrayChan:
+						fmt.Println("I am also in this choosenextorder-case")
+						incomingUpdateChan <- true
+					case commandList = <-commandOrderChan:
+						fmt.Println("hope im not here")
+						incomingUpdateChan <- true
+					}
 				}
-			}
 
-		}()
+			}()
 	*/
 	for {
 		select {
@@ -262,7 +259,7 @@ func Choose_next_order(orderArrayChan chan [driver.N_FLOORS][2]int, commandOrder
 			}
 			i := currentFloor
 			// Iterating in the most desirable direction
-			for i < driver.N_FLOORS && i >= 0{
+			for i < driver.N_FLOORS && i >= 0 {
 				if isCommandOrder := commandList[i]; isCommandOrder == 1 {
 					resultOrderSlice[resultIter] = Button{i, driver.COMMAND, true}
 					resultIter++
@@ -271,7 +268,7 @@ func Choose_next_order(orderArrayChan chan [driver.N_FLOORS][2]int, commandOrder
 					resultOrderSlice[resultIter] = Button{i, firstPriority, true}
 					resultIter++
 				}
-				i += dirIter 
+				i += dirIter
 			}
 			i -= dirIter
 			//Now going from top/bottom and checking the orders in the other direction, as well as commands not yet checked
@@ -383,7 +380,7 @@ func Button_updater(externalButtPressChan chan Button, internalButtPressChan cha
 					if buttonVar == 1 && j != driver.COMMAND {
 						fmt.Println("Button has been pushed")
 						externalButtPressChan <- Button{i, j, true} //   YO!   Need to make this one sexier. Maybe one channel for each button
-						buttonMatrix[i][j] = 1 //Confirm press to avoid spamming
+						buttonMatrix[i][j] = 1                      //Confirm press to avoid spamming
 					} else if buttonVar == 1 && j == driver.COMMAND {
 						fmt.Println("Button has been pushed")
 						buttonMatrix[i][j] = 1 //Confirm press to avoid spamming

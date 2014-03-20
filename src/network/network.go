@@ -34,7 +34,7 @@ func network_external_chan_init() {
 }
 
 
-func Network_init() Conn, Conn {
+func Network_init() (C)onn, Conn) {
 	fmt.Println("gi")
 	addr, err := ResolveUDPAddr("udp", "129.241.187.255"+PORT) //leser bare fra porten generellt
 	c1, err := DialUDP("udp", nil, address)
@@ -55,10 +55,7 @@ func Network_init() Conn, Conn {
 
 }
 
-func Send() { 
-	c := <- ExNetChans.ConnChan
-	to_writing <- ExNetChans.ToNetwork
-	for {
+func Send(to_writing []byte, c Conn) { 
 		_, err := c.Write(to_writing)
 
 		if err != nil {
@@ -66,9 +63,9 @@ func Send() {
 		} else {
 			//break
 		}
-		time.Sleep(50 * time.Millisecond)
-
+		
 	}
+	
 }
 
 func Receive() { //will error trigger if just read fails? or will it only go on deadline?
@@ -77,8 +74,8 @@ func Receive() { //will error trigger if just read fails? or will it only go on 
 
 	defer c.Close()
 	//this will also check if the master is still there.
-	c.SetReadDeadline(time.Now().Add(300 * MilliSecond)) //returns error if deadline is reached
-	n, _, err = c.ReadFromUDP(buf)                     //n contanis numbers of used bytes, fills buf with content on the connection
+	c.SetReadDeadline(time.Now().Add(300 * Millisecond)) //returns error if deadline is reached
+	n, sendingAddr, err = c.ReadFromUDP(buf)                     //n contanis numbers of used bytes, fills buf with content on the connection
 
 	if err == nil {                                    //if error is nil, read from buffer
 		ExNetChans.ToComm <- buf[0:n]
@@ -132,7 +129,7 @@ func Master_elevator() {
 	}
 }
 */
-func Random_int(min int, max int) int { //gives a random int for waiting
+func Random_init(min int, max int) int { //gives a random int for waiting
 	rand.Seed(time.Now().UTC().UnixNano())
 	return min + rand.Intn(max-min)
 }

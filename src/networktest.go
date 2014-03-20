@@ -1,20 +1,85 @@
 package main
 
 import (
-    "fmt"
-    "os"
-    "os/signal"
-    "syscall"
-    "time" // or "runtime"
+	"fmt"
+	. "net"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
+const (
+	PORT = ":20019"
+)
+
+var InteruptChan chan os.Signal
+
+func main() {
+	fmt.Println("hei")
+	//buf := make([]byte, 1024)
+	Network_init()
+	//err := connReceive.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	//_, _, err = connReceive.ReadFromUDP(buf) //n contanis numbers of used bytes
+	time.Sleep(time.Second)
+	fmt.Println("hei")
+}
+func Network_init() {
+	InteruptChan = make(chan os.Signal, 1)
+	go Interuption_killer()
+	buf := make([]byte, 1024)
+	fmt.Println("gi")
+	addr, err := ResolveUDPAddr("udp", "129.241.187.255"+PORT) //leser bare fra porten generellt
+	c1, err := DialUDP("udp", nil, addr)
+	go send(c1)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	addr2, _ := ResolveUDPAddr("udp", PORT)
+	c2, err := ListenUDP("udp", addr2)
+
+	c2.SetReadDeadline(time.Now().Add(300 * time.Millisecond)) //returns error if deadline is reached
+	n, address, err := c2.ReadFromUDP(buf)
+	str := ipMessage{address, string(buf)}
+	fmt.Println("structip", str.ip)
+	fmt.Println(string(buf))
+	fmt.Println(n)
+	//defer c1.Close()
+	//defer c2.Close()
+}
+func send(c1 Conn) {
+	for {
+		c1.Write([]byte("neooooooo"))
+		time.Sleep(1000 * time.Millisecond)
+	}
+}
+
+type ipOrderMessage struct {
+	ip    *UDPAddr
+	order string
+}
+
+func Interuption_killer() {
+	signal.Notify(InteruptChan, os.Interrupt)
+	signal.Notify(InteruptChan, syscall.SIGTERM)
+	<-InteruptChan
+	//what should be done when ctrl-c is pressed?????
+	//<- goes here.
+	//SystemInit()
+	fmt.Println("Got ctrl-c signal")
+	os.Exit(0)
+}
+
+/*CRTL_C FUNCTION
 func cleanup() {
     fmt.Println("cleanup")
 }
 
+
 func main() {
     c := make(chan os.Signal)
-    
+
     go func() {
     	signal.Notify(c, os.Interrupt)
     	signal.Notify(c, syscall.SIGTERM)
@@ -27,70 +92,5 @@ func main() {
         fmt.Println("sleeping...")
         time.Sleep(10 * time.Second) // or runtime.Gosched() or similar per @misterbee
     }
-}
-
-
-/*
-type Slave struct {
-	nr           int
-	internalList []bool
-	externalList [][]int
-	currentFloor int //get from driver/IO
-	direction    int // get from driver/IO
-
-}
-
-func main() {
-
-	//Channels_init()
-	//slaveToCommSlaveChan := make(chan Slave)                   //"sla"
-	slaveToCommOrderReceivedChan := make(chan []int)           //"ore"
-	slaveToCommOrderExecutedChan := make(chan []int)           //"oex"
-	slaveToCommOrderConfirmedReceivedChan := make(chan []int)  //"ocr"
-	slaveToCommOrderConfirmedExecutuinChan := make(chan []int) //"oce"
-
-	//Master
-	masterToCommOrderListChan := make(chan [][]int)          //"exo"
-	masterToCommImMasterChan := make(chan string)            //"iam"
-	masterToCommReceivedConfirmationChan := make(chan []int) //"rco"
-	masterToCommExecutedConfirmationChan := make(chan []int) //"eco"
-
-	//communication channels
-	//commToMasterSlaveChan := make(chan Slave)                   //"sla"
-	commToMasterOrderReceivedChan := make(chan []int)           //"ore"
-	commToMasterOrderExecutedChan := make(chan []int)           //"oex"
-	commToMasterOrderConfirmedReceivedChan := make(chan []int)  //"ocr"
-	commToMasterOrderConfirmedExecutionChan := make(chan []int) //"oce"
-
-	commToSlaveOrderListChan := make(chan [][]int)          //"exo"
-	commToSlaveImMasterChan := make(chan string)            //"iam"
-	commToSlaveReceivedConfirmationChan := make(chan []int) //"rco"
-	commToSlaveExecutedConfirmationChan := make(chan []int) //"eco"
-
-	//newExternalList := make(chan [][]int)
-	//slaveToStateMChan := make(chan int) //send input to statemachine
-	//network
-	commToNetwork := make(chan []byte)
-	networkToComm := make(chan []byte)
-
-	go Select_send(commToNetwork, slaveToCommOrderReceivedChan, slaveToCommOrderExecutedChan, slaveToCommOrderConfirmedReceivedChan, slaveToCommOrderConfirmedExecutuinChan, masterToCommOrderListChan, masterToCommImMasterChan, masterToCommReceivedConfirmationChan, masterToCommExecutedConfirmationChan)
-
-	masterToCommImMasterChan <- "hu og hei"
-
-	go Select_receive(networkToComm /*commToMasterSlaveChan chan Slave,, commToMasterOrderReceivedChan, commToMasterOrderExecutedChan, commToMasterOrderConfirmedReceivedChan, commToMasterOrderConfirmedExecutionChan, commToSlaveOrderListChan, commToSlaveImMasterChan, commToSlaveReceivedConfirmationChan, commToSlaveExecutedConfirmationChan)
-	fmt.Println("commToNetwork")
-
-	sending := <-commToNetwork
-	c := Network_init()
-	go Send(c, sending)
-
-	go Receive(networkToComm)
-
-	go Decrypt_message(<-networkToComm, commToMasterOrderReceivedChan, commToMasterOrderExecutedChan, commToMasterOrderConfirmedReceivedChan, commToMasterOrderConfirmedExecutionChan, commToSlaveOrderListChan, commToSlaveImMasterChan, commToSlaveReceivedConfirmationChan, commToSlaveExecutedConfirmationChan)
-	//fmt.Println(string(<-networkToComm))
-	fmt.Println("finito")
-	fmt.Println("channel commToSlave", <-commToSlaveImMasterChan)
-	Sleep(10 * Second)
-
 }
 */

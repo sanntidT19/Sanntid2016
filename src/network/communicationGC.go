@@ -3,8 +3,7 @@ package network
 import (
 	. "encoding/json"
 	"fmt"
-	//. "time"
-	."toplayer"
+	. "toplayer"
 )
 
 const (
@@ -17,17 +16,16 @@ var InCommChans InternalCommunicationChannels
 type ExternalCommunicationChannels struct {
 
 	//communication channels
-	ToMasterSlaveChan                   chan Slave //"sla"
-	ToMasterOrderListReceivedChan       chan []int //"ore"
-	ToMasterOrderExecutedChan           chan []int //"oex"
-	ToMasterOrderListReceivedChan       chan []int //"ocr"
-	ToMasterOrderConfirmedExecutionChan chan []int //"oce"
-	ToMasterExternalButtonPushed        chan []int //"ebp"
-
-	ToSlaveOrderListChan chan [][]int //"exo"
-	//ToSlaveImMasterChan             chan string  //"iam"
-	ToSlaveReceivedOrderListConfirmationChan chan []int //"rco"
-	ToSlaveExecutedConfirmationChan          chan []int //"eco"
+	ToMasterSlaveChan                        chan ipSlave        //"sla"
+	ToMasterOrderListReceivedChan            chan ipOrderMessage //"ore"
+	ToMasterOrderExecutedChan                chan ipOrderMessage //"oex"
+	ToMasterOrderListReceivedChan            chan ipOrderMessage //"ocr"
+	ToMasterOrderConfirmedExecutionChan      chan ipOrderMessage //"oce"
+	ToMasterExternalButtonPushed             chan ipOrderMessage //"ebp"
+	ToSlaveOrderListChan                     chan [][]int        //"exo"
+	ToSlaveReceivedOrderListConfirmationChan chan ipOrderMessage //"rco"
+	ToSlaveExecutedConfirmationChan          chan ipOrderMessage //"eco"
+	//ToSlaveImMasterChan chan string  					//"iam"
 
 }
 type InternalCommunicationChannels struct {
@@ -36,18 +34,16 @@ type InternalCommunicationChannels struct {
 }
 
 func external_comm_channels_init() {
-	ExCommChans.ToMasterSlaveChan = make(chan Slave)                   //"sla"
-	ExCommChans.ToMasterOrderListReceivedChan = make(chan []int)       //"ore"
-	ExCommChans.ToMasterOrderExecutedChan = make(chan []int)           //"oex"
-	ExCommChans.ToMasterOrderListReceivedChan = make(chan []int)       //"ocr"
-	ExCommChans.ToMasterOrderConfirmedExecutionChan = make(chan []int) //"oce"
-	ExCommChans.ToMasterExternalButtonPushedChan = make(chan []int)    //"ebp"
-
-	ExCommChans.ToSlaveOrderListChan = make(chan [][]int) //"exo"
-	//ExCommChans.ToSlaveImMasterChan = make(chan string)            //"iam"
-	ExCommChans.ToSlaveReceivedOrderListConfirmationChan = make(chan []int) //"rco"
-	ExCommChans.ToSlaveExecutedConfirmationChan = make(chan []int)          //"eco"
-
+	ExCommChans.ToMasterSlaveChan = make(chan ipSlave)                               //"sla"
+	ExCommChans.ToMasterOrderListReceivedChan = make(chan ipOrderMessage)            //"ore"
+	ExCommChans.ToMasterOrderExecutedChan = make(chan ipOrderMessage)                //"oex"
+	ExCommChans.ToMasterOrderListReceivedChan = make(chan ipOrderMessage)            //"ocr"
+	ExCommChans.ToMasterOrderConfirmedExecutionChan = make(chan ipOrderMessage)      //"oce"
+	ExCommChans.ToMasterExternalButtonPushedChan = make(chan ipOrderMessage)         //"ebp"
+	ExCommChans.ToSlaveOrderListChan = make(chan [][]int)                            //"exo"
+	ExCommChans.ToSlaveReceivedOrderListConfirmationChan = make(chan ipOrderMessage) //"rco"
+	ExCommChans.ToSlaveExecutedConfirmationChan = make(chan ipOrderMessage)          //"eco"
+	//ExCommChans.ToSlaveImMasterChan = make(chan string)//"iam"
 }
 func internal_comm_chans_init() {
 	InCommChans.newExternalList = make(chan [][]int)
@@ -56,21 +52,32 @@ func internal_comm_chans_init() {
 
 }
 
+type ipSlave struct {
+	ip *UDPAddr
+	s  Slave
+}
+type ipOrderMessage struct {
+	ip    *UDPAddr
+	order []int
+}
+
 //Master
 func Send_order(externalOrderList [][]int, c Conn) { //send exectuionOrderList
 	byteOrder, _ := Marshal(externalOrderList)
 	prefix, _ := Marshal("exo")
-	ExNetChans.ConnChan <- c
-	ExNetChans.ToNetwork <- append(prefix, byteOrder...)
+	byteOrder = append(prefix, byteOrder...)
+	for {
+		Send(byteOrder, c)
+		select {
+		case <-ExCommChan.ToMasterOrderListReceivedChan:
+			return
+		default:
+			Sleep(10 * Millisecond)
+
+		}
+	}
 }
 
-func Send_im_master(c Conn) { //send I am master
-	byteMessage, _ := Marshal("im master")
-	prefix, _ := Marshal("iam")
-	ExNetChans.ConnChan <- c
-	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
-
-}
 func Send_received_confirmation(order []int, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("rco")
@@ -102,8 +109,10 @@ func Send_ex_button_push(order []int, c Conn) {
 func Send_order_received(order []int, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("ore")
-	ExNetChans.ConnChan <- c
-	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
+
+	byteMessage = append(prefix, byteMessage...)
+
+	Send(byteMessage, c)
 }
 
 func Send_order_executed(order []int, c Conn) {
@@ -126,6 +135,15 @@ func Send_order_confirmed_executed(order []int, c Conn) {
 	ExNetChans.ConnChan <- c
 	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
+
+/*
+func Send_im_master(c Conn) { //send I am master
+	byteMessage, _ := Marshal("im master")
+	prefix, _ := Marshal("iam")
+	ExNetChans.ConnChan <- c
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
+
+}*/
 
 func Decrypt_message(message []byte) {
 
@@ -174,14 +192,6 @@ func Decrypt_message(message []byte) {
 		_ = Unmarshal(noPrefix, &externalOrderList)
 		ExCommChans.ToSlaveOrderListChan <- externalOrderList
 
-	case string(message[1:4]) == "iam":
-		fmt.Println("iam trigger")
-		noPrefix := message[5:]
-		stringMessage := string(noPrefix)
-		fmt.Println(stringMessage)
-		ExCommChans.ToSlaveImMasterChan <- stringMessage
-		fmt.Println("channel output")
-
 	case string(message[1:4]) == "rco":
 		noPrefix := message[5:]
 		order := make([]int, 2)
@@ -193,6 +203,12 @@ func Decrypt_message(message []byte) {
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
 		ExCommChans.ToSlaveExecutedConfirmationChan <- order
+		/*
+			case string(message[1:4]) == "iam":
+				noPrefix := message[5:]
+				stringMessage := string(noPrefix)
+				ExCommChans.ToSlaveImMasterChan <- stringMessage
+		*/
 	}
 }
 func Select_send_master(c Conn) {

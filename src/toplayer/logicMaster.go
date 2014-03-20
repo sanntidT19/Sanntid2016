@@ -14,9 +14,10 @@ const (
 var ExSlaveChans ExternalSlaveChannels
 var ExMasterChans ExternalMasterChannels
 var InSlaveChans InternalSlaveChannels
+var InMasterChans InternalMasterChannels
 
 type Slave struct {
-	nr int
+	ip IP
 	internalList []int
 	externalList [][]int
 	currentFloor int 
@@ -25,6 +26,7 @@ type Slave struct {
 
 type Master struct {
 	m []Slave
+
 }
 type ExternalSlaveChannels struct {
 	ToCommSlaveChan                   chan Slave //"sla"
@@ -38,27 +40,39 @@ type ExternalMasterChannels struct {
 	ToCommOrderListChan            chan [][]int //"exo"
 	ToCommReceivedConfirmationChan chan []int   //"rco"
 	ToCommExecutedConfirmationChan chan []int   //"eco"
+
 }
 type InternalSlaveChannels struct {
 	OrderConfirmedExecutedChan chan []int
 	InteruptChan chan os.Signal
 }
+type InternalMasterChannels struc {
+	optimizationInitChan chan Master
+	optimizationTriggerChan chan bool
+	optimizationReturnChan chan [][]int
+
+}
 func Slave_external_chans_init() {
-	ExSlaveChans.ToCommSlaveChan = make(chan Slave) //"sla"
-	ExSlaveChans.ToCommOrderReceivedChan = make(chan []int) //"ore"
-	ExSlaveChans.ToCommOrderExecutedChan = make(chan []int) //"oex"
-	ExSlaveChans.ToCommOrderListReceivedChan = make(chan []int) //"ocr"
-	ExSlaveChans.ToCommOrderConfirmedExecutionChan = make(chan []int) //"oce"
-	ExSlaveChans.ToCommExternalButtonPushedChan = make(chan []int)	//"ebp"
+	ExSlaveChans.ToCommSlaveChan = make(chan Slave) 					//"sla"
+	ExSlaveChans.ToCommOrderReceivedChan = make(chan []int) 			//"ore"
+	ExSlaveChans.ToCommOrderExecutedChan = make(chan []int) 			//"oex"
+	ExSlaveChans.ToCommOrderListReceivedChan = make(chan []int) 		//"ocr"
+	ExSlaveChans.ToCommOrderConfirmedExecutionChan = make(chan []int)	//"oce"
+	ExSlaveChans.ToCommExternalButtonPushedChan = make(chan []int)		//"ebp"
 }
 func Master_external_chans_init() {
-	ExMasterChans.ToCommOrderListChan = make(chan [][]int) //"exo"
-	ExMasterChans.ToCommReceivedConfirmationChan = make(chan []int)   //"rco"
-	ExMasterChans.ToCommExecutedConfirmationChan = make(chan []int)   //"eco"
+	ExMasterChans.ToCommOrderListChan = make(chan [][]int) 			//"exo"
+	ExMasterChans.ToCommReceivedConfirmationChan = make(chan []int) //"rco"
+	ExMasterChans.ToCommExecutedConfirmationChan = make(chan []int)	//"eco"
 }
 func Slave_internal_chans_init(){
 	InSlaveChans.OrderConfirmedExecutedChan = make(chan []int)
 	InSlaveChans.InteruptChan = make(chan os.Signal,1) //must be buffered see package declaration
+}
+func Master_internal_chans_init() {
+	InMasterChans.OptimizationInitChan = make(chan Master)
+	InMasterChans.OptimizationTriggerChan = make(chan []int)
+	InMasterChans.OptimizationReturnChan = make(chan [][]int)
 }
 
 func Slave_init() {
@@ -100,19 +114,25 @@ func Master_init(s Slave) {
 	go Interuption_killer()
 
 	go ()
+
 	// ##1 wait for order received <- stop send orders
 
 	// ##2 wait for floor reacehed <- delete order from masters externalList 
 	// <- send to all order executed <- all slaves must update the externalpanel
 
 	}
+//retrice orders if network fails in some way
+func Init_Orders() {
 
+}
+//handles signals like ctrl-c
 func Interuption_killer() {
 	signal.Notify(InSlaveChans.InteruptChan, os.Interrupt)
 	signal.Notify(InSlaveChans.InteruptChan, syscall.SIGTERM)
 	<- InSlaveChans.InteruptChan
 	//what should be done when ctrl-c is pressed????? 
 	//<- goes here.
+	//SystemInit()
 	fmt.Println("Got ctrl-c signal")
 	Exit(0)
 }
@@ -120,62 +140,83 @@ func Interuption_killer() {
 func Error() { // handle error here?
 
 }
-func Send_to_slave() {
-	ExMasterChans.ToCommOrderListChan 
-	ExMasterChans.ToCommReceivedConfirmationChan 
-	ExMasterChans.ToCommExecutedConfirmationChan 
+func (m Master) Master_communication() {
+	
 	for {
 		select {
-			case order := <-ExCommChans.ToSlaveReceivedOrderListConfirmationChan:
+			//triggers new optimization when new order received
+			case order := <- ExCommChans.ToMasterExternalButtonPushed   
+				InMasterChans.OptimizationTriggerChan <- order
+			//receives new optimized orderList
+			case orderList := <- InMasterChans.OptimizationReturnChan
+				//send to slaves master
+				ExMasterChans.ToCommOrderListChan: <- orderList
 
-			case order := <-ExCommChans.ToSlaveExecutedConfirmationChan:
-				ExToCommChans.ToSlaveExecutedConfirmationCHan
-			case order := <-ExCommChans.ToSlaveOrderListChan:
-				ExToCommChans.ToSlaveOrderListChan <- order
+			case order := <-ExCommChans.ToMasterOrderExecutedChan://to spesific IP
+				ExMasterChans.ToCommExecutedConfirmationChan <- order
+			
+			//Resopnd on orderList received
+			case order := <-ExCommChans.ToMasterOrderListReceivedChan://with spesific IP
+				InMasterChans.OrderReceivedMangerChan <- order
+
+
+			case slave <- ExCommChans.ToMasterSlaveChan:
+				m[slave.nr] = slave
 		}
 	}
 }
-func Send_confirmation_to_master() {
-	//when recieved from state machine
+func (s Slave) Slave_communication() {
+	
 	for {
 		select {
-			case order := <-ExStateChans.ToSlaveExButtonPushedChan
+			case slave := <-ExStateChans.DirectionUpdate:
+				ExCommChans.ToMasterSlaveChan <- slave
+			case slave := <-ExStateChans.CurrentFloorUpdate:
+				ExCommChans.ToMasterSlaveChan <- slave
+
+			//checks new button pressed
+			case order := <-ExStateChans.ToSlaveExButtonPushedChan:
 				ExSlaveChans.ToCommExternalButtonPushedChan <- order
-
-			case order := <- ExStateChans.ToSlaveOrderListReceivedChan:
+			
+			//receives order list
+			case orderList := <- ExCommChan.ToSlaveOrderListChan:
+				s.externalList = orderList
+				//###### set lights on external floor
 				ExSlaveChans.ToCommOrderListReceivedChan <- order 
+				ExStateChans.NewOrderListChan <- orderList //set lights
 
+			//Triggers if order is executed, sends confirmation further up
 			case order := <- ExStateChans.ToSlaveExecutedOrderChan:
 				ExSlaveChans.ToCommOrderExecutedChan <- order
-				////internl chans:
-			//case order := : 
-			//	order <- ExSlaveChans.ToCommOrderListReceivedChan 
-			case order <- InSlaveChans.OrderConfirmedExecutedChan: 
-				ExSlaveChans.ToCommOrderConfirmedExecutionChan <- order
-
 		}
 	}
 }
+func Order_received_manager(){
+	for {
+		order := <-InMasterChans.OrderReceivedManagerChan
+		/*
+		need to send a confirmation message to the ip that sent this every time we get the order.
+		After some time without fun incoming on the channel we can assume that the confirmation has been received.
+		*/
 
-func (s Slave) Send_slave_to_master() {
-	ExSlaveChans.ToCommSlaveChan <- s
+	}
 }
 
-func (s Slave) Send_slave_to_state(slaveStateChan chan int) { //send next floor to statemachine
+func (s Slave) Send_slave_to_state() { //send next floor to statemachine
 	if s.externalList[s.currentFloor][1] ==1 || s.internalList[s.currentFloor] == 1 {
-		//slaveStateChan <- s.currentFloor
+		ExStateChan.slaveStateChan <- s.currentFloor
 
 	} else if s.direction == 1 { //heading upwards -> can take higher orders
 		for i := s.currentFloor; i<N_FLOORS; i++ {
 			if s.externalList[i][0] == 1 || s.internalList[i] == 1 { // any orders on higher floors
-				slaveStateChan <- i 
+				ExStateChan.slaveStateChan <- i 
 				break
 			}
 		}
 	} else if s.direction == -1 { // heading downwards -> can take lower orders
 		for i := 0; i<s.currentFloor; i++ {//any orders on lower floors
 			if s.externalList[i][0] == 1 || s.internalList[i] == 1{
-				slaveStateChan <- i 
+				ExSateChan.slaveStateChan <- i 
 				break
 			} 
 		}
