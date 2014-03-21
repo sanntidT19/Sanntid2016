@@ -6,89 +6,6 @@ import (
 	"net"
 )
 
-/*
-func main() {
-	nr := backup()
-
-	primary(nr)
-
-}
-*/
-func (m Master) Master_communication() {
-
-	for {
-		select {
-		//triggers new optimization when new order received
-		case order := <-ExCommChans.ToMasterExternalButtonPushedChan:
-
-			InMasterChans.OptimizationTriggerChan <- order
-
-			//Need to have same queueing system as order executed if different orders are coming in
-			//Same things need to be done, but we must also calculate some optimizationø
-			//We compute optimization again if the queue is not empty
-			//receives new optimized orderList
-		case orderList := <-InMasterChans.OptimizationReturnChan:
-			//send to slaves master
-			ExMasterChans.ToCommOrderListChan <- orderList
-
-		case order := <-ExCommChans.ToMasterOrderExecutedChan: //to spesific IP
-			if m.notInQueue(order) {
-				m.OrderQueue = appendElement(m.OrderQueue, order)
-				//externalPushChannel <- externalPushQueue //Where its sending must sending the first element in the list if its not empty. otherwise just update
-			}
-
-			//ExMasterChans.ToCommExecutedConfirmationChan <- order
-
-			//Master gets a message that order is executed.
-			//Save the order in a temp variable
-			//calls ordere_executed_manager
-			//order_exe sends to channel when its done
-
-			//if any other incoming orders are coming while order_exe is running, queue them in a list
-			//reset the temp var if order_exe is done and queue is empty
-			// if not empty, extract first in queue and set to temp var
-
-		//Respond on orderList received
-		case orderList := <-ExCommChans.ToMasterOrderListReceivedChan: //with spesific IP
-			InMasterChans.OrderReceivedMangerChan <- orderList
-			//Done
-
-		case tempIpSlave := <-ExCommChans.ToMasterSlaveChan:
-			slave := tempIpSlave.s
-			nr := slave.nr
-			m[nr] = slave
-		}
-	}
-}
-func (s Slave) Slave_communication() {
-
-	for {
-		select {
-
-		//These two needs must trigger a send_state that doesnt end until master has confirmed receiving it.
-		case slave := <-ExStateChans.DirectionUpdate:
-			ExCommChans.ToMasterSlaveChan <- slave
-		case slave := <-ExStateChans.CurrentFloorUpdate:
-			ExCommChans.ToMasterSlaveChan <- slave
-
-		//checks new button pressed, send to master until confirmation
-		case order := <-ExStateChans.ToSlaveExButtonPushedChan:
-			ExSlaveChans.ToCommExternalButtonPushedChan <- order
-
-		//receives order list
-		case orderList := <-ExCommChan.ToSlaveOrderListChan:
-			s.externalList = orderList
-			//###### set lights on external floor
-			ExSlaveChans.ToCommOrderListReceivedChan <- order
-			ExStateChans.NewOrderListChan <- orderList //set lights
-
-		//Triggers if order is executed, sends confirmation further up
-		case order := <-ExStateChans.ToSlaveExecutedOrderChan:
-			ExSlaveChans.ToCommOrderExecutedChan <- order
-		}
-	}
-}
-
 func Network_init() (Conn, Conn) {
 	fmt.Println("gi")
 	addr, err := ResolveUDPAddr("udp", "129.241.187.255"+PORT) //leser bare fra porten generellt
@@ -109,15 +26,23 @@ func Network_init() (Conn, Conn) {
 
 }
 
-func Send(to_writing []byte, c Conn) {
-	_, err := c.Write(to_writing)
+func Send() {
+	byteArr := <-ExNetChans.ToNetwork
+	c := <-ExNetChans.ConnChans
 
-	if err != nil {
-		fmt.Println(err.Error())
-	} else {
-		//break
+	go Write_to_network(byteArr, c)
+}
+func Write_to_network(to_writing []byte, c Conn) {
+	for {
+			err := SetWriteDeadline(10 * Millisecond)
+			_, err = c.Write(to_writing)
+			if err != nil {
+				fmt.Println(err.Error())
+			} else {
+				//break
+			}
+		}
 	}
-
 }
 
 func Receive() { //will error trigger if just read fails? or will it only go on deadline?
@@ -141,23 +66,6 @@ func Receive() { //will error trigger if just read fails? or will it only go on 
 		//ExSlaveChans.ToSlaveImMasterChan <- false
 	}
 
-}
-
-///CORRECT FORMAT??
-func (m Master) notInQueue(order) bool {
-	for i := 0; i < len(m.OrderQueue); i++ {
-		//	if m.OrderQueue[i][] == order {
-		//	return true
-		//}
-	}
-	return false
-
-}
-func appendElement(slice [][]int, order ipOrderMessage) [][]int {
-	for _, item := range order[1] {
-		slice = Extend(slice, order[1])
-	}
-	return slice
 }
 
 /*

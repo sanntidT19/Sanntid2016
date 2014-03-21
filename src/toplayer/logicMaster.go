@@ -1,6 +1,9 @@
 package toplayer
 
-import "chansnstructs"
+import (
+	"chansnstructs"
+	"os"
+)
 
 var InMasterChans InternalMasterChannels
 var InSlaveChans InternalSlaveChannels
@@ -91,10 +94,12 @@ func Interuption_killer() {
 func Error_manager() { // handle error here?
 
 }
+
 func (m Master) Master_communication() {
 
 	for {
 		select {
+
 		//triggers new optimization when new order received
 		case order := <-ExCommChans.ToMasterExternalButtonPushed:
 
@@ -140,13 +145,15 @@ func (s Slave) Slave_communication() {
 		select {
 
 		//These two needs must trigger a send_state that doesnt end until master has confirmed receiving it.
-		case slave := <-ExStateChans.DirectionUpdate:
-			ExCommChans.ToMasterSlaveChan <- slave
-		case slave := <-ExStateChans.CurrentFloorUpdate:
-			ExCommChans.ToMasterSlaveChan <- slave
+		case dir := <-ExStateMChans.DirectionUpdate:
+			s.direction = dir
+			ExCommChans.ToMasterSlaveChan <- s
+		case cFloor := <-ExStateChans.CurrentFloorUpdate:
+			s.currentFlorr = cFloor
+			ExCommChans.ToMasterSlaveChan <- s
 
 		//checks new button pressed, send to master until confirmation
-		case order := <-ExStateChans.ToSlaveExButtonPushedChan:
+		case order := <-ExStateMChans.ToSlaveExButtonPushedChan:
 			ExSlaveChans.ToCommExternalButtonPushedChan <- order
 
 		//receives order list
@@ -154,11 +161,15 @@ func (s Slave) Slave_communication() {
 			s.externalList = orderList
 			//###### set lights on external floor
 			ExSlaveChans.ToCommOrderListReceivedChan <- order
-			ExStateChans.NewOrderListChan <- orderList //set lights
+			ExStateMChans.NewOrderListChan <- orderList //set lights
 
 		//Triggers if order is executed, sends confirmation further up
-		case order := <-ExStateChans.ToSlaveExecutedOrderChan:
+		case order := <-ExStateMChans.ToSlaveExecutedOrderChan:
 			ExSlaveChans.ToCommOrderExecutedChan <- order
+
+		case <-ExStateMChans.GetSlaveStruct:
+			ExSlateStruct.ReturnSlaveStruct <- s
+
 		}
 	}
 }
@@ -194,4 +205,21 @@ func (s Slave) Send_slave_to_state() { //send next floor to statemachine
 	} else {
 		Sleep(10 * Millisecond)
 	}
+}
+
+///CORRECT FORMAT??
+func (m Master) notInQueue(order) bool {
+	for i := 0; i < len(m.OrderQueue); i++ {
+		//	if m.OrderQueue[i][] == order {
+		//	return true
+		//}
+	}
+	return false
+
+}
+func appendElement(slice [][]int, order ipOrderMessage) [][]int {
+	for _, item := range order[1] {
+		slice = Extend(slice, order[1])
+	}
+	return slice
 }

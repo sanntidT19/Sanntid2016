@@ -140,7 +140,7 @@ func Elev_get_speed() float64 {
 
 func Elev_stop_elevator() {
 	var toggleDir float64
-	if  x:=math.Abs(Elev_get_speed()); x > 10{
+	if x := math.Abs(Elev_get_speed()); x > 10 {
 		//Toggles the direction in the opposite way. Down is 1
 		toggleDir = 1
 		if Elev_get_direction() != 1 {
@@ -148,15 +148,14 @@ func Elev_stop_elevator() {
 			toggleDir = -1
 		}
 
-
 		//If the speed is over some value, you should brake that shit.
-			Elev_set_speed(300 * toggleDir)
-			time.Sleep(time.Millisecond * 10)
-			Elev_set_speed(0)
+		Elev_set_speed(300 * toggleDir)
+		time.Sleep(time.Millisecond * 10)
+		Elev_set_speed(0)
 		//Toggling the direction bit, since we have gone the other way for some time
-		if Elev_get_direction() == 1{
+		if Elev_get_direction() == 1 {
 			io_clear_bit(MOTORDIR)
-		}else if Elev_get_direction() == 0 {
+		} else if Elev_get_direction() == 0 {
 			io_set_bit(MOTORDIR)
 		}
 	}
