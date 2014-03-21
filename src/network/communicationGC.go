@@ -1,7 +1,7 @@
 package network
 
 import (
-	"chansnstructs"
+	. "chansnstructs"
 	. "encoding/json"
 	"fmt"
 	. "net"

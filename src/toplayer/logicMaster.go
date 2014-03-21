@@ -189,9 +189,11 @@ func Order_received_manager() {
 	}
 }
 
+/*
 func Send_slave_to_states(s Slave) { //send next floor to statemachine
-	if s.ExternalList[s.CurrentFloor]. == 1 || s.InternalList[s.currentFloor] == 1 {
-		ExStateChan.slaveStateChan <- s.currentFloor
+
+	if s.AllExternalsOrder[s.IP][s.CurrentFloor].Floor == 1 || s.InternalList[s.CurrentFloor] == 1 {
+		ExStateMChans.CurrentState <- s.CurrentFloor
 
 	} else if s.direction == 1 { //heading upwards -> can take higher orders
 		for i := s.currentFloor; i < N_FLOORS; i++ {
@@ -211,9 +213,9 @@ func Send_slave_to_states(s Slave) { //send next floor to statemachine
 		Sleep(10 * Millisecond)
 	}
 }
-
+*/
 ///CORRECT FORMAT??
-func (m Master) notInQueue(order) bool {
+func notInQueue(order) bool {
 	for i := 0; i < len(m.OrderQueue); i++ {
 		//	if m.OrderQueue[i][] == order {
 		//	return true

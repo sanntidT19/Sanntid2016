@@ -30,6 +30,7 @@ type Master struct {
 }
 
 type Slave struct {
+	IP                *UDPAddr
 	AllExternalsOrder map[*UDPAddr][]Order
 	InternalList      []int
 	CurrentFloor      int
@@ -76,7 +77,7 @@ type ExternalCommunicationChannels struct {
 	ToMasterOrderExecutedChan            chan IpOrderMessage //"oex"
 	ToMasterOrderExecutedReConfirmedChan chan IpOrderMessage //"oce"
 	ToMasterExternalButtonPushedChan     chan IpOrderMessage //"ebp"
-	ToSlaveOrderListChan                 chan [][]int        //"exo"
+	ToSlaveOrderListChan                 chan []Order        //"exo"
 	//ToSlaveReceivedOrderListConfirmationChan chan ipOrderMessage //"rco"
 	ToSlaveOrderExecutedConfirmedChan chan IpOrderMessage //"eco"
 	ToSlaveImMasterChan               chan string         //"iam"
@@ -84,22 +85,22 @@ type ExternalCommunicationChannels struct {
 }
 type ExternalSlaveChannels struct {
 	ToCommSlaveChan                    chan Slave  //"sla"
-	ToCommOrderListReceivedChan        chan []int  //"ore"
-	ToCommOrderExecutedChan            chan []int  //"oex"
-	ToCommOrderExecutedReConfirmedChan chan []int  //"oce"
-	ToCommExternalButtonPushedChan     chan []int  //"ebp"
+	ToCommOrderListReceivedChan        chan Order  //"ore"
+	ToCommOrderExecutedChan            chan Order  //"oex"
+	ToCommOrderExecutedReConfirmedChan chan Order  //"oce"
+	ToCommExternalButtonPushedChan     chan Order  //"ebp"
 	ToCommImMasterChan                 chan string //"iam"
 
 }
 type ExternalMasterChannels struct {
-	ToCommOrderListChan              chan [][]int //"exo"
-	ToCommOrderExecutedConfirmedChan chan []int   //"eco"
+	ToCommOrderListChan              chan []Order //"exo"
+	ToCommOrderExecutedConfirmedChan chan Order   //"eco"
 
 }
 type ExternalStateMachineChannels struct {
-	ExternalButtonPressed chan []int
-	OrderServed           chan []int
-	CurrentState          chan []int
+	ExternalButtonPressed chan Order
+	OrderServed           chan Order
+	CurrentState          chan Order
 	GetSlaveStruct        chan bool
 	ReturnSlaveStruct     chan Slave
 	DirectionUpdate       chan int
@@ -122,7 +123,7 @@ func network_external_chan_init() {
 }
 
 func external_comm_channels_init() {
-	ExCommChans.ToSlaveOrderListChan = make(chan [][]int)                        //"ord"
+	ExCommChans.ToSlaveOrderListChan = make(chan []Order)                        //"ord"
 	ExCommChans.ToMasterOrderListReceivedChan = make(chan IpOrderMessage)        //"ore"
 	ExCommChans.ToMasterOrderExecutedChan = make(chan IpOrderMessage)            //"oex"
 	ExCommChans.ToSlaveOrderExecutedConfirmedChan = make(chan IpOrderMessage)    //"eco"
@@ -133,23 +134,23 @@ func external_comm_channels_init() {
 }
 
 func Slave_external_chans_init() {
-	ExSlaveChans.ToCommOrderListReceivedChan = make(chan []int) //"ore"
+	ExSlaveChans.ToCommOrderListReceivedChan = make(chan Order) //"ore"
 	//ExSlaveChans.ToCommOrderReceivedChan = make(chan ipOrderMessage)            //"oce"
-	ExSlaveChans.ToCommOrderExecutedChan = make(chan []int)            //"oex"
-	ExSlaveChans.ToCommOrderExecutedReConfirmedChan = make(chan []int) //"oce"
-	ExSlaveChans.ToCommExternalButtonPushedChan = make(chan []int)     //"ebp"
+	ExSlaveChans.ToCommOrderExecutedChan = make(chan Order)            //"oex"
+	ExSlaveChans.ToCommOrderExecutedReConfirmedChan = make(chan Order) //"oce"
+	ExSlaveChans.ToCommExternalButtonPushedChan = make(chan Order)     //"ebp"
 	ExSlaveChans.ToCommSlaveChan = make(chan Slave)                    //"sla"
 
 }
 func Master_external_chans_init() {
-	ExMasterChans.ToCommOrderListChan = make(chan [][]int)            //"ord"
-	ExMasterChans.ToCommOrderExecutedConfirmedChan = make(chan []int) //"eco"
+	ExMasterChans.ToCommOrderListChan = make(chan []Order)            //"ord"
+	ExMasterChans.ToCommOrderExecutedConfirmedChan = make(chan Order) //"eco"
 }
 
 func External_state_machine_channels_init() {
-	ExStateMChans.ExternalButtonPressed = make(chan []int)
-	ExStateMChans.OrderServed = make(chan []int)
-	ExStateMChans.CurrentState = make(chan []int)
+	ExStateMChans.ExternalButtonPressed = make(chan Order)
+	ExStateMChans.OrderServed = make(chan Order)
+	ExStateMChans.CurrentState = make(chan Order)
 	ExStateMChans.GetSlaveStruct = make(chan bool)
 	ExStateMChans.ReturnSlaveStruct = make(chan Slave)
 	ExStateMChans.DirectionUpdate = make(chan int)
