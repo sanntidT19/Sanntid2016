@@ -1,7 +1,7 @@
 package network
 
 import (
-	. "chansnstructs"
+	"chansnstructs"
 	. "encoding/json"
 	"fmt"
 	. "net"
@@ -11,18 +11,18 @@ import (
 var InCommChans InternalCommunicationChannels
 
 type InternalCommunicationChannels struct {
-	newExternalList              chan [][]int
+	newExternalList              chan []Order
 	slaveToStateExMasterChanshan chan int //send input to statemachine
 }
 
 func internal_comm_chans_init() {
-	InCommChans.newExternalList = make(chan [][]int)
+	InCommChans.newExternalList = make(chan []Order)
 	InCommChans.slaveToStateExMasterChanshan = make(chan int) //send input to statemachine
 	//network
 }
 
 //Master
-func Send_order(externalOrderList [][]int, c Conn) { //send exectuionOrderList
+func Send_order(externalOrderList []Order, c Conn) { //send exectuionOrderList
 	byteOrder, _ := Marshal(externalOrderList)
 	prefix, _ := Marshal("ord")
 	byteOrder = append(prefix, byteOrder...)
@@ -38,7 +38,7 @@ func Send_order(externalOrderList [][]int, c Conn) { //send exectuionOrderList
 }
 
 //To master
-func Send_order_received(order []int, c Conn) {
+func Send_order_received(order Order, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("ore")
 
@@ -46,7 +46,7 @@ func Send_order_received(order []int, c Conn) {
 }
 
 //To master
-func Send_order_executed(order []int, c Conn) {
+func Send_order_executed(order Order, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("oex")
 	ExNetChans.ConnChan <- c
@@ -54,7 +54,7 @@ func Send_order_executed(order []int, c Conn) {
 }
 
 //To slave
-func Send_order_executed_confirmation(order []int, c Conn) {
+func Send_order_executed_confirmation(order Order, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("eco")
 	ExNetChans.ConnChan <- c
@@ -62,7 +62,7 @@ func Send_order_executed_confirmation(order []int, c Conn) {
 }
 
 //
-func Send_order_executed_reconfirmed(order []int, c Conn) {
+func Send_order_executed_reconfirmed(order Order, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("oce")
 	ExNetChans.ConnChan <- c
@@ -78,7 +78,7 @@ func Send_slave(s Slave, c Conn) {
 }
 
 //To master
-func Send_ex_button_push(order []int, c Conn) {
+func Send_ex_button_push(order Order, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("ebp")
 	ExNetChans.ConnChan <- c
@@ -139,7 +139,7 @@ func Decrypt_message(message []byte, addr *UDPAddr) {
 	switch {
 	case string(message[1:4]) == "ord":
 		noPrefix := message[5:]
-		orderList := make([][]int, 2)
+		orderList := make([]Order, 2)
 		_ = Unmarshal(noPrefix, &orderList)
 		ExCommChans.ToSlaveOrderListChan <- orderList
 
