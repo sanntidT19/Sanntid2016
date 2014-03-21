@@ -3,6 +3,7 @@ package network
 import (
 	. "chansnstructs"
 	. "encoding/json"
+	"fmt"
 	. "net"
 	"time"
 )
@@ -99,9 +100,9 @@ func Select_send_master(c Conn) {
 		//Master
 		case externalOrderList := <-ExMasterChans.ToCommOrderListChan:
 			Send_order(externalOrderList, c)
-		case order := <-ExMasterChans.ToCommExecutedConfirmedChan:
-			temp := order[1]
-			Send_order_executed_confirmation(temp, c)
+		case order := <-ExMasterChans.ToCommOrderExecutedConfirmedChan:
+
+			Send_order_executed_confirmation(order, c)
 		default:
 			Send_im_master(c)
 		}
@@ -113,11 +114,11 @@ func Select_send_slave(c Conn) {
 		//Slave
 		case slave := <-ExSlaveChans.ToCommSlaveChan:
 			Send_slave(slave, c)
-		case order := <-ExSlaveChans.ToCommOrderReceivedChan:
-			Send_order_received(order, c)
 		case order := <-ExSlaveChans.ToCommOrderListReceivedChan:
+			Send_order_received(order, c)
+		case order := <-ExSlaveChans.ToCommOrderExecutedChan:
 			Send_order_executed(order, c)
-		case order := <-ExSlaveChans.ToCommOrderReConfirmedExecutionChan:
+		case order := <-ExSlaveChans.ToCommOrderExecutedReConfirmedChan:
 			Send_order_executed_reconfirmed(order, c)
 		case order := <-ExSlaveChans.ToCommExternalButtonPushedChan:
 			Send_ex_button_push(order, c)
@@ -135,49 +136,48 @@ func Select_receive() {
 
 func Decrypt_message(message []byte, addr *UDPAddr) {
 
-	ExCommChans.ToMasterOrderReConfirmedExecutedChan = make(chan ipOrderMessage) //"oce"****
 	switch {
 	case string(message[1:4]) == "ord":
 		noPrefix := message[5:]
 		orderList := make([][]int, 2)
 		_ = Unmarshal(noPrefix, &orderList)
-		ExCommChans.ToSlaveOrderListChan <- ipOrderMessage{addr, order}
+		ExCommChans.ToSlaveOrderListChan <- orderList
 
 	case string(message[1:4]) == "ore":
 		noPrefix := message[5:]
-		order := make([]int, 2)
+		order := Order{}
 		_ = Unmarshal(noPrefix, &order)
-		ExCommChans.ToMasterOrderListReceivedChan <- ipOrderMessage{addr, order}
+		ExCommChans.ToMasterOrderListReceivedChan <- IpOrderMessage{addr, order}
 
 	case string(message[1:4]) == "oex":
 		noPrefix := message[5:]
-		order := make([]int, 2)
+		order := Order{}
 		_ = Unmarshal(noPrefix, &order)
-		ExCommChans.ToMasterOrderExecutedChan <- ipOrderMessage{addr, order}
+		ExCommChans.ToMasterOrderExecutedChan <- IpOrderMessage{addr, order}
 
 	case string(message[1:4]) == "eco":
 		noPrefix := message[5:]
-		order := make([]int, 2)
+		order := Order{}
 		_ = Unmarshal(noPrefix, &order)
-		ExCommChans.ToSlaveOrderExecutedConfirmedChan <- ipOrderMessage{addr, order}
+		ExCommChans.ToSlaveOrderExecutedConfirmedChan <- IpOrderMessage{addr, order}
 
 	case string(message[1:4]) == "sla":
 		noPrefix := message[5:]
 		var s Slave
 		_ = Unmarshal(noPrefix, &s)
-		ExCommChans.ToMasterSlaveChan <- ipSlave{addr, s}
+		ExCommChans.ToMasterSlaveChan <- IpSlave{addr, s}
 
 	case string(message[1:4]) == "ebp":
 		noPrefix := message[5:]
-		order := make([]int, 2)
+		order := Order{}
 		_ = Unmarshal(noPrefix, &order)
-		ExCommChans.ToMasterExternalButtonPushedChan <- ipOrderMessage{addr, order}
+		ExCommChans.ToMasterExternalButtonPushedChan <- IpOrderMessage{addr, order}
 
 	case string(message[1:4]) == "oce":
 		noPrefix := message[5:]
-		order := make([]int, 2)
+		order := Order{}
 		_ = Unmarshal(noPrefix, &order)
-		ExCommChans.ToMasterOrderReConfirmedExecutedChan <- ipOrderMessage{addr, order}
+		ExCommChans.ToMasterOrderExecutedReConfirmedChan <- IpOrderMessage{addr, order}
 
 	case string(message[1:4]) == "iam":
 		noPrefix := message[5:]

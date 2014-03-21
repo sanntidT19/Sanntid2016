@@ -2,12 +2,17 @@ package toplayer
 
 import (
 	. "chansnstructs"
+	. "network"
 	"os"
-	"statemachine"
+	"time"
+	//. "statemachine"
+	"fmt"
+	"os/signal"
+	"syscall"
 )
 
-var InMasterChans InternalMasterChannels
 var InSlaveChans InternalSlaveChannels
+var InMasterChans InternalMasterChannels
 
 type InternalSlaveChannels struct {
 	OrderConfirmedExecutedChan chan []int
@@ -20,11 +25,11 @@ func Slave_internal_chans_init() {
 }
 
 type InternalMasterChannels struct {
-	OrderReceivedMangerChan chan ipOrderMessage
+	OrderReceivedMangerChan chan IpOrderMessage
 }
 
 func Master_internal_chans_init() {
-	InMasterChans.OrderReceivedMangerChan = make(chan ipOrderMessage)
+	InMasterChans.OrderReceivedMangerChan = make(chan IpOrderMessage)
 }
 
 func Slave_init() {
@@ -92,21 +97,21 @@ func Error_manager() { // handle error here?
 
 }
 
-func (m Master) Master_communication() {
-
+/*
+func Master_communication(m Master) {
 	for {
 		select {
 
 		//triggers new optimization when new order received
-		case order := <-ExCommChans.ToMasterExternalButtonPushed:
+		case ipOrder := <-ExCommChans.ToMasterExternalButtonPushedChan:
 
-			InMasterChans.OptimizationTriggerChan <- order
+			//ExOptimalChans.OptimizationTriggerChan <- ipOrder
 
 			//Need to have same queueing system as order executed if different orders are coming in
 			//Same things need to be done, but we must also calculate some optimizationø
 			//We compute optimization again if the queue is not empty
 			//receives new optimized orderList
-		case orderList := <-InMasterChans.OptimizationReturnChan:
+		case orderList := <-ExOptimalChans.OptimizationReturnChan:
 			//send to slaves master
 			ExMasterChans.ToCommOrderListChan <- orderList
 
@@ -128,15 +133,17 @@ func (m Master) Master_communication() {
 
 		//Respond on orderList received
 		case order := <-ExCommChans.ToMasterOrderListReceivedChan: //with spesific IP
-			InMasterChans.OrderReceivedMangerChan <- order
+			//InMasterChans.OrderReceivedMangerChan <- order
 			//Done
 
 		case slave <- ExCommChans.ToMasterSlaveChan:
-			m[slave.nr] = slave
+			m.s[slave.nr] = slave
 		}
 	}
 }
-func (s Slave) Slave_communication() {
+*/
+/*
+func Slave_communication(s Slave) {
 
 	for {
 		select {
@@ -170,9 +177,10 @@ func (s Slave) Slave_communication() {
 		}
 	}
 }
+*/
 func Order_received_manager() {
 	for {
-		order := <-InMasterChans.OrderReceivedManagerChan
+		//order := <-InMasterChans.OrderReceivedManagerChan
 		/*
 			need to send a confirmation message to the ip that sent this every time we get the order.
 			After some time without fun incoming on the channel we can assume that the confirmation has been received.
@@ -181,8 +189,8 @@ func Order_received_manager() {
 	}
 }
 
-func (s Slave) Send_slave_to_state() { //send next floor to statemachine
-	if s.externalList[s.currentFloor][1] == 1 || s.internalList[s.currentFloor] == 1 {
+func Send_slave_to_states(s Slave) { //send next floor to statemachine
+	if s.ExternalList[s.CurrentFloor]. == 1 || s.InternalList[s.currentFloor] == 1 {
 		ExStateChan.slaveStateChan <- s.currentFloor
 
 	} else if s.direction == 1 { //heading upwards -> can take higher orders
@@ -228,7 +236,7 @@ func ssh_file_transfer() {
 	cmd = exec.Command("scp", "-r", "student@"+IP1+":fileOnMachine", "fileAtRemote")
 	cmd.Start()
 
-	cmd = exec.Command("scp", "-r", "student@"+IP1":")
+	cmd = exec.Command("scp", "-r", "student@"+IP1+":")
 	//ssh
 	//scp -r student@129.241.187.xxx:fileOnMachine fileAtRemot
 }
