@@ -1,67 +1,18 @@
 package network
 
 import (
+	. "chansnstructs"
 	. "encoding/json"
-	"fmt"
 	. "net"
-	"time"
 )
 
-const (
-	N_FLOORS = 4
-)
-
-var ExCommChans ExternalCommunicationChannels
 var InCommChans InternalCommunicationChannels
 
-type Slave struct {
-	nr           int
-	ip           IP
-	internalList []int
-	externalList [][]int
-	currentFloor int
-	direction    int
-}
-
-type ExternalCommunicationChannels struct {
-
-	//communication channels
-	ToMasterSlaveChan                        chan ipSlave        //"sla"
-	ToMasterOrderListReceivedChan            chan ipOrderMessage //"ore"
-	ToMasterOrderExecutedChan                chan ipOrderMessage //"oex"
-	ToMasterOrderConfirmedExecutionChan      chan ipOrderMessage //"oce"
-	ToMasterExternalButtonPushedChan         chan ipOrderMessage //"ebp"
-	ToSlaveOrderListChan                     chan [][]int        //"exo"
-	ToSlaveReceivedOrderListConfirmationChan chan ipOrderMessage //"rco"
-	ToSlaveExecutedConfirmationChan          chan ipOrderMessage //"eco"
-	ToSlaveImMasterChan                      chan string         //"iam"
-
-}
 type InternalCommunicationChannels struct {
 	newExternalList              chan [][]int
 	slaveToStateExMasterChanshan chan int //send input to statemachine
 }
-type ipSlave struct {
-	ip *UDPAddr
-	s  Slave
-}
-type ipOrderMessage struct {
-	ip    *UDPAddr
-	order []int
-}
 
-func external_comm_channels_init() {
-	ExCommChans.ToMasterSlaveChan = make(chan ipSlave)                               //"sla"
-	ExCommChans.ToMasterOrderListReceivedChan = make(chan ipOrderMessage)            //"ore"
-	ExCommChans.ToMasterOrderExecutedChan = make(chan ipOrderMessage)                //"oex"
-	ExCommChans.ToMasterOrderListReceivedChan = make(chan ipOrderMessage)            //"ocr"
-	ExCommChans.ToMasterOrderConfirmedExecutionChan = make(chan ipOrderMessage)      //"oce"
-	ExCommChans.ToMasterExternalButtonPushedChan = make(chan ipOrderMessage)         //"ebp"
-	ExCommChans.ToSlaveOrderListChan = make(chan [][]int)                            //"exo"
-	ExCommChans.ToSlaveReceivedOrderListConfirmationChan = make(chan ipOrderMessage) //"rco"
-	ExCommChans.ToSlaveExecutedConfirmationChan = make(chan ipOrderMessage)          //"eco"
-	//ExCommChans.ToSlaveImMasterChan = make(chan string)//"iam"
-}
 func internal_comm_chans_init() {
 	InCommChans.newExternalList = make(chan [][]int)
 	InCommChans.slaveToStateExMasterChanshan = make(chan int) //send input to statemachine

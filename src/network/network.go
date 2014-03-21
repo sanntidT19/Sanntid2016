@@ -1,111 +1,10 @@
 package network
 
 import (
-	"fmt"
+	. "chansnstructs"
 	"math/rand"
-	. "net"
-	"os"
-	"time"
+	"net"
 )
-
-const (
-	MAXWAIT = time.Second
-	PORT    = ":20019"
-)
-
-var ExNetChans NetworkExternalChannels
-
-var ExSlaveChans ExternalSlaveChannels
-var ExMasterChans ExternalMasterChannels
-var InSlaveChans InternalSlaveChannels
-var InMasterChans InternalMasterChannels
-
-var ExStateMChans ExternalStateMachineChannels
-
-type Master struct {
-	m          []Slave
-	OrderQueue [][]int
-}
-
-type ExternalSlaveChannels struct {
-	ToCommSlaveChan                   chan Slave  //"sla"
-	ToCommOrderReceivedChan           chan []int  //"ore"
-	ToCommOrderExecutedChan           chan []int  //"oex"
-	ToCommOrderListReceivedChan       chan []int  //"ocr"
-	ToCommOrderConfirmedExecutionChan chan []int  //"oce"
-	ToCommExternalButtonPushedChan    chan []int  //"ebp"
-	ToCommImMasterChan                chan string //"iam"
-
-}
-type ExternalMasterChannels struct {
-	ToCommOrderListChan            chan [][]int //"exo"
-	ToCommReceivedConfirmationChan chan []int   //"rco"
-	ToCommExecutedConfirmationChan chan []int   //"eco"
-
-}
-type InternalSlaveChannels struct {
-	OrderConfirmedExecutedChan chan []int
-	InteruptChan               chan os.Signal
-}
-type InternalMasterChannels struct {
-	OptimizationInitChan    chan Master
-	OptimizationTriggerChan chan ipOrderMessage
-	OptimizationReturnChan  chan [][]int
-	OrderReceivedMangerChan chan ipOrderMessage
-}
-
-func Slave_external_chans_init() {
-	ExSlaveChans.ToCommSlaveChan = make(chan Slave)                   //"sla"
-	ExSlaveChans.ToCommOrderReceivedChan = make(chan []int)           //"ore"
-	ExSlaveChans.ToCommOrderExecutedChan = make(chan []int)           //"oex"
-	ExSlaveChans.ToCommOrderListReceivedChan = make(chan []int)       //"ocr"
-	ExSlaveChans.ToCommOrderConfirmedExecutionChan = make(chan []int) //"oce"
-	ExSlaveChans.ToCommExternalButtonPushedChan = make(chan []int)    //"ebp"
-
-}
-func Master_external_chans_init() {
-	ExMasterChans.ToCommOrderListChan = make(chan [][]int)          //"exo"
-	ExMasterChans.ToCommReceivedConfirmationChan = make(chan []int) //"rco"
-	ExMasterChans.ToCommExecutedConfirmationChan = make(chan []int) //"eco"
-
-}
-func Slave_internal_chans_init() {
-	InSlaveChans.OrderConfirmedExecutedChan = make(chan []int)
-	InSlaveChans.InteruptChan = make(chan os.Signal, 1) //must be buffered see package declaration
-}
-func Master_internal_chans_init() {
-	InMasterChans.OptimizationInitChan = make(chan Master)
-	InMasterChans.OptimizationTriggerChan = make(chan ipOrderMessage)
-	InMasterChans.OptimizationReturnChan = make(chan [][]int)
-	InMasterChans.OrderReceivedMangerChan = make(chan ipOrderMessage)
-}
-
-type ExternalStateMachineChannels struct {
-	ExternalButtonPressed chan []int
-	OrderServed           chan []int
-	CurrentState          chan []int
-	GetSlaveStruct        chan Slave
-	DirectionUpdate       chan int
-}
-
-func External_state_machine_channels_init() {
-	ExStateMChans.ExternalButtonPressed = make(chan []int)
-	ExStateMChans.OrderServed = make(chan []int)
-	ExStateMChans.CurrentState = make(chan []int)
-	ExStateMChans.GetSlaveStruct = make(chan Slave)
-	ExStateMChans.DirectionUpdate = make(chan int)
-}
-
-type Button struct {
-	floor      int
-	buttonType int
-	turnOn     bool
-}
-
-type State struct {
-	direction    int
-	currentFloor int
-}
 
 /*
 func main() {
@@ -188,20 +87,6 @@ func (s Slave) Slave_communication() {
 			ExSlaveChans.ToCommOrderExecutedChan <- order
 		}
 	}
-}
-
-type NetworkExternalChannels struct {
-	ToNetwork  chan []byte
-	ToComm     chan []byte
-	ConnChan   chan Conn
-	ToCommAddr chan *UDPAddr
-}
-
-func network_external_chan_init() {
-	ExNetChans.ToNetwork = make(chan []byte)
-	ExNetChans.ToComm = make(chan []byte)
-	ExNetChans.ConnChan = make(chan Conn)
-	ExNetChans.ToCommAddr = make(chan *UDPAddr)
 }
 
 func Network_init() (Conn, Conn) {

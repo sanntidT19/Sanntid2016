@@ -13,8 +13,6 @@ const (
 	PORT = ":20019"
 )
 
-var InteruptChan chan os.Signal
-
 func main() {
 	fmt.Println("hei")
 	//buf := make([]byte, 1024)

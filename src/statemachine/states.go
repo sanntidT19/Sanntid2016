@@ -2,8 +2,6 @@ package statemachine
 
 import (
 	"driver"
-	"fmt"
-	"time"
 )
 
 const MAX_SPEED_UP = 300

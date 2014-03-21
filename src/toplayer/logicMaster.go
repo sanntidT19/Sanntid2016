@@ -1,16 +1,31 @@
 package toplayer
 
-import (
-	//"net"
-	"fmt"
-	. "network"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-)
+import "chansnstructs"
 
-//Global chans
+var InMasterChans InternalMasterChannels
+var InSlaveChans InternalSlaveChannels
+
+type InternalMasterChannels struct {
+	OptimizationInitChan    chan Master
+	OptimizationTriggerChan chan ipOrderMessage
+	OptimizationReturnChan  chan [][]int
+	OrderReceivedMangerChan chan ipOrderMessage
+}
+type InternalSlaveChannels struct {
+	OrderConfirmedExecutedChan chan []int
+	InteruptChan               chan os.Signal
+}
+
+func Slave_internal_chans_init() {
+	InSlaveChans.OrderConfirmedExecutedChan = make(chan []int)
+	InSlaveChans.InteruptChan = make(chan os.Signal, 1) //must be buffered see package declaration
+}
+func Master_internal_chans_init() {
+	InMasterChans.OptimizationInitChan = make(chan Master)
+	InMasterChans.OptimizationTriggerChan = make(chan ipOrderMessage)
+	InMasterChans.OptimizationReturnChan = make(chan [][]int)
+	InMasterChans.OrderReceivedMangerChan = make(chan ipOrderMessage)
+}
 
 func Slave_init() {
 	buf := make([]byte, 1024)
