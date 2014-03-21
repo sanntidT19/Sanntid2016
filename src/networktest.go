@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	. "net"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
+	//. "net"
+	//"os"
+	//"os/signal"
+	//"syscall"
+	//"time"
+	"os/exec"
 )
 
 const (
@@ -14,6 +15,14 @@ const (
 )
 
 func main() {
+
+	cmd := exec.Command("mate-terminal", "-x", "go", "run", "tempmain.go")
+	cmd.Start()
+
+	fmt.Println("test")
+}
+
+/*
 	fmt.Println("hei")
 	//buf := make([]byte, 1024)
 	Network_init()

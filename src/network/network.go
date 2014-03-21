@@ -26,6 +26,19 @@ func Network_init() (Conn, Conn) {
 
 }
 
+///////We need to select push to network or send
+func Push_to_network(byteOrder, c) {
+	for {
+		err := SetWriteDeadline(10 * Millisecond)
+		_, err = c.Write(to_writing)
+		if err != nil {
+			fmt.Println(err.Error())
+		} else {
+			//break
+		}
+	}
+}
+
 func Send() {
 	byteArr := <-ExNetChans.ToNetwork
 	c := <-ExNetChans.ConnChans
@@ -34,13 +47,12 @@ func Send() {
 }
 func Write_to_network(to_writing []byte, c Conn) {
 	for {
-			err := SetWriteDeadline(10 * Millisecond)
-			_, err = c.Write(to_writing)
-			if err != nil {
-				fmt.Println(err.Error())
-			} else {
-				//break
-			}
+		err := SetWriteDeadline(10 * Millisecond)
+		_, err = c.Write(to_writing)
+		if err != nil {
+			fmt.Println(err.Error())
+		} else {
+			//break
 		}
 	}
 }

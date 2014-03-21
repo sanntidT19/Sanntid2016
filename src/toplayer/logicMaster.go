@@ -1,19 +1,14 @@
 package toplayer
 
 import (
-	"chansnstructs"
+	. "chansnstructs"
 	"os"
+	"statemachine"
 )
 
 var InMasterChans InternalMasterChannels
 var InSlaveChans InternalSlaveChannels
 
-type InternalMasterChannels struct {
-	OptimizationInitChan    chan Master
-	OptimizationTriggerChan chan ipOrderMessage
-	OptimizationReturnChan  chan [][]int
-	OrderReceivedMangerChan chan ipOrderMessage
-}
 type InternalSlaveChannels struct {
 	OrderConfirmedExecutedChan chan []int
 	InteruptChan               chan os.Signal
@@ -23,10 +18,12 @@ func Slave_internal_chans_init() {
 	InSlaveChans.OrderConfirmedExecutedChan = make(chan []int)
 	InSlaveChans.InteruptChan = make(chan os.Signal, 1) //must be buffered see package declaration
 }
+
+type InternalMasterChannels struct {
+	OrderReceivedMangerChan chan ipOrderMessage
+}
+
 func Master_internal_chans_init() {
-	InMasterChans.OptimizationInitChan = make(chan Master)
-	InMasterChans.OptimizationTriggerChan = make(chan ipOrderMessage)
-	InMasterChans.OptimizationReturnChan = make(chan [][]int)
 	InMasterChans.OrderReceivedMangerChan = make(chan ipOrderMessage)
 }
 
@@ -222,4 +219,16 @@ func appendElement(slice [][]int, order ipOrderMessage) [][]int {
 		slice = Extend(slice, order[1])
 	}
 	return slice
+}
+
+func ssh_file_transfer() {
+	cmd := exec.Command("ssh", IP1)
+	cmf.Start()
+
+	cmd = exec.Command("scp", "-r", "student@"+IP1+":fileOnMachine", "fileAtRemote")
+	cmd.Start()
+
+	cmd = exec.Command("scp", "-r", "student@"+IP1":")
+	//ssh
+	//scp -r student@129.241.187.xxx:fileOnMachine fileAtRemot
 }

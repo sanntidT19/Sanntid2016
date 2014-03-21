@@ -1,7 +1,8 @@
 package main
 
 import (
-	"./statemachine"
+	//"./statemachine"
+	"fmt"
 )
 
 //Making a test function to see how the state machine works

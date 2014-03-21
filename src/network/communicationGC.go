@@ -4,6 +4,7 @@ import (
 	. "chansnstructs"
 	. "encoding/json"
 	. "net"
+	"time"
 )
 
 var InCommChans InternalCommunicationChannels
@@ -25,7 +26,7 @@ func Send_order(externalOrderList [][]int, c Conn) { //send exectuionOrderList
 	prefix, _ := Marshal("ord")
 	byteOrder = append(prefix, byteOrder...)
 	for {
-		Send(byteOrder, c)
+		Push_to_network(byteOrder, c)
 		select {
 		case <-ExCommChans.ToMasterOrderListReceivedChan:
 			return
@@ -40,9 +41,7 @@ func Send_order_received(order []int, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("ore")
 
-	byteMessage = append(prefix, byteMessage...)
-
-	Send(byteMessage, c)
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
 
 //To master
@@ -60,6 +59,8 @@ func Send_order_executed_confirmation(order []int, c Conn) {
 	ExNetChans.ConnChan <- c
 	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 }
+
+//
 func Send_order_executed_reconfirmed(order []int, c Conn) {
 	byteMessage, _ := Marshal(order)
 	prefix, _ := Marshal("oce")
@@ -96,11 +97,11 @@ func Select_send_master(c Conn) {
 	for {
 		select {
 		//Master
-
 		case externalOrderList := <-ExMasterChans.ToCommOrderListChan:
 			Send_order(externalOrderList, c)
-		case order := <-ExMasterChans.ToCommExecutedConfirmationChan:
-			Send_order_executed_confirmation(order, c)
+		case order := <-ExMasterChans.ToCommExecutedConfirmedChan:
+			temp := order[1]
+			Send_order_executed_confirmation(temp, c)
 		default:
 			Send_im_master(c)
 		}
@@ -133,13 +134,7 @@ func Select_receive() {
 }
 
 func Decrypt_message(message []byte, addr *UDPAddr) {
-	
-	
-	
-	
-	
-	
-	
+
 	ExCommChans.ToMasterOrderReConfirmedExecutedChan = make(chan ipOrderMessage) //"oce"****
 	switch {
 	case string(message[1:4]) == "ord":
@@ -178,7 +173,7 @@ func Decrypt_message(message []byte, addr *UDPAddr) {
 		_ = Unmarshal(noPrefix, &order)
 		ExCommChans.ToMasterExternalButtonPushedChan <- ipOrderMessage{addr, order}
 
-	case string(message[1:4]) == "oce"
+	case string(message[1:4]) == "oce":
 		noPrefix := message[5:]
 		order := make([]int, 2)
 		_ = Unmarshal(noPrefix, &order)
