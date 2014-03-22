@@ -161,6 +161,6 @@ func External_state_machine_channels_init() {
 	ExStateMChans.DirectionUpdate = make(chan int)
 }
 func External_optimization_channel_init() {
-	ExOptimalChans.OptimizationTriggerChan = make(chan Order)
-	ExOptimalChans.OptimizationReturnChan = make(chan []Order)
+	ExOptimalChans.OptimizationTriggerChan = make(chan Master)
+	ExOptimalChans.OptimizationReturnChan = make(chan [][][]bool])
 }
