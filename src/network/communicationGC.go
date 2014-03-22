@@ -92,6 +92,12 @@ func Send_im_master(c Conn) { //send I am master
 	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
 
 }
+func Send_im_slave(c Conn) {
+	byteMessage, _ := Marshal("im slave")
+	prefix, _ := Marshal("ias")
+	ExNetChans.ConnChan <- c
+	ExNetChans.ToNetwork <- append(prefix, byteMessage...)
+}
 
 func Select_send_master(c Conn) {
 
@@ -101,9 +107,8 @@ func Select_send_master(c Conn) {
 		case externalOrderList := <-ExMasterChans.ToCommOrderListChan:
 			Send_order(externalOrderList, c)
 		case order := <-ExMasterChans.ToCommOrderExecutedConfirmedChan:
-
 			Send_order_executed_confirmation(order, c)
-		default:
+		case message := <-ExMasterChans.ToCommImMasterChan:
 			Send_im_master(c)
 		}
 	}
@@ -122,6 +127,9 @@ func Select_send_slave(c Conn) {
 			Send_order_executed_reconfirmed(order, c)
 		case order := <-ExSlaveChans.ToCommExternalButtonPushedChan:
 			Send_ex_button_push(order, c)
+		case message := <-ExSlaveChans.ToCommImSlaveChan:
+			Send_im_slave(c)
+
 		}
 	}
 }
@@ -183,6 +191,10 @@ func Decrypt_message(message []byte, addr *UDPAddr) {
 		noPrefix := message[5:]
 		stringMessage := string(noPrefix)
 		ExCommChans.ToSlaveImMasterChan <- stringMessage
-
+		
+	case string(message[1:4]) == "ias":
+		noPrefix := message[5:]
+		stringMessage := string(noPrefix)
+		ExCommChans.ToSlaveImMasterChan <- stringMessage
 	}
 }

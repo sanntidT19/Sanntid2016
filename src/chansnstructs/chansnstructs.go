@@ -26,13 +26,14 @@ var ExOptimalChans ExternalOptimalizationChannels
 var InteruptChan chan os.Signal
 
 type Master struct {
-	S map[*UDPAddr]Slave
+	SlaveElev map[*UDPAddr]Slave
+	
 }
 
 type Slave struct {
 	IP                *UDPAddr
 	AllExternalsOrder map[*UDPAddr][]Order
-	InternalList      []int
+	InternalList      []bool
 	CurrentFloor      int
 	Direction         int
 }
@@ -66,8 +67,8 @@ type NetworkExternalChannels struct {
 }
 type ExternalOptimalizationChannels struct {
 	//InMasterChans.OptimizationInitChan = make(chan Master)
-	OptimizationTriggerChan chan Master
-	OptimizationReturnChan  chan [][]bool
+	OptimizationTriggerChan chan Order
+	OptimizationReturnChan  chan []Order
 }
 
 type ExternalCommunicationChannels struct {
@@ -78,9 +79,9 @@ type ExternalCommunicationChannels struct {
 	ToMasterOrderExecutedReConfirmedChan chan IpOrderMessage //"oce"
 	ToMasterExternalButtonPushedChan     chan IpOrderMessage //"ebp"
 	ToSlaveOrderListChan                 chan []Order        //"exo"
-	//ToSlaveReceivedOrderListConfirmationChan chan ipOrderMessage //"rco"
 	ToSlaveOrderExecutedConfirmedChan chan IpOrderMessage //"eco"
 	ToSlaveImMasterChan               chan string         //"iam"
+	ToMasterImSlaveChna				chan string //"ias"
 
 }
 type ExternalSlaveChannels struct {
@@ -95,6 +96,7 @@ type ExternalSlaveChannels struct {
 type ExternalMasterChannels struct {
 	ToCommOrderListChan              chan []Order //"exo"
 	ToCommOrderExecutedConfirmedChan chan Order   //"eco"
+	ToCommImSlaveChan chan Order //"ias"
 
 }
 type ExternalStateMachineChannels struct {
