@@ -39,9 +39,9 @@ func Select_send_slave() {
 			Send_order_received(order)
 		case order := <-ExSlaveChans.ToCommOrderExecutedChan:
 			Send_order_executed(order)
-		case order := <-ExSlaveChans.ToCommOrderExecutedReConfirmedChan:
+		case order := <-ExSlaveChans.ToCommOrderExecutedReConfirmedChan:		STRANGE NAME ???!!!???
 			Send_order_executed_reconfirmed(order)
-		case order := <-ExSlaveChans.ToCommExternalButtonPushedChan:
+		case order := <-ExSlaveChans.ToCommExternalButtonPushedChan:       
 			Send_ex_button_push(order)
 		case ipOrder := <-ExSlaveChans.ToCommImSlaveChan:
 			ip := ipOrder.Ip

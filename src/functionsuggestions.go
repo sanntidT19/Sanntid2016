@@ -10,12 +10,36 @@ import
 WE MAY NEED TO MAKE A COPY, I DO NOT KNOW IF WE CAN ITERATE THROUGH THE MAPS WHILE WE ARE WRITING TO IT. HOW DO WE RLOCK AN IF-STATEMENT IN THIS CASE?
 //Masters functions, pick good names.
 
+func Master_top_logic(){  MAYBE THE MASTER TOP LOGIC SHOULD TALK TO THE SLAVE TOP LOGIC?
+	//Need to save the external arrays somewhere. WHERE?
+	for{
+		select{
+			case order := <- ToTopLogicOrderChan:
+				if isOrderExe(order){ // If order executed, just update the internal arrays and the updater will notify when updated. It will use IP smartly 
+					LocalMaster.setOrderExecuted(order)
+					arraysHasBeenUpdatedChan <- LocalMaster.AllArrays   THIS IS THE MAP WE MUST CHANGE. WE SHOULD DO THIS TOGETHER SINCE A LOT OF FUNCTIONALITY USES IT
+
+					ToStateMachineArrayChan <- LocalMaster.AllArrays[LocalMaster.myIP]	WE NEED TO LOOK AT THIS FFS!!!!!!
+
+				}else{ //else its a button pressed and we need the optimization module decide who gets it
+					ToOptimizationChan <- order
+
+				}
+			case state := <- ToStateUpdater:
+				LocalMaster.setState(state) THIS STRUCT FUNCTION NEEDS TO BE MADE/WE NEED TO FIND OUT HOW WE DO THIS SHIT.
+			case allarrays := <- optimilizationFinishedChan :
+				LocalMaster.updateArrays(allarrays) WE NEED TO FIGURE THIS SHIT OUT
+				arraysHasBeenUpdatedChan <- LocalMaster.AllArrays   //We now have two channels writing to one channel, but the goroutine should empty the buffer quite nicely
+
+		}
+	}
+}
 
 func Master_updated_state_incoming(){
 	for {
-		updatedState := <- ToMasterUpdateStateChan 					THIS NEEDS TO BE MADE/IS IT MADE??? //This is Ip and everything
-		MasterUpdateCentralChan <- updatedState				THIS NEEDS TO BE MADE/IS IT MADE???
-		ToCommUpdateStateReceivedChan <-updatedState
+		updatedState := <- ToMasterUpdateStateChan 			FROM THE COMMUNICATION MODULE --  THIS NEEDS TO BE MADE - FEEL FREE TO CHANGE NAME 
+		ToStateUpdater <- updatedState				TO THE LOCAL STATEMACHINE  --  THIS NEEDS TO BE MADE - FEEL FREE TO CHANGE NAME 
+		ToCommUpdateStateReceivedChan <-updatedState		TO THE COMMUNICATION MODULE --  THIS NEEDS TO BE MADE - FEEL FREE TO CHANGE NAME 
 
 	}
 
@@ -27,8 +51,8 @@ func Master_updated_arrays_outgoing(){
 	startCountdownChan := make(chan bool)
 	countdownFinishedChan := make(chan bool)
 	allSlavesAnsweredChan := make(chan bool)
-	countingSlaveMap := make(map[IP] Slave)
-	var hasSentAlert bool   // In case of 
+	countingSlaveMap := make(map[IP] Slave) THIS MAY NEED TO BE CHANGED
+	var hasSentAlert bool   // In case of repeated packages 
 
 
 
@@ -36,15 +60,12 @@ func Master_updated_arrays_outgoing(){
 	go func(){
 		for{
 			select{
-				case localSlaveMap = <- arraysHasBeenUpdatedChan:   THIS NEEDS TO BE MADE/IS IT MADE???   ALSO: BAD NAME
-					ToCommAllArraysChan <- localSlaveMap
-
+				case localSlaveMap = <- arraysHasBeenUpdatedChan:  COMING FROM LOCAL STATEMACHINE -  THIS NEEDS TO BE MADE - FEEL FREE TO CHANGE NAME 
+					ToCommAllArraysChan <- localSlaveMap		TO THE COMMUNICATION MODULE --  THIS NEEDS TO BE MADE - FEEL FREE TO CHANGE NAME 
 					startReceivingChan <- localSlaveMap
-			
-
 					startCountdownChan <- true
 				case <-countdownFinishedChan:
-					ToCommAllArraysChan <- localSlaveMap
+					ToCommAllArraysChan <- localSlaveMap 	TO THE COMMUNICATION MODULE --  THIS NEEDS TO BE MADE - FEEL FREE TO CHANGE NAME 
 			}	
 
 		}
@@ -66,9 +87,9 @@ func Master_updated_arrays_outgoing(){
 	go func() {
 		for{
 			select{
-				case countingSlaveMap = <- startReceivingChan:
+				case countingSlaveMap = <- startReceivingChan:	
 					hasSentAlert = false
-				case receivedOrder := <- arraysReceivedChan:  //Need to find how to extract the ip
+				case receivedOrder := <- arraysReceivedChan: (type: )  FROM THE COMMUNICATION MODULE --  THIS NEEDS TO BE MADE - FEEL FREE TO CHANGE NAME
 					delete(countingSlaveMap,receivedOrder)
 					if len(countingSlaveMap) == 0 && !hasSentAlert{
 						allSlavesAnsweredChan <- true
@@ -82,7 +103,7 @@ func Master_updated_arrays_outgoing(){
 }
 
 //Either copy-paste this or send it to optimization-module in the code where it is handled. May just have a goroutine in this function as well  
-func Master_incoming_order_executed(){
+func Master_incoming_order_executed(){ RENAME THIS MOTHERFUCKER TO TAKE CARE OF ALL THE SHITS//Generalize this for all orders, either ordered or executed.
 	countdownChan := make(chan Order)
 	timerMap := make(map[IpOrderMessage] Time)
 	var incomingOrderMap = struct{
@@ -94,8 +115,8 @@ func Master_incoming_order_executed(){
 			orderExe := <- ExCommChans.ToMasterOrderExecutedChan  //This is on IP-message-form
 
 
-
-			ToOrderHandlerChan <- orderExe     /*The code that receives isnt made yet. Should handle optimization module there.*/ THIS NEEDS TO BE MADE/IS IT MADE??? 
+.
+			ToTopLogicOrderChan <- orderExe     /*The code that receives isnt made yet. Should handle optimization module there.*/ THIS NEEDS TO BE MADE/IS IT MADE??? 
 
 
 
@@ -103,7 +124,7 @@ func Master_incoming_order_executed(){
 			inQueue := incomingOrderMap.m[orderExe.Order] //It will be nil if its not in the map
 			incomingOrderMap.RUnlock()
 			if inQueue == nil{ //If its not in queue we should
-				toExternalOrderChan <- orderExe
+				ToTopLogicOrderChan <- orderExe
 				incomingOrderMap.Lock()
 				incomingOrderMap.m[orderExe.Order] = orderExe.IP
 				incomingOrderMap.Unlock()
@@ -153,6 +174,20 @@ func Master_incoming_order_executed(){
 
 //Slaves functions
 
+func Slave_top_Logic (){ 
+	for{
+		select{
+		case order := <-ExternalButtonPressed:
+			ToSlaveOrderOutChan <- order
+		case allArrays := <- ToTopLogicChan:
+			UPDATE LOCAL SLAVE HERE, FIND OUT HOW
+
+		} 														SHOULD WE JUST SEND STATE AND BUTTON PRESSED DIRECTLY???? DO WE NEED THIS GUY AT ALL?  WE NEED TO FIND THE FUCK OUT
+
+	}
+
+}
+
 func Slave_Order_Outgoing(){
 	countdownChan := make(chan Order)
 	outgoingOrderMap := struct{sync.RWMutex ,m map[Order] IP}
@@ -201,26 +236,27 @@ func Slave_order_arrays_incoming(){
 	go func() {
 		for{
 			orderArray := <- ToSlaveArraysChan
+			ToTopLogicChan <- orderArray
 			//Here we need to save all the information about the other slaves, and send our own to the statemachine
-			FromSlaveArraysReceivedChan <- Message back
+			ToCommSlaveArraysReceivedChan <- orderArray
 		}
 	}
 }
 //Sends state if timer expires or state changes.
 func Slave_state_updated(){
 	var sendAgainTimer time.Time    THESE TWO NEEDS TO BE VERIFIED
-	var currentState State
+	var localCurrentState State
 	for{
 		select{
-		case currentState = <- ToSlaveFromStateChan:
-			FromSlaveToCommStateChan <- currentState                 		THIS NEEDS TO BE MADE/IS IT MADE???
+		case localCurrentState = <- ToSlaveStateUpdatedChan:
+			ToCommStateUpdatedChan <- currentState                 		THIS NEEDS TO BE MADE/IS IT MADE???
 			sendAgainTimer = time.After(500* time.Millisecond)
-		case currentStateReceived := <-ToSlaveFromCommChan:
-			if currentStateReceived == currentState {
+		case currentStateReceived := <-ToSlaveUpdateReceivedChan:
+			if currentStateReceived == LocalCurrentState {
 				sendAgainTimer = nil                  //Not sure if this is legal, will this send to channel if its set to nil??
 			}
 		case <- sendAgainTimer:  //This will be sent when time runs out, I think.
-			FromSlaveToCommStateChan <- currentState    		THIS NEEDS TO BE MADE/IS IT MADE???
+			ToCommStateUpdatedChan <- currentState    		THIS NEEDS TO BE MADE/IS IT MADE???
 			sendAgainTimer = time.After(500* time.Millisecond)
 		}
 	}
