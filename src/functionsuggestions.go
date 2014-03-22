@@ -26,6 +26,9 @@ func Master_updated_arrays_outgoing(){
 	timerMap := make(map[IP] time.Time)  //timers for each IP
 	startCountdownChan := make(chan bool)
 	countdownFinishedChan := make(chan bool)
+	allSlavesAnsweredChan := make(chan bool)
+	countingSlaveMap := make(map[IP] Slave)
+	var hasSentAlert bool   // In case of 
 
 
 
@@ -34,12 +37,14 @@ func Master_updated_arrays_outgoing(){
 		for{
 			select{
 				case localSlaveMap = <- arraysHasBeenUpdatedChan:   THIS NEEDS TO BE MADE/IS IT MADE???   ALSO: BAD NAME
-					ToCommAllArrays <- localSlaveMap
+					ToCommAllArraysChan <- localSlaveMap
 
+					startReceivingChan <- localSlaveMap
+			
 
 					startCountdownChan <- true
 				case <-countdownFinishedChan:
-					ToCommAllArrays <- localSlaveMap
+					ToCommAllArraysChan <- localSlaveMap
 			}	
 
 		}
@@ -48,15 +53,31 @@ func Master_updated_arrays_outgoing(){
 	//Also sends again if no answer
 	go func(){
 		for{
-			<-startCountdownChan
-			timer := time.After(500 * time.Millisecond)  // If all answers, find a way to stop timer
-			<-timer
-			countdownFinishedChan <- true
-
-
-
-
+			select{
+				case <-startCountdownChan:
+					timer := time.After(500 * time.Millisecond)  // If all answers, find a way to stop timer
+				case <-timer:
+					countdownFinishedChan <- true
+				case <-allSlavesAnsweredChan:
+					timer = nil
+				}
 		}
+	}()
+	go func() {
+		for{
+			select{
+				case countingSlaveMap = <- startReceivingChan:
+					hasSentAlert = false
+				case receivedOrder := <- arraysReceivedChan:  //Need to find how to extract the ip
+					delete(countingSlaveMap,receivedOrder)
+					if len(countingSlaveMap) == 0 && !hasSentAlert{
+						allSlavesAnsweredChan <- true
+						hasSentAlert = true
+					} 
+			}
+			time.Sleep(25 * Millisecond)
+		}
+
 	}()
 }
 
