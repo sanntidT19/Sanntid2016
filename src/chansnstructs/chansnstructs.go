@@ -13,7 +13,8 @@ const (
 	MAXWAIT   = time.Second
 	PORT      = ":20019"
 	N_FLOORS  = 4
-
+	TIMEOFSTOP = 1 // Time spent in one floor
+	TIMETRAVEL = 2 // Time of travel between floors
 	//IP1 = "129.241.187.147"
 	//IP2 = 129.241.187.xxx
 	//IP3 = 129.241.187.xxx
