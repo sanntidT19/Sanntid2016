@@ -7,11 +7,14 @@ import (
 )
 
 const (
-	MAXWAIT  = time.Second
-	PORT     = ":20019"
-	N_FLOORS = 4
+	UP        = 0 // is this correct?
+	DOWN      = 1 // si this correct?
+	N_BUTTONS = 8 // @Yngve is this correct??
+	MAXWAIT   = time.Second
+	PORT      = ":20019"
+	N_FLOORS  = 4
 
-	IP1 = "129.241.187.147"
+	//IP1 = "129.241.187.147"
 	//IP2 = 129.241.187.xxx
 	//IP3 = 129.241.187.xxx
 )
@@ -27,7 +30,6 @@ var InteruptChan chan os.Signal
 
 type Master struct {
 	SlaveElev map[*UDPAddr]Slave
-	
 }
 
 type Slave struct {
@@ -61,7 +63,6 @@ type State struct {
 type NetworkExternalChannels struct {
 	ToNetwork  chan []byte
 	ToComm     chan []byte
-	ConnChan   chan Conn
 	ToCommAddr chan *UDPAddr
 	StopWrite  chan bool
 }
@@ -79,25 +80,24 @@ type ExternalCommunicationChannels struct {
 	ToMasterOrderExecutedReConfirmedChan chan IpOrderMessage //"oce"
 	ToMasterExternalButtonPushedChan     chan IpOrderMessage //"ebp"
 	ToSlaveOrderListChan                 chan []Order        //"exo"
-	ToSlaveOrderExecutedConfirmedChan chan IpOrderMessage //"eco"
-	ToSlaveImMasterChan               chan string         //"iam"
-	ToMasterImSlaveChna				chan string //"ias"
+	ToSlaveOrderExecutedConfirmedChan    chan IpOrderMessage //"eco"
+	ToSlaveImMasterChan                  chan string         //"iam"
+	ToMasterImSlaveChan                  chan IpOrderMessage //"ias"
 
 }
 type ExternalSlaveChannels struct {
-	ToCommSlaveChan                    chan Slave  //"sla"
-	ToCommOrderListReceivedChan        chan Order  //"ore"
-	ToCommOrderExecutedChan            chan Order  //"oex"
-	ToCommOrderExecutedReConfirmedChan chan Order  //"oce"
-	ToCommExternalButtonPushedChan     chan Order  //"ebp"
-	ToCommImMasterChan                 chan string //"iam"
+	ToCommSlaveChan                    chan Slave          //"sla"
+	ToCommOrderListReceivedChan        chan Order          //"ore"
+	ToCommOrderExecutedChan            chan Order          //"oex"
+	ToCommOrderExecutedReConfirmedChan chan Order          //"oce"
+	ToCommExternalButtonPushedChan     chan Order          //"ebp"
+	ToCommImSlaveChan                  chan IpOrderMessage //"ias"
 
 }
 type ExternalMasterChannels struct {
 	ToCommOrderListChan              chan []Order //"exo"
 	ToCommOrderExecutedConfirmedChan chan Order   //"eco"
-	ToCommImSlaveChan chan Order //"ias"
-
+	ToCommImMasterChan               chan string  //"iam"
 }
 type ExternalStateMachineChannels struct {
 	ExternalButtonPressed chan Order
@@ -120,7 +120,6 @@ func Channals_init() {
 func network_external_chan_init() {
 	ExNetChans.ToNetwork = make(chan []byte)
 	ExNetChans.ToComm = make(chan []byte)
-	ExNetChans.ConnChan = make(chan Conn)
 	ExNetChans.ToCommAddr = make(chan *UDPAddr)
 }
 
@@ -133,6 +132,7 @@ func external_comm_channels_init() {
 	ExCommChans.ToMasterExternalButtonPushedChan = make(chan IpOrderMessage)     //"ebp"
 	ExCommChans.ToMasterSlaveChan = make(chan IpSlave)                           //"sla"
 	ExCommChans.ToSlaveImMasterChan = make(chan string)                          //"iam"
+	ExCommChans.ToMasterImSlaveChan = make(chan IpOrderMessage)                  //"ims"
 }
 
 func Slave_external_chans_init() {
@@ -142,11 +142,13 @@ func Slave_external_chans_init() {
 	ExSlaveChans.ToCommOrderExecutedReConfirmedChan = make(chan Order) //"oce"
 	ExSlaveChans.ToCommExternalButtonPushedChan = make(chan Order)     //"ebp"
 	ExSlaveChans.ToCommSlaveChan = make(chan Slave)                    //"sla"
+	ExSlaveChans.ToCommImSlaveChan = make(chan IpOrderMessage)
 
 }
 func Master_external_chans_init() {
 	ExMasterChans.ToCommOrderListChan = make(chan []Order)            //"ord"
 	ExMasterChans.ToCommOrderExecutedConfirmedChan = make(chan Order) //"eco"
+	ExMasterChans.ToCommImMasterChan = make(chan string)
 }
 
 func External_state_machine_channels_init() {
@@ -158,6 +160,6 @@ func External_state_machine_channels_init() {
 	ExStateMChans.DirectionUpdate = make(chan int)
 }
 func External_optimization_channel_init() {
-	ExOptimalChans.OptimizationTriggerChan = make(chan Master)
-	ExOptimalChans.OptimizationReturnChan = make(chan [][]bool)
+	ExOptimalChans.OptimizationTriggerChan = make(chan Order)
+	ExOptimalChans.OptimizationReturnChan = make(chan []Order)
 }

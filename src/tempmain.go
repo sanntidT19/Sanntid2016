@@ -1,13 +1,16 @@
 package main
 
 import (
-	//"./statemachine"
-	"fmt"
+	. "statemachine"
+	//"fmt"
 )
 
 //Making a test function to see how the state machine works
 func main() {
-	statemachine.Elevator_manager()
+	Elevator_manager()
+
+	block := make(chan bool)
+	<-block
 	/*
 		goToFloorChan := make(chan int)
 		currentFloorChan := make(chan int)
