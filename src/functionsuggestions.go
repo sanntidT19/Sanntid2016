@@ -277,21 +277,27 @@ func Slave_state_updated() {
 		select {
 		case localCurrentState = <-ExStateMChans.CurrentState:
 			ExSlaveChans.ToCommUpdatedStateChan <- localCurrentState
-			sendAgainTimer = time.After(500 * time.Millisecond)
+			sendAgainTimer = time.After(50 * time.Millisecond)
 		case currentStateReceived := <-ExCommChans.ToSlaveUpdateStateReceivedChan:
 			if currentStateReceived == localCurrentState {
 				sendAgainTimer = nil //Not sure if this is legal, will this send to channel if its set to nil??
 			}
 		case <-sendAgainTimer: //This will be sent when time runs out, I think.
 			ExSlaveChans.ToCommUpdatedStateChan <- localCurrentState
-			sendAgainTimer = time.After(500 * time.Millisecond)
+			sendAgainTimer = time.After(50 * time.Millisecond)
 		}
 	}
 }
 
 func Check_slaves() {
-
+	for {
+		<-ExCommChans.ToSlaveImMasterChan
+		Network_init(ExternalList)
+	}
 }
 func Check_master() {
-
+	for {
+		<-ExCommChans.ToSlaveImMasterChan
+		Network_init(ExternalList)
+	}
 }
