@@ -21,21 +21,32 @@
 		HasIntOrders bool
 	}
 
+	
+
 	func Optimization(){
+
+		
+
+		var Input Master
+
+
+		var ELEV int
+		
+		ELEV = len(Input.SlaveElev Type) int //??????
 
 		//Y Matrix of order from hallway
 		var Y [2][N_FLOORS]bool
 
 		// E is output matrix sent to channel
-		var E [*UDPAddr][2][N_FLOORS]bool
+		var E [ELEV][2][N_FLOORS]bool
 
 		// T is array of current time load for each cabin
-		var T [*UDPAddr]int
+		var T [ELEV]int
 
 		// C is array of parameters for each cabin
-		var C [*UDPAddr]Cabin
+		var C [ELEV]Cabin
 
-		var Input Master
+
 
 		for{
 
@@ -45,9 +56,9 @@
 			Y = Input.SlaveElev[0].AllExternalsOrder
 
 			//filling of cabins for each elevator
-			for i := 0; i < *UDPAddr; i++ {
+			for i := 0; i < ELEV; i++ {
 				// fill recieved data to C array
-				C[i] = Cabin{Input.SlaveElev[i].IP, Input.SlaveElev[i].CurrentFloor, Input.SlaveElev[i].Direction, Input.SlaveElev[i].InternalList[0:*UDPAddr], 0, 0, 0, 0, false} 
+				C[i] = Cabin{Input.SlaveElev[i].IP, Input.SlaveElev[i].CurrentFloor, Input.SlaveElev[i].Direction, Input.SlaveElev[i].InternalList[0:ELEV], 0, 0, 0, 0, false} 
 
 				//Check if elevator needs to change direction - it happens if there is no order in original direction
 				C[i].Direction = DirectionSwitch(C[i].Direction, C[i].HighestFloor, C[i].LowestFloor, C[i].Position)
@@ -63,8 +74,8 @@
 			for j := 0; j < N_FLOORS; j++ {
 				for n := 0; n < 2; n++ {
 					if Y[n][j] {
-						E, T = loop(C[0:*UDPAddr], Y, E)
-						E[Leastloadfu(T[0:*UDPAddr])][n][j] = true
+						E, T = loop(C[0:ELEV], Y, E)
+						E[Leastloadfu(T[0:ELEV])][n][j] = true
 					}
 				}
 			}
@@ -73,10 +84,10 @@
 		}
 	}
 
-	func loop(C []Cabin, H [2][N_FLOORS]bool, ExecutionList [*UDPAddr][2][N_FLOORS]bool) ([*UDPAddr][2][N_FLOORS]bool, [*UDPAddr]int) {
-		var TimeArr [*UDPAddr]int
+	func loop(C []Cabin, H [2][N_FLOORS]bool, ExecutionList [ELEV][2][N_FLOORS]bool) ([ELEV][2][N_FLOORS]bool, [ELEV]int) {
+		var TimeArr [ELEV]int
 		// For each elevator do:
-		for i := 0; i < *UDPAddr; i++ {
+		for i := 0; i < ELEV; i++ {
 
 			// Find Highest floor, Lowest floor, Number of stops, and if it has any orders.
 			C[i].HighestFloor, C[i].LowestFloor, C[i].Stops, C[i].HasIntOrders = FindHighLow(ExecutionList[i])
@@ -94,7 +105,7 @@
 		func Leastloadfu(P []int) int {
 			Chosen := 0
 			Minimum := P[0]
-			for i := 0; i < *UDPAddr; i++ {
+			for i := 0; i < ELEV; i++ {
 				if P[i] < Minimum {
 					Minimum = P[i]
 					Chosen = i
