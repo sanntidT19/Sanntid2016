@@ -7,12 +7,12 @@ import (
 )
 
 const (
-	UP        = 0 // is this correct?
-	DOWN      = 1 // si this correct?
-	N_BUTTONS = 8 // @Yngve is this correct??
-	MAXWAIT   = time.Second
-	PORT      = ":20019"
-	N_FLOORS  = 4
+	UP         = 0 // is this correct?
+	DOWN       = 1 // si this correct?
+	N_BUTTONS  = 8 // @Yngve is this correct??
+	MAXWAIT    = time.Second
+	PORT       = ":20019"
+	N_FLOORS   = 4
 	TIMEOFSTOP = 1 // Time spent in one floor
 	TIMETRAVEL = 2 // Time of travel between floors
 	//IP1 = "129.241.187.147"
@@ -99,12 +99,12 @@ type ExternalCommunicationChannels struct {
 }
 type ExternalSlaveChannels struct {
 	ToCommSlaveChan                    chan Slave          //"sla"
-	ToCommOrderListReceivedChan        chan IpOrderMessage //"ore"
+	ToCommOrderListReceivedChan        chan IpOrderList    //"ore"
 	ToCommOrderExecutedChan            chan IpOrderMessage //"oex"
 	ToCommOrderExecutedReConfirmedChan chan IpOrderMessage //"oce"
 	ToCommExternalButtonPushedChan     chan IpOrderMessage //"ebp"
 	ToCommImSlaveChan                  chan IpOrderMessage //"ias"
-	ToCommUpdateState                  chan IpState        //"ust"
+	ToCommUpdatedStateChan             chan IpState        //"ust"
 
 }
 type ExternalMasterChannels struct {
@@ -127,7 +127,7 @@ type ExternalStateMachineChannels struct {
 
 func Channels_init() {
 	network_external_chan_init()
-	external_comm_channels_init()
+	Communication_external_channels_init()
 	Slave_external_chans_init()
 	Master_external_chans_init()
 	Master_external_chans_init()
@@ -140,7 +140,7 @@ func network_external_chan_init() {
 	ExNetChans.ToCommAddr = make(chan *UDPAddr)
 }
 
-func external_comm_channels_init() {
+func Communication_external_channels_init() {
 	ExCommChans.ToSlaveOrderListChan = make(chan IpOrderList)                    //"ord"
 	ExCommChans.ToMasterOrderListReceivedChan = make(chan IpOrderList)           //"ore"
 	ExCommChans.ToMasterOrderExecutedChan = make(chan IpOrderMessage)            //"oex"
@@ -155,13 +155,14 @@ func external_comm_channels_init() {
 }
 
 func Slave_external_chans_init() {
-	ExSlaveChans.ToCommOrderListReceivedChan = make(chan IpOrderMessage) //"ore"
+	ExSlaveChans.ToCommOrderListReceivedChan = make(chan IpOrderList) //"ore"
 	//ExSlaveChans.ToCommOrderReceivedChan = make(chan ipOrderMessage)            //"oce"
 	ExSlaveChans.ToCommOrderExecutedChan = make(chan IpOrderMessage)            //"oex"
 	ExSlaveChans.ToCommOrderExecutedReConfirmedChan = make(chan IpOrderMessage) //"oce"
 	ExSlaveChans.ToCommExternalButtonPushedChan = make(chan IpOrderMessage)     //"ebp"
 	ExSlaveChans.ToCommSlaveChan = make(chan Slave)                             //"sla"
 	ExSlaveChans.ToCommImSlaveChan = make(chan IpOrderMessage)
+	ExSlaveChans.ToCommUpdatedStateChan = make(chan IpState) //"ust" //CHECK USAGE IN LINE 60 IN FUNCSUGG
 
 }
 func Master_external_chans_init() {
@@ -181,7 +182,6 @@ func External_state_machine_channels_init() {
 	ExStateMChans.LightChan = make(chan [N_FLOORS][2]bool)
 }
 func External_optimization_channel_init() {
-<<<<<<< HEAD
 	ExOptimalChans.OptimizationTriggerChan = make(chan IpOrderMessage)
 	ExOptimalChans.OptimizationReturnChan = make(chan IpOrderMessage)
 }
@@ -198,8 +198,4 @@ func (s Slave) Overwrite_external_list(newExternalList map[*UDPAddr]*[N_FLOORS][
 }
 func (s Slave) Get_ip() *UDPAddr {
 	return s.IP
-=======
-	ExOptimalChans.OptimizationTriggerChan = make(chan Master)
-	ExOptimalChans.OptimizationReturnChan = make(chan [][][]bool])
->>>>>>> b98c796b26ec8e263e3232c3d9d5bb5f3d0dcc0e
 }

@@ -60,14 +60,14 @@ func Master_updated_state_incoming() {
 	for {
 		updatedState := <-InLogicChans.ToMasterUpdateStateChan
 		InLogicChans.ToStateUpdater <- updatedState
-		ExSlaveChans.ToCommUpdateState <- updatedState
+		ExSlaveChans.ToCommUpdatedStateChan <- updatedState
 
 	}
 }
 
 func Master_updated_externalList_outgoing(m Master) {
 	localSlaveMap := make(map[*UDPAddr]*[N_FLOORS][2]bool) //think about this one
-	timerMap := make(map[*UDPAddr]time.Time)               //timers for each IP
+	//timerMap := make(map[*UDPAddr]time.Time)               //timers for each IP
 	startCountdownChan := make(chan bool)
 	countdownFinishedChan := make(chan bool)
 	allSlavesAnsweredChan := make(chan bool)
@@ -212,7 +212,7 @@ func Slave_top_Logic() {
 }*/
 
 func Slave_Order_Outgoing() {
-	countdownChan := make(chan IpOrderMessage)
+	//	countdownChan := make(chan IpOrderMessage)
 	var SyncOrderMap struct {
 		sync.RWMutex
 		m map[IpOrderMessage]time.Time
@@ -264,27 +264,34 @@ func Slave_order_arrays_incoming(s Slave) {
 			ExStateMChans.SingleExternalList <- *NewExternalList.ExternalList[s.Get_ip()]
 			ExStateMChans.LightChan <- *NewExternalList.ExternalList[nil]
 			//Here we need to save all the information about the other slaves, and send our own to the statemachine
-			ExSlaveChans.ToCommOrderListReceivedChan <- orderArray
+			ExSlaveChans.ToCommOrderListReceivedChan <- NewExternalList
 		}
 	}()
 }
 
 //Sends state if timer expires or state changes.
 func Slave_state_updated() {
-	var sendAgainTimer time.Time //THESE TWO NEEDS TO BE VERIFIED
-	var localCurrentState State
+	sendAgainTimer := make(<-chan time.Time) //THESE TWO NEEDS TO BE VERIFIED
+	var localCurrentState IpState
 	for {
 		select {
 		case localCurrentState = <-ExStateMChans.CurrentState:
-			ExSlaveChans.ToCommUpdatedState <- currentState
+			ExSlaveChans.ToCommUpdatedStateChan <- localCurrentState
 			sendAgainTimer = time.After(500 * time.Millisecond)
 		case currentStateReceived := <-ExCommChans.ToSlaveUpdateStateReceivedChan:
-			if currentStateReceived == LocalCurrentState {
+			if currentStateReceived == localCurrentState {
 				sendAgainTimer = nil //Not sure if this is legal, will this send to channel if its set to nil??
 			}
 		case <-sendAgainTimer: //This will be sent when time runs out, I think.
-			ExSlaveChans.ToCommUpdatedStateChan <- currentState
+			ExSlaveChans.ToCommUpdatedStateChan <- localCurrentState
 			sendAgainTimer = time.After(500 * time.Millisecond)
 		}
 	}
+}
+
+func Check_slaves() {
+
+}
+func Check_master() {
+
 }
