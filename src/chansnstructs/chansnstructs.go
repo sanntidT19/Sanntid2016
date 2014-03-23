@@ -13,7 +13,8 @@ const (
 	MAXWAIT   = time.Second
 	PORT      = ":20019"
 	N_FLOORS  = 4
-
+	TIMEOFSTOP = 1 // Time spent in one floor
+	TIMETRAVEL = 2 // Time of travel between floors
 	//IP1 = "129.241.187.147"
 	//IP2 = 129.241.187.xxx
 	//IP3 = 129.241.187.xxx
@@ -180,6 +181,7 @@ func External_state_machine_channels_init() {
 	ExStateMChans.LightChan = make(chan [N_FLOORS][2]bool)
 }
 func External_optimization_channel_init() {
+<<<<<<< HEAD
 	ExOptimalChans.OptimizationTriggerChan = make(chan IpOrderMessage)
 	ExOptimalChans.OptimizationReturnChan = make(chan IpOrderMessage)
 }
@@ -196,4 +198,8 @@ func (s Slave) Overwrite_external_list(newExternalList map[*UDPAddr]*[N_FLOORS][
 }
 func (s Slave) Get_ip() *UDPAddr {
 	return s.IP
+=======
+	ExOptimalChans.OptimizationTriggerChan = make(chan Master)
+	ExOptimalChans.OptimizationReturnChan = make(chan [][][]bool])
+>>>>>>> b98c796b26ec8e263e3232c3d9d5bb5f3d0dcc0e
 }
