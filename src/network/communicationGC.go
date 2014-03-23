@@ -39,14 +39,16 @@ func Select_send_slave() {
 			Send_order_received(order)
 		case order := <-ExSlaveChans.ToCommOrderExecutedChan:
 			Send_order_executed(order)
-		case order := <-ExSlaveChans.ToCommOrderExecutedReConfirmedChan:		STRANGE NAME ???!!!???
+		case order := <-ExSlaveChans.ToCommOrderExecutedReConfirmedChan: //	STRANGE NAME ???!!!???
 			Send_order_executed_reconfirmed(order)
-		case order := <-ExSlaveChans.ToCommExternalButtonPushedChan:       
+		case order := <-ExSlaveChans.ToCommExternalButtonPushedChan:
 			Send_ex_button_push(order)
-		case ipOrder := <-ExSlaveChans.ToCommImSlaveChan:
-			ip := ipOrder.Ip
-			Send_im_slave(ip)
-
+		case <-ExSlaveChans.ToCommImSlaveChan:
+			Send_im_slave()
+		case state := <-ExSlaveChans.ToCommUpdateState:
+			Send_update_state(state)
+		case state := <-ExMasterChans.ToCommUpdateStateReceivedChan:
+			Send_update_state_received(state)
 		}
 	}
 }
@@ -66,8 +68,8 @@ func internal_comm_chans_init() {
 }
 
 //Master
-func Send_order(externalOrderList []Order) { //send exectuionOrderList
-	byteOrder, _ := Marshal(externalOrderList)
+func Send_order(externalOrderList map[*UDPAddr]*[N_FLOORS][2]bool) { //send exectuionOrderList
+	byteOrder, _ := Marshal(&externalOrderList)
 	prefix, _ := Marshal("ord")
 	byteOrder = append(prefix, byteOrder...)
 	ExNetChans.ToNetwork <- append(prefix, byteOrder...)
@@ -124,10 +126,18 @@ func Send_im_master(message string) { //send I am master
 	fmt.Println("end of send im master")
 
 }
-func Send_im_slave(ip *UDPAddr) {
-	ipOrder := IpOrderMessage{ip, Order{}}
-	byteIpOrder, _ := Marshal(ipOrder)
+func Send_im_slave() {
 	prefix, _ := Marshal("ias")
+	ExNetChans.ToNetwork <- prefix
+}
+func Send_update_state(state IpState) {
+	byteIpOrder, _ := Marshal(state)
+	prefix, _ := Marshal("ust")
+	ExNetChans.ToNetwork <- append(prefix, byteIpOrder...)
+}
+func Send_update_state_received(state IpState) {
+	byteIpOrder, _ := Marshal(state)
+	prefix, _ := Marshal("sus")
 	ExNetChans.ToNetwork <- append(prefix, byteIpOrder...)
 }
 
@@ -187,6 +197,16 @@ func Decrypt_message(message []byte, addr *UDPAddr) {
 		ipOrder := IpOrderMessage{}
 		_ = Unmarshal(noPrefix, &ipOrder)
 		ExCommChans.ToMasterImSlaveChan <- ipOrder
+	case string(message[1:4]) == "ust":
+		noPrefix := message[5:]
+		ipState := IpState{}
+		_ = Unmarshal(noPrefix, &ipState)
+		ExCommChans.ToMasterImSlaveChan <- ipState
+	case string(message[1:4]) == "sus":
+		noPrefix := message[5:]
+		ipState := IpState{}
+		_ = Unmarshal(noPrefix, &ipState)
+		ExCommChans.ToMasterImSlaveChan <- ipState
 	default:
 		fmt.Println("ingen caser utløst")
 	}

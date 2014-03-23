@@ -28,16 +28,24 @@ var ExOptimalChans ExternalOptimalizationChannels
 
 var InteruptChan chan os.Signal
 
+type IpState struct {
+	Ip           *UDPAddr
+	Direction    int
+	CurrentFloor int
+}
+
 type Master struct {
-	SlaveElev map[*UDPAddr]Slave
+	SlaveIp      []*UDPAddr
+	ExternalList map[*UDPAddr]*[N_FLOORS][2]bool
+	Statelist    map[*UDPAddr]IpState
 }
 
 type Slave struct {
-	IP                *UDPAddr
-	AllExternalsOrder map[*UDPAddr][]Order
-	InternalList      []bool
-	CurrentFloor      int
-	Direction         int
+	IP           *UDPAddr
+	ExternalList map[*UDPAddr]*[N_FLOORS][2]bool
+	InternalList []bool
+	CurrentFloor int
+	Direction    int
 }
 type IpSlave struct {
 	Ip *UDPAddr
@@ -55,9 +63,9 @@ type Order struct {
 	TurnOn     bool
 }
 
-type State struct {
-	Direction    int
-	CurrentFloor int
+type IpOrderList struct {
+	Ip           *UDPAddr
+	ExternalList map[*UDPAddr]*[N_FLOORS][2]bool
 }
 
 type NetworkExternalChannels struct {
@@ -68,47 +76,55 @@ type NetworkExternalChannels struct {
 }
 type ExternalOptimalizationChannels struct {
 	//InMasterChans.OptimizationInitChan = make(chan Master)
-	OptimizationTriggerChan chan Order
-	OptimizationReturnChan  chan []Order
+	OptimizationTriggerChan chan IpOrderMessage
+	OptimizationReturnChan  chan IpOrderMessage
 }
 
 type ExternalCommunicationChannels struct {
 	//communication channels
 	ToMasterSlaveChan                    chan IpSlave        //"sla"
-	ToMasterOrderListReceivedChan        chan IpOrderMessage //"ore"
+	ToMasterOrderListReceivedChan        chan IpOrderList    //"ore"
 	ToMasterOrderExecutedChan            chan IpOrderMessage //"oex"
 	ToMasterOrderExecutedReConfirmedChan chan IpOrderMessage //"oce"
 	ToMasterExternalButtonPushedChan     chan IpOrderMessage //"ebp"
-	ToSlaveOrderListChan                 chan []Order        //"exo"
+	ToMasterImSlaveChan                  chan IpOrderMessage //"ias"
+	ToMasterUpdateState                  chan IpState        //"ust"
+	ToSlaveOrderListChan                 chan IpOrderList    //"exo"
 	ToSlaveOrderExecutedConfirmedChan    chan IpOrderMessage //"eco"
 	ToSlaveImMasterChan                  chan string         //"iam"
-	ToMasterImSlaveChan                  chan IpOrderMessage //"ias"
+	ToSlaveUpdateStateReceivedChan       chan IpState        //"sus"
+	ToSlaveButtonPressedConfirmedChan    chan IpOrderMessage //"bpc"
 
 }
 type ExternalSlaveChannels struct {
 	ToCommSlaveChan                    chan Slave          //"sla"
-	ToCommOrderListReceivedChan        chan Order          //"ore"
-	ToCommOrderExecutedChan            chan Order          //"oex"
-	ToCommOrderExecutedReConfirmedChan chan Order          //"oce"
-	ToCommExternalButtonPushedChan     chan Order          //"ebp"
+	ToCommOrderListReceivedChan        chan IpOrderMessage //"ore"
+	ToCommOrderExecutedChan            chan IpOrderMessage //"oex"
+	ToCommOrderExecutedReConfirmedChan chan IpOrderMessage //"oce"
+	ToCommExternalButtonPushedChan     chan IpOrderMessage //"ebp"
 	ToCommImSlaveChan                  chan IpOrderMessage //"ias"
+	ToCommUpdateState                  chan IpState        //"ust"
 
 }
 type ExternalMasterChannels struct {
-	ToCommOrderListChan              chan []Order //"exo"
-	ToCommOrderExecutedConfirmedChan chan Order   //"eco"
-	ToCommImMasterChan               chan string  //"iam"
+	ToCommOrderListChan              chan map[*UDPAddr]*[N_FLOORS][2]bool //"exo"
+	ToCommOrderExecutedConfirmedChan chan IpOrderMessage                  //"eco"
+	ToCommImMasterChan               chan string                          //"iam"
+	ToCommUpdateStateReceivedChan    chan IpState                         // "sus"
+
 }
 type ExternalStateMachineChannels struct {
-	ExternalButtonPressed chan Order
-	OrderServed           chan Order
-	CurrentState          chan Order
-	GetSlaveStruct        chan bool
-	ReturnSlaveStruct     chan Slave
-	DirectionUpdate       chan int
+	ButtonPressed      chan IpOrderMessage //State machine needs to keep track of internal and external
+	OrderServed        chan Order
+	CurrentState       chan IpState
+	GetSlaveStruct     chan bool
+	ReturnSlaveStruct  chan Slave
+	DirectionUpdate    chan int
+	SingleExternalList chan [N_FLOORS][2]bool
+	LightChan          chan [N_FLOORS][2]bool
 }
 
-func Channals_init() {
+func Channels_init() {
 	network_external_chan_init()
 	external_comm_channels_init()
 	Slave_external_chans_init()
@@ -124,8 +140,8 @@ func network_external_chan_init() {
 }
 
 func external_comm_channels_init() {
-	ExCommChans.ToSlaveOrderListChan = make(chan []Order)                        //"ord"
-	ExCommChans.ToMasterOrderListReceivedChan = make(chan IpOrderMessage)        //"ore"
+	ExCommChans.ToSlaveOrderListChan = make(chan IpOrderList)                    //"ord"
+	ExCommChans.ToMasterOrderListReceivedChan = make(chan IpOrderList)           //"ore"
 	ExCommChans.ToMasterOrderExecutedChan = make(chan IpOrderMessage)            //"oex"
 	ExCommChans.ToSlaveOrderExecutedConfirmedChan = make(chan IpOrderMessage)    //"eco"
 	ExCommChans.ToMasterOrderExecutedReConfirmedChan = make(chan IpOrderMessage) //"oce"
@@ -133,33 +149,51 @@ func external_comm_channels_init() {
 	ExCommChans.ToMasterSlaveChan = make(chan IpSlave)                           //"sla"
 	ExCommChans.ToSlaveImMasterChan = make(chan string)                          //"iam"
 	ExCommChans.ToMasterImSlaveChan = make(chan IpOrderMessage)                  //"ims"
+	ExCommChans.ToMasterUpdateState = make(chan IpState)
+	ExCommChans.ToSlaveButtonPressedConfirmedChan = make(chan IpOrderMessage)
 }
 
 func Slave_external_chans_init() {
-	ExSlaveChans.ToCommOrderListReceivedChan = make(chan Order) //"ore"
+	ExSlaveChans.ToCommOrderListReceivedChan = make(chan IpOrderMessage) //"ore"
 	//ExSlaveChans.ToCommOrderReceivedChan = make(chan ipOrderMessage)            //"oce"
-	ExSlaveChans.ToCommOrderExecutedChan = make(chan Order)            //"oex"
-	ExSlaveChans.ToCommOrderExecutedReConfirmedChan = make(chan Order) //"oce"
-	ExSlaveChans.ToCommExternalButtonPushedChan = make(chan Order)     //"ebp"
-	ExSlaveChans.ToCommSlaveChan = make(chan Slave)                    //"sla"
+	ExSlaveChans.ToCommOrderExecutedChan = make(chan IpOrderMessage)            //"oex"
+	ExSlaveChans.ToCommOrderExecutedReConfirmedChan = make(chan IpOrderMessage) //"oce"
+	ExSlaveChans.ToCommExternalButtonPushedChan = make(chan IpOrderMessage)     //"ebp"
+	ExSlaveChans.ToCommSlaveChan = make(chan Slave)                             //"sla"
 	ExSlaveChans.ToCommImSlaveChan = make(chan IpOrderMessage)
 
 }
 func Master_external_chans_init() {
-	ExMasterChans.ToCommOrderListChan = make(chan []Order)            //"ord"
-	ExMasterChans.ToCommOrderExecutedConfirmedChan = make(chan Order) //"eco"
+	ExMasterChans.ToCommOrderListChan = make(chan map[*UDPAddr]*[N_FLOORS][2]bool) //"ord"
+	ExMasterChans.ToCommOrderExecutedConfirmedChan = make(chan IpOrderMessage)     //"eco"
 	ExMasterChans.ToCommImMasterChan = make(chan string)
 }
 
 func External_state_machine_channels_init() {
-	ExStateMChans.ExternalButtonPressed = make(chan Order)
+	ExStateMChans.ButtonPressed = make(chan IpOrderMessage)
 	ExStateMChans.OrderServed = make(chan Order)
-	ExStateMChans.CurrentState = make(chan Order)
+	ExStateMChans.CurrentState = make(chan IpState)
 	ExStateMChans.GetSlaveStruct = make(chan bool)
 	ExStateMChans.ReturnSlaveStruct = make(chan Slave)
 	ExStateMChans.DirectionUpdate = make(chan int)
+	ExStateMChans.SingleExternalList = make(chan [N_FLOORS][2]bool)
+	ExStateMChans.LightChan = make(chan [N_FLOORS][2]bool)
 }
 func External_optimization_channel_init() {
-	ExOptimalChans.OptimizationTriggerChan = make(chan Order)
-	ExOptimalChans.OptimizationReturnChan = make(chan []Order)
+	ExOptimalChans.OptimizationTriggerChan = make(chan IpOrderMessage)
+	ExOptimalChans.OptimizationReturnChan = make(chan IpOrderMessage)
+}
+
+//MEMBER FUNCTIONS
+func (m Master) Set_external_list_order(ip *UDPAddr, floor int, buttonType int, ipOrder IpOrderMessage) {
+	m.ExternalList[ip][floor][buttonType] = ipOrder.Order.TurnOn
+}
+func (m Master) Get_external_list() map[*UDPAddr]*[N_FLOORS][2]bool {
+	return m.ExternalList
+}
+func (s Slave) Overwrite_external_list(newExternalList map[*UDPAddr]*[N_FLOORS][2]bool) {
+	s.ExternalList = newExternalList
+}
+func (s Slave) Get_ip() *UDPAddr {
+	return s.IP
 }
