@@ -30,36 +30,27 @@ const DIR_DOWN = 1
 var InStateMChans InternalStateMachineChannels
 
 type InternalStateMachineChannels struct {
-	externalButtPressChan chan Order
 	internalButtPressChan chan Order
-	buttUpdatedChan       chan Order
 	orderArrayChan        chan [N_FLOORS][2]int
-	setLightChan          chan Order
 	commandOrderChan      chan [N_FLOORS]int
 	ordersCalculatedChan  chan []Order
-	orderToWorkerChan     chan int
 	orderServedChan       chan bool
-	orderToManagerChan    chan Order
-	tempOrderServedChan   chan bool
 	speedChan             chan float64 //This channel is only between the statemachine and its functions
 	privateSensorChan     chan int
 	currentStateChan      chan State
 	goToFloorChan         chan int
 	buttonUpdatedChan     chan Order
+	toChooseNextOrderChan chan bool
+
 }
 
 func Internal_state_machine_channels_init() {
-	InStateMChans.externalButtPressChan = make(chan Order)
 	InStateMChans.internalButtPressChan = make(chan Order)
-	InStateMChans.buttUpdatedChan = make(chan Order)
+	InStateMChans.toChooseNextOrderChan = make(chan bool)
 	InStateMChans.orderArrayChan = make(chan [driver.N_FLOORS][2]int)
-	InStateMChans.setLightChan = make(chan Order)
 	InStateMChans.commandOrderChan = make(chan [driver.N_FLOORS]int)
 	InStateMChans.ordersCalculatedChan = make(chan []Order)
-	InStateMChans.orderToWorkerChan = make(chan int)
 	InStateMChans.orderServedChan = make(chan bool)
-	InStateMChans.orderToManagerChan = make(chan Order)
-	InStateMChans.tempOrderServedChan = make(chan bool)
 	InStateMChans.speedChan = make(chan float64)
 	InStateMChans.privateSensorChan = make(chan int)
 	InStateMChans.currentStateChan = make(chan State)
@@ -69,7 +60,11 @@ func Internal_state_machine_channels_init() {
 
 // /*orderArrayChan chan [][] int   <- this will come from above, but not in this test program  /* this may need to have a different name ->  ,currentStateChan chan State
 func Elevator_manager() {
+	var crrentState State
+	var externalArray [N_FLOORS][2] bool
+	var internalList [N_FLOORS] bool
 	driver.Elev_init()
+
 	//currentStateChan <- State{driver.Elev_get_direction(), driver.Elev_get_floor_sensor_signal()}
 
 	//buttonSliceChan := Create_button_chan_slice()
@@ -86,52 +81,25 @@ func Elevator_manager() {
 	fmt.Println("sotw")
 	go Button_updater()
 	fmt.Println("2")
-
-}
-func Executer() {
-	var orderArray [N_FLOORS][2]int // Up and down goes here
-	var commandOrderList [N_FLOORS]int
-	var managersCurrentOrder Order
-	for {
-		fmt.Println("t")
-		select {
-		//If something is pressed, the channels are updated
-		case orderButt := <-InStateMChans.internalButtPressChan:
-			fmt.Println("internela button pushed")
-			commandOrderList[orderButt.Floor] = 1
-
-			InStateMChans.orderArrayChan <- orderArray
-			InStateMChans.commandOrderChan <- commandOrderList
-			InStateMChans.setLightChan <- orderButt
-			fmt.Println("f")
-		case orderButt := <-InStateMChans.externalButtPressChan:
-			fmt.Println("external button pushed")
-			orderArray[orderButt.Floor][orderButt.ButtonType] = 1
-
-			InStateMChans.orderArrayChan <- orderArray
-			InStateMChans.commandOrderChan <- commandOrderList
-
-			InStateMChans.setLightChan <- orderButt
-		case managersCurrentOrder = <-InStateMChans.orderToManagerChan: //Just so the manager can keep up with the current order
-			fmt.Println("orders to mangager")
-			//fmt.Println("managersCurrentOrder:", managersCurrentOrder)
-			InStateMChans.orderToWorkerChan <- managersCurrentOrder.Floor
-		case <-InStateMChans.orderServedChan:
-			fmt.Println("orders served sucessfully")
-			//fmt.Println("Order Served!")
-			//fmt.Println("managersCurrentOrder:", managersCurrentOrder)
-			if managersCurrentOrder.ButtonType == driver.COMMAND {
-				commandOrderList[managersCurrentOrder.Floor] = 0
-			} else {
-				orderArray[managersCurrentOrder.Floor][managersCurrentOrder.ButtonType] = 0
-			}
-			//fmt.Println("CommandOrderlist: ", commandOrderList)
-			//fmt.Println("External order array: ", orderArray)
-			InStateMChans.setLightChan <- Order{managersCurrentOrder.Floor, managersCurrentOrder.ButtonType, false}
-			time.Sleep(time.Second * 1)
-			InStateMChans.tempOrderServedChan <- true
+	for{
+		select{
+		case  currentState = <- InStateMChans.currentStateChan:
+			ExStateMChans.CurrentStateChan <- currentState
+			InStateMChans.LocalCurrentStateChan <- currentState NEW CHANNEL
+		case orderServed := <- InStateMChans.orderServedChan:
+			ExStateMChans.OrderServedChan <-orderServed
+			InStateMChans.toChooseNextOrderChan <-orderServed   NEW CHANNEL
+		case internalOrder := <- InStateMChans.internalButtPressChan:
+			internalList[internalOrder.floor]  = true
+			InStateMchans.commandLightsChan <- interalList
+			InStateMChans.orderArrayChan<-externalArray
+			InStateMchans.commandOrderChan <- internalList
+		case externalArray = <- ExStateMChans.SingleExternalListChan:
+			InStateMChans.orderArrayChan <- externalArray
+			InStateMChans.commandOrderChan <- internalList
 		}
 	}
+
 }
 
 //Going where it is told to go, based on information on where it is.   Gotofloor needs to be buttonized.
@@ -149,24 +117,25 @@ func Elevator_worker() {
 		select {
 		//Slave could send a new command while the statemachine is serving another command, but it should fix the logic by itself
 		// New order
-		case gtf := <-InStateMChans.goToFloorChan:
-			orderedFloor = gtf
+		case goToF := <-InStateMChans.goToFloorChan:
+			orderedFloor = gotoF
 			//You are in the floor, order served immediatly, maybe this if can be implemented in another case, but its here for now.
-			if gtf == driver.Elev_get_floor_sensor_signal() {
+			if goToF == driver.Elev_get_floor_sensor_signal() {
 				InStateMChans.speedChan <- SPEED_STOP
 				InStateMChans.orderServedChan <- true
 				Open_door() //Dont think we want this select loop to do anything else while the door is open. Solve with go open_door() if its not the case
 				//You know you are under/above the current floor
-			} else if gtf < currentFloor {
+			} else if goToF < currentFloor {
 				InStateMChans.speedChan <- MAX_SPEED_DOWN
 				currentDir = DIR_DOWN
 				InStateMChans.currentStateChan <- State{currentDir, currentFloor} //Do this for all? Should we send if its already going down (no state changed then)
 
-			} else if gtf > currentFloor {
+			} else if goToF > currentFloor {
 				InStateMChans.speedChan <- MAX_SPEED_UP
 				currentDir = DIR_UP
 				InStateMChans.currentStateChan <- State{currentDir, currentFloor}
-				//Your last floor was the current floor, but something may have been pulled, so you dont know where you lie relative to it. Cant use direction.
+			}
+			/*	//Your last floor was the current floor, but something may have been pulled, so you dont know where you lie relative to it. Cant use direction.
 			} else if gtf == currentFloor { //this may now go all the time
 				//Using previousfloor can give you an idea in some cases.
 				if previousFloor > currentFloor {
@@ -177,8 +146,8 @@ func Elevator_worker() {
 					InStateMChans.speedChan <- MAX_SPEED_DOWN
 					currentDir = DIR_DOWN
 					InStateMChans.currentStateChan <- State{currentDir, currentFloor}
-				}
-			}
+				}*/
+	
 		//New floor is reached and therefore shit is updated
 		case cf := <-InStateMChans.privateSensorChan:
 			previousFloor = currentFloor
@@ -196,7 +165,6 @@ func Elevator_worker() {
 
 //This function has control over the orderlist and speaks directly to the worker.
 func Send_orders_to_worker() {
-	fmt.Println("send orders to worker")
 	var currentOrderList []Order
 	var currentOrderIter int
 	for {
@@ -207,7 +175,7 @@ func Send_orders_to_worker() {
 			//fmt.Println("Currentorderlist: ",currentOrderList)
 			InStateMChans.orderToManagerChan <- currentOrderList[currentOrderIter]
 			currentOrderIter++
-		case <-InStateMChans.tempOrderServedChan:
+		case <-InStateMChans.toChooseNextOrderChan:
 			if currentOrderList[currentOrderIter].TurnOn { //All unsetted orders have turnOn = false by default {
 				InStateMChans.orderToManagerChan <- currentOrderList[currentOrderIter]
 				currentOrderIter++
@@ -242,7 +210,7 @@ func Choose_next_order() {
 	*/
 	for {
 		select {
-		case currentState := <-InStateMChans.currentStateChan:
+		case currentState := <-InStateMChans.localCurrentStateChan:
 			currentFloor = currentState.CurrentFloor
 			currentDir = currentState.Direction
 		case orderArray = <-InStateMChans.orderArrayChan:
@@ -347,17 +315,16 @@ func Button_updater() { //Sending the struct a level up, to the state machine se
 					//fmt.Println("Here is drivers version of button pressed: ", buttonVar)
 					//fmt.Println("floor and button:", i, j)
 					if buttonVar == 1 && j != driver.COMMAND {
-						fmt.Println("Button has been pushed1")
-						InStateMChans.externalButtPressChan <- Order{i, j, true} //   YO!   Need to make this one sexier. Maybe one channel for each button
-						fmt.Println("Button has been pushed11")
+
+						ExStateMChans.ButtonPressed <- Order{i, j, true} //   YO!   Need to make this one sexier. Maybe one channel for each button
+
 						buttonMatrix[i][j] = 1
 						//Confirm press to avoid spamming
 					} else if buttonVar == 1 && j == driver.COMMAND {
-						fmt.Println("Button has been pushed2")
+
 						buttonMatrix[i][j] = 1 //Confirm press to avoid spamming
 
 						InStateMChans.internalButtPressChan <- Order{i, j, true}
-						fmt.Println("Button has been pushed22")
 					}
 				}
 			}
@@ -365,11 +332,11 @@ func Button_updater() { //Sending the struct a level up, to the state machine se
 	}
 	go func() {
 		for {
-			butt := <-InStateMChans.buttonUpdatedChan //Word from above that some button is updated
+			order := <-InStateMChans.buttonUpdatedChan //Word from above that some button is updated
 			if butt.TurnOn {
-				buttonMatrix[butt.Floor][butt.ButtonType] = 1
+				buttonMatrix[order.Floor][order.ButtonType] = 1
 			} else {
-				buttonMatrix[butt.Floor][butt.ButtonType] = 0
+				buttonMatrix[order.Floor][order.ButtonType] = 0
 
 			}
 		}
@@ -382,10 +349,22 @@ func Button_updater() { //Sending the struct a level up, to the state machine se
 //If we get time: see how we can make this more dynamic. Yhis also turns off if the bool is false.
 func Light_updater() {
 	fmt.Println("light updater")
+	
 	for {
-		butt := <-InStateMChans.setLightChan
-		_ = driver.Elev_set_button_lamp(butt.Floor, butt.ButtonType, butt.TurnOn)
-		InStateMChans.buttUpdatedChan <- butt
+		select {
+			case lightArray := <- ExCommChans.LightChan:
+			for i := 0; i < N_FLOORS{
+				for j :=0 ; i < N_BUTTONS -1{
+					driver.Elev_set_button_lamp(i, j, lightArray[i][j])
+					InStateMChans.orderUpdatedChan <- Order{i,j,lightArray[i][j]} NEW CHANNEL
+				}
+			}
+			case commandLights := <- InStateMChans.commandLightsChan:
+			for i := 0;  i < N_FLOORS{
+				driver.Elev_set_button_lamp(i,COMMAND,commandLights[i])
+				InStateMChans.orderUpdatedChan <- Order{i,COMMAND,commandLights[i]} 
+			}
+		}
 	}
 }
 
@@ -412,7 +391,7 @@ func Is_floor_reached() {
 			InStateMChans.privateSensorChan <- currentFloor
 
 		}
-		time.Sleep(time.Millisecond * 250)
+		time.Sleep(time.Millisecond * 25)
 	}
 }
 
