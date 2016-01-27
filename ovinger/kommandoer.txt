@@ -1,0 +1,4 @@
+Kjør øving 1_2:
+
+gcc -pthread -o oving1_2 oving1_2.c
+./oving1_2
