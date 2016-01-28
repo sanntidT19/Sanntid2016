@@ -1,11 +1,12 @@
+
 #include <comedilib.h>
 #include "io.h"
 #include "channels.h"
 static comedi_t *it_g = NULL;
-	int io_init(void) {
+int io_init(void) {
 	it_g = comedi_open("/dev/comedi0");
 	if (it_g == NULL) {
-	return 0;
+		return 0;
 	}
 	int status = 0;
 	for (int i = 0; i < 8; i++) {
@@ -14,7 +15,7 @@ static comedi_t *it_g = NULL;
 		status |= comedi_dio_config(it_g, PORT_3_SUBDEVICE, i + PORT_3_CHANNEL_OFFSET, PORT_3_DIRECTION);
 		status |= comedi_dio_config(it_g, PORT_4_SUBDEVICE, i + PORT_4_CHANNEL_OFFSET, PORT_4_DIRECTION);
 	}
-return (status == 0);
+	return (status == 0);
 }
 
 void io_set_bit(int channel) {
@@ -40,4 +41,3 @@ int io_read_analog(int channel) {
 	comedi_data_read(it_g, channel >> 8, channel & 0xff, 0, AREF_GROUND, &data);
 	return (int)data;
 }
-
