@@ -9,8 +9,7 @@ int io_init(void) {
 		return 0;
 	}
 	int status = 0;
-	int i;
-	for (i = 0; i < 8; i++) {
+	for (int i = 0; i < 8; i++) {
 		status |= comedi_dio_config(it_g, PORT_1_SUBDEVICE, i + PORT_1_CHANNEL_OFFSET, PORT_1_DIRECTION);
 		status |= comedi_dio_config(it_g, PORT_2_SUBDEVICE, i + PORT_2_CHANNEL_OFFSET, PORT_2_DIRECTION);
 		status |= comedi_dio_config(it_g, PORT_3_SUBDEVICE, i + PORT_3_CHANNEL_OFFSET, PORT_3_DIRECTION);
