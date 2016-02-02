@@ -18,6 +18,8 @@ const DOWN = 1
 const COMMAND = 2
 const NUM_BUTTONS = 3
 
+const MOTOR_SPEED = 2800
+
 
 
 //This part is copied from last years project and needs to be thorougly confirmed working
@@ -59,14 +61,35 @@ func Elev_make_std_b_matrix() [][]int {
 
 
 
-
+// evnt for elev_get_floor_sensor_signal() == -1 {kjør ned}
 
 
 func Elev_init(){
 	C.elev_init()
 	lamp_channel_matrix = Elev_make_std_l_matrix()
 	button_channel_matrix = Elev_make_std_b_matrix()
-	return
+	if elev_get_floor_sensor_signal() != -1 {
+		Elev_set_motor_direction(0);
+		fmt.Printf("dette burde ikke skje når den står i en etasje", elev_get_floor_sensor_signal())
+	} else if int(elev_get_floor_sensor_signal()) == -1{
+		fmt.Printf("sensor signal =", elev_get_floor_sensor_signal());
+		Elev_set_motor_direction(-1);
+		for elev_get_floor_sensor_signal() == 0{
+		}
+		Elev_set_motor_direction(0);
+		}
+}
+
+func Elev_set_motor_direction(dirn int) {
+    if (dirn == 0){
+        io_write_analog(MOTOR, 0);
+    } else if (dirn > 0) {
+        io_clear_bit(MOTORDIR);
+        io_write_analog(MOTOR, MOTOR_SPEED);
+    } else if (dirn < 0) {
+        io_set_bit(MOTORDIR);
+        io_write_analog(MOTOR, MOTOR_SPEED);
+    }
 }
 
 func Elev_set_door_open_lamp(turn_on bool) {
@@ -85,10 +108,14 @@ func Elev_set_stop_lamp(turn_on bool) {
 	}
 }
 
-
-
-
-//func Elev_set_button_lamp
+func elev_set_button_light(button int, floor int, value bool){
+	if value{
+		io_set_bit(lamp_channel_matrix[floor][button])
+	}else{
+		io_clear_bit(lamp_channel_matrix[floor][button])
+	}
+	return
+}
 
 
 //Vurder senere om bool eller int er best her
@@ -100,14 +127,7 @@ func elev_get_button_signal(button int,floor int) bool{
 	}
 }
 
-func elev_set_button_light(button int, floor int, value bool){
-	if value{
-		io_set_bit(lamp_channel_matrix[floor][button])
-	}else{
-		io_clear_bit(lamp_channel_matrix[floor][button])
-	}
-	return
-}
+
 
 func elev_get_floor_sensor_signal() int{
 	return int(C.elev_get_floor_sensor_signal())
@@ -122,12 +142,11 @@ func elev_set_floor_light(floor int){
 //Lag alle simple funksjoner først. Bruker drivere som vi allerede har. Gjør det simpelt.
 //Heller mer komplekst og "go-ete" når funksjoner skal settes sammen i loops og whatever
 
-
 func Elev_main_tester_function(){
 	io_init()
 	Elev_init()
 	go Elev_floor_light_updater()
-	time.Sleep(time.Second*20)
+	time.Sleep(time.Second*5)
 	fmt.Printf("sensor signal:", elev_get_floor_sensor_signal())
 	return
 }
@@ -144,4 +163,5 @@ func Elev_floor_light_updater(){
 		}
 	}
 }
+
 
