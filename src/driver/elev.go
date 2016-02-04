@@ -17,8 +17,17 @@ const UP = 0
 const DOWN = 1
 const COMMAND = 2
 const NUM_BUTTONS = 3
-
+const NUM_FLOORS = 4
 const MOTOR_SPEED = 2800
+
+
+//We need global channels if we are to communicate between modules
+
+type Button struct {
+	floor int
+	button_type int
+	pressed bool
+}
 
 
 
@@ -68,9 +77,20 @@ func Elev_init(){
 	C.elev_init()
 	lamp_channel_matrix = Elev_make_std_l_matrix()
 	button_channel_matrix = Elev_make_std_b_matrix()
-	if elev_get_floor_sensor_signal() != -1 {
-		Elev_set_motor_direction(0);
+	if elev_get_floor_sensor_signal() == -1 {
+		Elev_set_motor_direction(-1)
+		for elev_get_floor_sensor_signal() == -1 {
+			time.Sleep(50*time.Millisecond)		
+		}
+		Elev_set_motor_direction(0)
+	}
+	fmt.Printf("Initialization of elevator complete.\n")
+
+}
+
+/*	Elev_set_motor_direction(0);
 		fmt.Printf("dette burde ikke skje når den står i en etasje", elev_get_floor_sensor_signal())
+
 	} else if int(elev_get_floor_sensor_signal()) == -1{
 		fmt.Printf("sensor signal =", elev_get_floor_sensor_signal());
 		Elev_set_motor_direction(-1);
@@ -78,7 +98,8 @@ func Elev_init(){
 		}
 		Elev_set_motor_direction(0);
 		}
-}
+*/
+
 
 func Elev_set_motor_direction(dirn int) {
     if (dirn == 0){
@@ -139,15 +160,47 @@ func elev_set_floor_light(floor int){
 	return
 }
 
+
+func Check_for_buttons_pressed(button_pressed_chan chan Button){
+	for{
+		for i := 0; i < NUM_FLOORS; i++{
+			for j := 0; j < NUM_BUTTONS; j++ {
+				if io_read_bit(button_channel_matrix[i][j]) {
+					button_pressed_chan<-Button{i,j,true}
+				}
+			}
+			
+		}
+		time.Sleep(50*time.Millisecond)
+	}
+}
+
+//Should make this general for turning on and off
+func Set_button_lights(button_pressed_chan chan Button){
+	for{
+		change_button := <- button_pressed_chan
+		if change_button.pressed{
+			io_set_bit(lamp_channel_matrix[change_button.floor][change_button.button_type])
+		}else{
+			io_clear_bit(lamp_channel_matrix[change_button.floor][change_button.button_type])
+		}
+	
+	}	
+}
+
 //Lag alle simple funksjoner først. Bruker drivere som vi allerede har. Gjør det simpelt.
 //Heller mer komplekst og "go-ete" når funksjoner skal settes sammen i loops og whatever
 
-func Elev_main_tester_function(){
+
+
+func Elev_main_tester_function(){	
+	button_pressed_chan :=make(chan Button)
 	io_init()
 	Elev_init()
 	go Elev_floor_light_updater()
-	time.Sleep(time.Second*5)
-	fmt.Printf("sensor signal:", elev_get_floor_sensor_signal())
+	go Check_for_buttons_pressed(button_pressed_chan)
+	go Set_button_lights(button_pressed_chan)
+	time.Sleep(time.Second*10)
 	return
 }
 
