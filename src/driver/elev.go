@@ -69,39 +69,26 @@ func Elev_make_std_b_matrix() [][]int {
 
 
 
-
-// evnt for elev_get_floor_sensor_signal() == -1 {kjør ned}
+// evnt for Elev_get_floor_sensor_signal() == -1 {kjør ned}
 
 
 func Elev_init(){
 	C.elev_init()
 	lamp_channel_matrix = Elev_make_std_l_matrix()
 	button_channel_matrix = Elev_make_std_b_matrix()
-	if elev_get_floor_sensor_signal() == -1 {
-		Elev_set_motor_direction(-1)
-		for elev_get_floor_sensor_signal() == -1 {
+	if Elev_get_floor_sensor_signal() == -1 {
+		Elev_drive_elevator(-1)
+		for Elev_get_floor_sensor_signal() == -1 {
 			time.Sleep(50*time.Millisecond)		
 		}
-		Elev_set_motor_direction(0)
+		Elev_drive_elevator(0)
 	}
 	fmt.Printf("Initialization of elevator complete.\n")
 
 }
 
-/*	Elev_set_motor_direction(0);
-		fmt.Printf("dette burde ikke skje når den står i en etasje", elev_get_floor_sensor_signal())
 
-	} else if int(elev_get_floor_sensor_signal()) == -1{
-		fmt.Printf("sensor signal =", elev_get_floor_sensor_signal());
-		Elev_set_motor_direction(-1);
-		for elev_get_floor_sensor_signal() == 0{
-		}
-		Elev_set_motor_direction(0);
-		}
-*/
-
-
-func Elev_set_motor_direction(dirn int) {
+func Elev_drive_elevator(dirn int) {
     if (dirn == 0){
         io_write_analog(MOTOR, 0);
     } else if (dirn > 0) {
@@ -150,7 +137,7 @@ func elev_get_button_signal(button int,floor int) bool{
 
 
 
-func elev_get_floor_sensor_signal() int{
+func Elev_get_floor_sensor_signal() int{
 	return int(C.elev_get_floor_sensor_signal())
 	
 }
@@ -160,6 +147,11 @@ func elev_set_floor_light(floor int){
 	return
 }
 
+func Open_door(){
+	io_set_bit(LIGHT_DOOR_OPEN)
+	time.Sleep(3*time.Second)
+	io_clear_bit(LIGHT_DOOR_OPEN)
+}
 
 func Check_for_buttons_pressed(button_pressed_chan chan Button){
 	for{
@@ -200,7 +192,6 @@ func Elev_main_tester_function(){
 	go Elev_floor_light_updater()
 	go Check_for_buttons_pressed(button_pressed_chan)
 	go Set_button_lights(button_pressed_chan)
-	time.Sleep(time.Second*10)
 	return
 }
 
@@ -210,11 +201,12 @@ func Elev_floor_light_updater(){
 	current_floor := -1
 	for{
 		time.Sleep(200*time.Millisecond)
-		current_floor = elev_get_floor_sensor_signal()
+		current_floor = Elev_get_floor_sensor_signal()
 		if current_floor != -1{
 			elev_set_floor_light(current_floor)
 		}
 	}
 }
+
 
 
