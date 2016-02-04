@@ -9,6 +9,8 @@ import(
 	//"errors"
 	"fmt"
 	"time"
+	."../globalStructs"
+	."../globalChans"
 )
 
 
@@ -23,11 +25,6 @@ const MOTOR_SPEED = 2800
 
 //We need global channels if we are to communicate between modules
 
-type Button struct {
-	floor int
-	button_type int
-	pressed bool
-}
 
 
 
@@ -186,12 +183,11 @@ func Set_button_lights(button_pressed_chan chan Button){
 
 
 func Elev_main_tester_function(){	
-	button_pressed_chan :=make(chan Button)
 	io_init()
 	Elev_init()
 	go Elev_floor_light_updater()
-	go Check_for_buttons_pressed(button_pressed_chan)
-	go Set_button_lights(button_pressed_chan)
+	go Check_for_buttons_pressed(buttonPressedChan)
+	go Set_button_lights(setButtonLightChan)
 	return
 }
 

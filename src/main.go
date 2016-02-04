@@ -5,6 +5,8 @@ import(
 	"fmt"
 	"time"
 	"./stateMachine"
+	//"./globalChans"
+	
 )
 
 func main(){

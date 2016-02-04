@@ -2,6 +2,7 @@ package stateMachine
 
 import(
 	"../driver"
+	"../globalChans"
 	"time"
 
 )
@@ -9,6 +10,7 @@ import(
 var current_floor int = -1 
 var last_floor int  = -1 
 var desired_floor int = -1
+
 
 
 func Stop_at_desired_floor(order_served_chan chan bool){
@@ -43,3 +45,10 @@ func Get_current_floor() {
 		time.Sleep(time.Millisecond *50)
 	}
 }
+
+func write_to_matrix() // registrerer tastetrykk og legger dette inn i en matrise med oversikt over hvor det er bestillinger
+func send_next_order() // prioritere
+
+/*
+Structure of our matrix: 
+*/
