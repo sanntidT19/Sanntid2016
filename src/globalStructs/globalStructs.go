@@ -15,6 +15,14 @@ type ElevatorState struct {
 	lastFloor int
 	direction int
 	orders int //This is an array or something of all orders currently active for this elevator. 
+
 }
 
 
+//PUT SOMEWHERE ELSE LATER
+const UP = 0
+const DOWN = 1
+const COMMAND = 2
+const NUM_BUTTONS = 3
+const NUM_FLOORS = 4
+const MOTOR_SPEED = 2800
