@@ -7,6 +7,7 @@ import(
 
 currentState ElevatorState
 
+//this will show 
 const PATH_OF_SAVED_STATE = "elevState.gob"
 /*
 func initalize_state_tracker(){
@@ -59,15 +60,15 @@ func read_elevator_state_from_file(){
 	currentState = data
 }
 
+
+
+
 func detect_system_killed() bool{
 	//only call when initializing, REDO WHEN WE KNOW HOW THE ORDERS WILL LOOK
 	for i:= 0; i < NUM_FLOORS; i++{
 		for j:= 0; j < NUM_BUTTONS; j++{
-			/*if currentState.orders[i][j] != 0{
-				return true
-			}
-			*/
-			if currentState.orders == 1{
+			 
+			 if currentState.Orders[i][j] != 0{
 				return true
 			}
 		}
