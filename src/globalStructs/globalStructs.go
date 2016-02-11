@@ -1,9 +1,9 @@
 package globalStructs
 
 type Button struct {
-	Floor       int
-	Button_type int
-	Pressed     bool
+	Floor          int
+	Button_type    int
+	Button_pressed bool
 }
 
 //This is a struct you could send to all other elevators
