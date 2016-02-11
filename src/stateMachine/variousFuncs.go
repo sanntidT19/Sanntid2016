@@ -46,8 +46,52 @@ func Get_current_floor() {
 	}
 }
 
-func write_to_matrix() // registrerer tastetrykk og legger dette inn i en matrise med oversikt over hvor det er bestillinger
-func send_next_order() // prioritere
+func write_to_matrix(button_pressed_chan chan Button){
+	new_order := <-button_pressed_chan
+
+	 
+} // registrerer tastetrykk og legger dette inn i en matrise med oversikt over hvor det er bestillinger
+
+func sort_order(order Button, current_order_queue [] Button) [] Button  {
+	sim_dir := current_state.direction
+
+
+	place_in_queue := -1
+	//if queue is empty
+	if len(current_order_queue == 0){
+		sorted_order_queue := []Button{order}
+		return sorted_order_queue
+	}
+	else if order.button_type == sim_dir && order.floor == driver.Elev_get_floor_sensor_signal() {
+				//check if you are in the actual floor and should stop immediately
+				place_in_queue = 0
+	
+	}else{
+		for i:= 0; i < len(current_order_queue); i++{
+				if order.button_type == sim_dir{
+					}
+					if sim_dir == UP && {
+						
+					}
+					else if  current_order_queue[i].floor < order.floor && driver.Elev_get_floor_sensor_signal >= order.floor
+
+				}   
+
+
+				}
+				else if order.button_type == UP && direction == 1 && last_floor > order.floor {
+					
+
+				}
+
+		}
+	}
+}
+
+
+
+
+//func send_next_order() // prioritere
 
 /*
 Structure of our matrix: 
