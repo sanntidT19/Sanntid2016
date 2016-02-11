@@ -8,18 +8,20 @@ import(
 currentState ElevatorState
 
 const PATH_OF_SAVED_STATE = "elevState.gob"
-
+/*
 func initalize_state_tracker(){
 	//read from file to check if system was killed
 	//easy solution: if thats the case, set current state to that (may serve same order twice, but sverre wont die and its avoiding complicated solutions)
 	//if not, initialize normally	
 	// get floor and all that shit from other modules 
 	//send the current state to everybody
-}
+}*/
 
+/*
 func send_updated_elevator_state(){
 	//call this whenever its updated. write to channels
 }
+*/
 
 func write_elevator_state_to_file(){
 	//temp for testing
