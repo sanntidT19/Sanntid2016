@@ -5,33 +5,26 @@ package driver
 // #include "elev.h"
 import "C"
 
-import(
+import (
 	//"errors"
+	. "../globalChans"
+	. "../globalStructs"
 	"fmt"
 	"time"
-	."../globalStructs"
-	."../globalChans"
 )
 
-
-
-const UP = 0
-const DOWN = 1
-const COMMAND = 2
+const UP = 1
+const DOWN = -1
+const COMMAND = 0
 const NUM_BUTTONS = 3
 const NUM_FLOORS = 4
 const MOTOR_SPEED = 2800
 
-
 //We need global channels if we are to communicate between modules
-
-
-
 
 //This part is copied from last years project and needs to be thorougly confirmed working
 var lamp_channel_matrix [][]int
 var button_channel_matrix [][]int
-
 
 func Elev_make_std_l_matrix() [][]int { //stupid name? we need to agree on a stanard name convention
 	std_matrix := make([][]int, 4, 8)
@@ -59,24 +52,16 @@ func Elev_make_std_b_matrix() [][]int {
 	return std_matrix
 }
 
-
-
-
-
-
-
-
 // evnt for Elev_get_floor_sensor_signal() == -1 {kjør ned}
 
-
-func Elev_init(){
+func Elev_init() {
 	C.elev_init()
 	lamp_channel_matrix = Elev_make_std_l_matrix()
 	button_channel_matrix = Elev_make_std_b_matrix()
 	if Elev_get_floor_sensor_signal() == -1 {
 		Elev_drive_elevator(-1)
 		for Elev_get_floor_sensor_signal() == -1 {
-			time.Sleep(50*time.Millisecond)		
+			time.Sleep(50 * time.Millisecond)
 		}
 		Elev_drive_elevator(0)
 	}
@@ -84,17 +69,16 @@ func Elev_init(){
 
 }
 
-
 func Elev_drive_elevator(dirn int) {
-    if (dirn == 0){
-        io_write_analog(MOTOR, 0);
-    } else if (dirn > 0) {
-        io_clear_bit(MOTORDIR);
-        io_write_analog(MOTOR, MOTOR_SPEED);
-    } else if (dirn < 0) {
-        io_set_bit(MOTORDIR);
-        io_write_analog(MOTOR, MOTOR_SPEED);
-    }
+	if dirn == 0 {
+		io_write_analog(MOTOR, 0)
+	} else if dirn > 0 {
+		io_clear_bit(MOTORDIR)
+		io_write_analog(MOTOR, MOTOR_SPEED)
+	} else if dirn < 0 {
+		io_set_bit(MOTORDIR)
+		io_write_analog(MOTOR, MOTOR_SPEED)
+	}
 }
 
 func Elev_set_door_open_lamp(turn_on bool) {
@@ -113,76 +97,71 @@ func Elev_set_stop_lamp(turn_on bool) {
 	}
 }
 
-func elev_set_button_light(button int, floor int, value bool){
-	if value{
+func elev_set_button_light(button int, floor int, value bool) {
+	if value {
 		io_set_bit(lamp_channel_matrix[floor][button])
-	}else{
+	} else {
 		io_clear_bit(lamp_channel_matrix[floor][button])
 	}
 	return
 }
 
-
 //Vurder senere om bool eller int er best her
-func elev_get_button_signal(button int,floor int) bool{
-	if io_read_bit(button_channel_matrix[floor][button]){
+func elev_get_button_signal(button int, floor int) bool {
+	if io_read_bit(button_channel_matrix[floor][button]) {
 		return true
-	}else{
+	} else {
 		return false
 	}
 }
 
-
-
-func Elev_get_floor_sensor_signal() int{
+func Elev_get_floor_sensor_signal() int {
 	return int(C.elev_get_floor_sensor_signal())
-	
+
 }
 
-func elev_set_floor_light(floor int){
+func elev_set_floor_light(floor int) {
 	C.elev_set_floor_indicator(C.int(floor))
 	return
 }
 
-func Open_door(){
+func Open_door() {
 	io_set_bit(LIGHT_DOOR_OPEN)
-	time.Sleep(3*time.Second)
+	time.Sleep(3 * time.Second)
 	io_clear_bit(LIGHT_DOOR_OPEN)
 }
 
-func Check_for_buttons_pressed(button_pressed_chan chan Button){
-	for{
-		for i := 0; i < NUM_FLOORS; i++{
+func Check_for_buttons_pressed(button_pressed_chan chan Button) {
+	for {
+		for i := 0; i < NUM_FLOORS; i++ {
 			for j := 0; j < NUM_BUTTONS; j++ {
 				if io_read_bit(button_channel_matrix[i][j]) {
-					button_pressed_chan<-Button{i,j,true}
+					button_pressed_chan <- Button{i, j, true}
 				}
 			}
-			
+
 		}
-		time.Sleep(50*time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 
 //Should make this general for turning on and off
-func Set_button_lights(button_pressed_chan chan Button){
-	for{
-		change_button := <- button_pressed_chan
-		if change_button.pressed{
+func Set_button_lights(button_pressed_chan chan Button) {
+	for {
+		change_button := <-button_pressed_chan
+		if change_button.pressed {
 			io_set_bit(lamp_channel_matrix[change_button.floor][change_button.button_type])
-		}else{
+		} else {
 			io_clear_bit(lamp_channel_matrix[change_button.floor][change_button.button_type])
 		}
-	
-	}	
+
+	}
 }
 
 //Lag alle simple funksjoner først. Bruker drivere som vi allerede har. Gjør det simpelt.
 //Heller mer komplekst og "go-ete" når funksjoner skal settes sammen i loops og whatever
 
-
-
-func Elev_main_tester_function(){	
+func Elev_main_tester_function() {
 	io_init()
 	Elev_init()
 	go Elev_floor_light_updater()
@@ -191,18 +170,14 @@ func Elev_main_tester_function(){
 	return
 }
 
-
 //Use of last_floor may need to be exported og gotten somewhere else
-func Elev_floor_light_updater(){
+func Elev_floor_light_updater() {
 	current_floor := -1
-	for{
-		time.Sleep(200*time.Millisecond)
+	for {
+		time.Sleep(200 * time.Millisecond)
 		current_floor = Elev_get_floor_sensor_signal()
-		if current_floor != -1{
+		if current_floor != -1 {
 			elev_set_floor_light(current_floor)
 		}
 	}
 }
-
-
-
