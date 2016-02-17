@@ -15,3 +15,12 @@ type ElevatorState struct {
 	Orders       int //This is an array or something of all orders currently active for this elevator.
 
 }
+
+const (
+	UP          = 1
+	DOWN        = -1
+	COMMAND     = 0
+	NUM_BUTTONS = 3
+	NUM_FLOORS  = 4
+	MOTOR_SPEED = 2800
+)

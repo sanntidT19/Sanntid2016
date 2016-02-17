@@ -1,12 +1,13 @@
 package globalChans
 
-import(
+import (
 	"../globalStructs"
 )
 
-func Initalize_chans(){
-	buttonPressedChan := make(chan globalStructs.Button)
-	setButtonLightChan := make (chan globalStructs.Button)
+var ButtonPressedChan chan globalStructs.Button
+var SetButtonLightChan chan globalStructs.Button
+
+func Init_chans() {
+	ButtonPressedChan = make(chan globalStructs.Button)
+	SetButtonLightChan = make(chan globalStructs.Button)
 }
-
-

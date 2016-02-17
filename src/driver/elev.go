@@ -13,13 +13,6 @@ import (
 	"time"
 )
 
-const UP = 1
-const DOWN = -1
-const COMMAND = 0
-const NUM_BUTTONS = 3
-const NUM_FLOORS = 4
-const MOTOR_SPEED = 2800
-
 //We need global channels if we are to communicate between modules
 
 //This part is copied from last years project and needs to be thorougly confirmed working
@@ -149,10 +142,10 @@ func Check_for_buttons_pressed(button_pressed_chan chan Button) {
 func Set_button_lights(button_pressed_chan chan Button) {
 	for {
 		change_button := <-button_pressed_chan
-		if change_button.pressed {
-			io_set_bit(lamp_channel_matrix[change_button.floor][change_button.button_type])
+		if change_button.Button_pressed {
+			io_set_bit(lamp_channel_matrix[change_button.Floor][change_button.Button_type])
 		} else {
-			io_clear_bit(lamp_channel_matrix[change_button.floor][change_button.button_type])
+			io_clear_bit(lamp_channel_matrix[change_button.Floor][change_button.Button_type])
 		}
 
 	}
@@ -165,8 +158,8 @@ func Elev_main_tester_function() {
 	io_init()
 	Elev_init()
 	go Elev_floor_light_updater()
-	go Check_for_buttons_pressed(buttonPressedChan)
-	go Set_button_lights(setButtonLightChan)
+	go Check_for_buttons_pressed(ButtonPressedChan)
+	go Set_button_lights(SetButtonLightChan)
 	return
 }
 

@@ -1,16 +1,17 @@
 package main
 
 import (
-	//"./driver"
-	//"./stateMachine"
+	"./driver"
+	. "./globalChans"
+	"./stateMachine"
 	"fmt"
 	"time"
-	//"./globalChans"
-	. "./globalStructs"
-	"encoding/gob"
-	"os"
+	//."./globalStructs"
+	//"encoding/gob"
+	//"os"
 )
 
+/*
 const PATH_OF_SAVED_STATE = "elevState.gob"
 
 func write_elevator_state_to_file() {
@@ -47,21 +48,33 @@ func read_elevator_state_from_file() {
 	dataFile.Close()
 	//currentState = data
 }
-
+*/
 func main() {
-	/*driver.Elev_main_tester_function()
-	next_order_chan := make(chan int)
-	order_served_chan := make(chan bool)
-	go stateMachine.Get_current_floor()
-	go stateMachine.Execute_order(next_order_chan)
-	go stateMachine.Stop_at_desired_floor(order_served_chan)
-	next_order_chan <- 3
-	<-order_served_chan
-	fmt.Printf("Order_served\n")
-	time.Sleep(4*time.Second)*/
-	fmt.Printf("Test of file writing and reading/n")
-	write_elevator_state_to_file()
-	time.Sleep(time.Second * 2)
-	read_elevator_state_from_file()
-	fmt.Printf("End of main \n")
+	/*
+		//First test of basics
+		driver.Elev_main_tester_function()
+		next_order_chan := make(chan int)
+		order_served_chan := make(chan bool)
+		go stateMachine.Get_current_floor()
+		go stateMachine.Execute_order(next_order_chan)
+		go stateMachine.Stop_at_desired_floor(order_served_chan)
+		next_order_chan <- 3
+		<-order_served_chan
+		fmt.Printf("Order_served\n")
+		time.Sleep(4*time.Second)
+
+		//Write to file test
+		fmt.Printf("Test of file writing and reading/n")
+		write_elevator_state_to_file()
+		time.Sleep(time.Second * 2)
+		read_elevator_state_from_file()
+		fmt.Printf("End of main \n")
+	*/
+	Init_chans()
+	driver.Elev_main_tester_function()
+	stateMachine.State_machine_top_loop()
+	for {
+		time.Sleep(5 * time.Second)
+		fmt.Printf("Main waiting woop woop...\n")
+	}
 }
