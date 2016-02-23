@@ -33,6 +33,18 @@ func Stop_at_desired_floor(order_served_chan chan bool) {
 	}
 }
 
+func Print_order(order Button) {
+	var x string
+	if order.Button_type == COMMAND {
+		x = "Command"
+	} else if order.Button_type == UP {
+		x = "Up"
+	} else {
+		x = "Down"
+	}
+	fmt.Println("Floor: ", order.Floor+1, " Type :", x)
+}
+
 //avoid the word "execute". Better name needed
 func Execute_order(next_order_chan chan int) {
 	for {
@@ -84,6 +96,7 @@ func sort_order_queue(new_order Button, current_order_queue []Button) []Button {
 		simulated_direction = current_state.Direction
 		simulated_floor = current_state.CurrentFloor + simulated_direction
 		fmt.Println("Sim_floor loop 1: ", simulated_floor)
+		fmt.Println("Sim_dir loop 1: ", simulated_direction)
 		for simulated_floor >= 0 && simulated_floor < NUM_FLOORS {
 			if new_order.Floor == simulated_floor && (simulated_direction == new_order.Button_type || new_order.Button_type == COMMAND) {
 				place_in_queue = i
@@ -150,50 +163,10 @@ func sort_order_queue(new_order Button, current_order_queue []Button) []Button {
 				simulated_floor += simulated_direction
 			}
 		}
-
-		/*for i:= 0; i < len(current_order_queue); i++{
-				if order.button_type == sim_dir{
-					}
-					if sim_dir == UP && {
-
-					}
-					else if  current_order_queue[i].floor < order.floor && driver.Elev_get_floor_sensor_signal >= order.floor
-
-				}
-
-
-				}
-				else if order.button_type == UP && direction == 1 && last_floor > order.floor {
-
-
-				}
-
-		}*/
 	}
-	fmt.Println("Place in queue:", place_in_queue)
-	fmt.Println(current_order_queue)
-	fmt.Println("capacity: ", cap(current_order_queue))
-	//current_order_queue = current_order_queue[0 : len(current_order_queue)+1]
-	fmt.Println("Before copying ", current_order_queue)
-	//sorted_order_queue := make([]Button,len(current_order_queue)+1)
-	//sorted_order_queue[:place_in_queue] = current_order_queue[:place_in_queue]
-	//sorted_order_queue[place_in_queue+1:] = current_order_queue[place_in_queue]
-
 	current_order_queue = append(current_order_queue[:place_in_queue], append([]Button{new_order}, current_order_queue[place_in_queue:]...)...)
-
-	/*
-		sorted_order_queue := []Button{}
-		sorted_order_queue = append(sorted_order_queue, current_order_queue[:place_in_queue])
-		sorted_order_queue = append(sorted_order_queue, new_order)
-		sorted_order_queue = append(sorted_order_queue, current_order_queue[place_in_queue:])
-	*/
-	//copy(current_order_queue[place_in_queue+1:], current_order_queue[place_in_queue:])
-	//current_order_queue[place_in_queue] = new_order
-	//found place in queue, make a new and updated queue
-	//current_order_queue = append(current_order_queue, Button{})
-	//copy(current_order_queue[:place_in_queue+1], current_order_queue[place_in_queue:])
-	//current_order_queue[place_in_queue] = new_order
 	fmt.Println("End of sorting queue: ", current_order_queue)
+	Print_order(new_order)
 	return current_order_queue
 }
 

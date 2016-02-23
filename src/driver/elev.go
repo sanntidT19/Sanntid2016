@@ -129,7 +129,15 @@ func Check_for_buttons_pressed(button_pressed_chan chan Button) {
 		for i := 0; i < NUM_FLOORS; i++ {
 			for j := 0; j < NUM_BUTTONS; j++ {
 				if io_read_bit(button_channel_matrix[i][j]) {
-					button_pressed_chan <- Button{i, j, true}
+					var button_type int
+					if j == 0 {
+						button_type = UP
+					} else if j == 1 {
+						button_type = DOWN
+					} else {
+						button_type = COMMAND
+					}
+					button_pressed_chan <- Button{i, button_type, true}
 				}
 			}
 
@@ -142,6 +150,13 @@ func Check_for_buttons_pressed(button_pressed_chan chan Button) {
 func Set_button_lights(button_pressed_chan chan Button) {
 	for {
 		change_button := <-button_pressed_chan
+		if change_button.Button_type == UP {
+			change_button.Button_type = 0
+		} else if change_button.Button_type == DOWN {
+			change_button.Button_type = 1
+		} else {
+			change_button.Button_type = 2
+		}
 		if change_button.Button_pressed {
 			io_set_bit(lamp_channel_matrix[change_button.Floor][change_button.Button_type])
 		} else {
