@@ -13,6 +13,7 @@ import (
 var current_floor int = -1
 var last_floor int = -1
 var desired_floor int = -1
+var door_open bool = false
 
 //Dummy struct, for now
 var current_state ElevatorState
@@ -25,7 +26,9 @@ func Stop_at_desired_floor(order_served_chan chan bool) {
 			desired_floor = -1000 //tempfix
 			driver.Elev_drive_elevator(0)
 			fmt.Println("I GET HERE BEFORE OPENING DOOR")
-			go driver.Open_door()
+			door_open = true
+			driver.Open_door()
+			door_open = false
 			order_served_chan <- true
 			fmt.Println("I get here at least")
 		}
@@ -50,10 +53,10 @@ func Execute_order(next_order_chan chan int) {
 	for {
 		next_order := <-next_order_chan
 		desired_floor = next_order
-		if next_order > current_state.CurrentFloor {
+		if next_order > current_state.CurrentFloor && !door_open {
 			driver.Elev_drive_elevator(1)
 			current_state.Direction = 1
-		} else if next_order < current_state.CurrentFloor {
+		} else if next_order < current_state.CurrentFloor && !door_open {
 			driver.Elev_drive_elevator(-1)
 			current_state.Direction = -1
 		}
@@ -194,6 +197,7 @@ func State_machine_top_loop() {
 				fmt.Printf("I also get here\n")
 				//next line is just so door isnt always open
 			}
+			//Denne casen kan trolig gjøres parallelt med de andre casene.
 		case new_order := <-ButtonPressedChan:
 			if isOrderInQueue(order_queue, new_order) {
 				break
