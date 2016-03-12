@@ -8,19 +8,25 @@ import (
 	"time"
 )
 
-var broadcastAddr string = "129.241.187.255:20059"
+var broadcastAddr string = "255.255.255.255:20059" //"129.241.187.255:20059"
 var commonPort string = "20059"
+var broadcastPort string = "30059"
 
 func main() {
 	localAddr := getLocalIP()
+
 	if localAddr == "" {
 		fmt.Println("Problem using getLocalIP")
 	}
 	fmt.Println(localAddr)
-	spam_precense(broadcastAddr)
-	connection := establish_connection(localAddr, commonPort)
-	go readMessages(connection)
-	defer connection.Close()
+
+	go broadcastPrecense(broadcastPort)
+	go listenForElevators(broadcastPort)
+
+	//connection := establish_connection(listenBroadCast, commonPort)
+	//go readMessages(connection)
+	//defer connection.Close()
+	fmt.Println("End of main")
 	time.Sleep(time.Second * 1000)
 }
 
@@ -52,8 +58,8 @@ func getLocalIP() string {
 			case *net.IPAddr:
 				ip = v.IP
 			}
-			fmt.Println("Printing type: ", reflect.TypeOf(ip))
 			if bytes.Compare(ip, ipLow) >= 0 && bytes.Compare(ip, ipHigh) <= 0 {
+				fmt.Println("Printing type: ", reflect.TypeOf(ip))
 				return ip.String()
 			}
 		}
@@ -61,23 +67,39 @@ func getLocalIP() string {
 	return ""
 }
 
-func spam_precense(remoteAddr string) {
-	udpRemote, _ := net.ResolveUDPAddr("udp", remoteAddr)
-
-	connection, err := net.DialUDP("udp", nil, udpRemote)
+func broadcastPrecense(broadcastPort string) {
+	broadcastAddr := "255.255.255.255" + ":" + broadcastPort
+	broadcastUDPAddr, _ := net.ResolveUDPAddr("udp", broadcastAddr)
+	connection, err := net.DialUDP("udp", nil, broadcastUDPAddr)
 	if err != nil {
 		fmt.Println("You messed up in spam presence")
-		panic(err)
 	}
 	defer connection.Close()
 	for {
 		_, err := connection.Write([]byte("I am here"))
 		if err != nil {
-			fmt.Println("You messed up in spam_precense")
-			panic(err)
+			fmt.Println("BroadcastPrecense: msg not sent")
 		}
 		time.Sleep(time.Millisecond * 500)
 	}
+}
+
+func listenForElevators(broadcastPort string) {
+	buffer := make([]byte, 2048)
+	listenBroadcastAddress := "0.0.0.0" + ":" + broadcastPort
+	broadcastUDPAddr, _ := net.ResolveUDPAddr("udp4", listenBroadcastAddress)
+	connection, _ := net.ListenUDP("udp4", broadcastUDPAddr)
+	defer connection.Close()
+	for {
+		_, senderAddr, err := connection.ReadFromUDP(buffer)
+		if err != nil {
+			fmt.Println("Error reading msg in listenForElevators, discard message")
+		} else {
+			fmt.Println("Sender: ", senderAddr.IP.String())
+			//SEND TO OTHER GOROUTINE HANDLING ALL ELEVATORS PRESENT
+		}
+	}
+
 }
 
 func readMessages(remoteUDPConn *net.UDPConn) {
@@ -88,5 +110,29 @@ func readMessages(remoteUDPConn *net.UDPConn) {
 			fmt.Println("Error reading message, do nothing")
 		}
 		fmt.Println("Sender: ", senderAddr.IP.String())
+	}
+}
+
+func sumAllIncomingData(intsIncomingChan chan int) {
+	var sum int = 0
+	for {
+		newInt := <-intsIncomingChan
+		sum += newInt
+	}
+	fmt.Println("Current sum received ", sum)
+}
+
+func countBoolsIncoming(boolsIncomingChan chan bool) {
+	var falseCounter int = 0
+	var trueCounter int = 0
+	for {
+		newBool := <-boolsIncomingChan
+		if newBool {
+			trueCounter++
+		} else {
+			falseCounter++
+		}
+		fmt.Println("Number of true received:", trueCounter)
+		fmt.Println("Number of false received: ", falseCounter)
 	}
 }
