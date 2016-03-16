@@ -12,7 +12,15 @@ var broadcastAddr string = "255.255.255.255:20059" //"129.241.187.255:20059"
 var commonPort string = "20059"
 var broadcastPort string = "30059"
 
+type addrAndTimer struct{
+	DeadLine time.Time
+	NetWorkAddr string
+}
+
 func main() {
+	newShoutFromElevatorChan := make(chan string)
+	newElevatorChan := make(chan string)
+	elevatorGoneChan := make(chan string)
 	localAddr := getLocalIP()
 
 	if localAddr == "" {
@@ -21,13 +29,54 @@ func main() {
 	fmt.Println(localAddr)
 
 	go broadcastPrecense(broadcastPort)
-	go listenForElevators(broadcastPort)
-
+	go listenForElevators(broadcastPort, newShoutFromElevatorChan)
+	go readUpdateElevatorOverview(newShoutFromElevatorChan, newElevatorChan, elevatorGoneChan)
+	for{
+		select{
+		case elevGone := <- elevatorGoneChan:
+			fmt.Println("Elevator gone, address: ", elevGone)
+		case newElev := <- newElevatorChan:
+			fmt.Println("New elevator, address: ",newElev)
+		}
+	}
 	//connection := establish_connection(listenBroadCast, commonPort)
 	//go readMessages(connection)
 	//defer connection.Close()
 	fmt.Println("End of main")
-	time.Sleep(time.Second * 1000)
+}
+//Start with int to test. Then network and test this
+
+func readUpdateElevatorOverview(newShoutFromElevatorChan chan string, newElevatorChan chan string, elevatorGoneChan chan string){
+	elevatorTimerList := []addrAndTimer{}
+	for{
+		select{
+		case newShout := <- newShoutFromElevatorChan:
+			elevatorInList := false
+				index := 0;
+			//Index might be invalid if list is altered somewhere else during the for loop.
+			for i, v := range elevatorTimerList{
+				if v.NetWorkAddr == newShout{
+					elevatorInList = true
+					index = i;
+					break;
+				}
+			}
+			if elevatorInList{
+				elevatorTimerList[index].DeadLine = time.Now().Add(time.Second * 3) 
+			}else{
+				elevatorTimerList = append(elevatorTimerList, addrAndTimer{DeadLine: time.Now().Add(time.Second *3), NetWorkAddr: newShout})
+				newElevatorChan <- newShout
+			}
+		default:
+			for i, v := range elevatorTimerList{
+				if time.Now().After(v.DeadLine){
+					elevatorGoneChan <- v.NetWorkAddr
+					elevatorTimerList = append(elevatorTimerList[:i], elevatorTimerList[i+1:]...) //From slicetricks. Remove element.
+				}
+			}
+		}
+		time.Sleep(time.Millisecond*200)
+	}
 }
 
 func establish_connection(remoteIp string, remotePort string) *net.UDPConn {
@@ -84,7 +133,7 @@ func broadcastPrecense(broadcastPort string) {
 	}
 }
 
-func listenForElevators(broadcastPort string) {
+func listenForElevators(broadcastPort string, newShoutFromElevatorChan chan string) {
 	buffer := make([]byte, 2048)
 	listenBroadcastAddress := "0.0.0.0" + ":" + broadcastPort
 	broadcastUDPAddr, _ := net.ResolveUDPAddr("udp4", listenBroadcastAddress)
@@ -95,7 +144,7 @@ func listenForElevators(broadcastPort string) {
 		if err != nil {
 			fmt.Println("Error reading msg in listenForElevators, discard message")
 		} else {
-			fmt.Println("Sender: ", senderAddr.IP.String())
+			newShoutFromElevatorChan <- senderAddr.IP.String()
 			//SEND TO OTHER GOROUTINE HANDLING ALL ELEVATORS PRESENT
 		}
 	}
