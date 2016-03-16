@@ -11,10 +11,21 @@ import (
 var broadcastAddr string = "255.255.255.255:20059" //"129.241.187.255:20059"
 var commonPort string = "20059"
 var broadcastPort string = "30059"
+var listOfElevatorsInNetwork []string;
+
+
+var connectionList map[string] *net.UDPConn
+
+
 
 type addrAndTimer struct{
 	DeadLine time.Time
 	NetWorkAddr string
+}
+
+type Message struct{
+	Tag string
+	Data byte 	
 }
 
 func main() {
@@ -31,20 +42,25 @@ func main() {
 	go broadcastPrecense(broadcastPort)
 	go listenForElevators(broadcastPort, newShoutFromElevatorChan)
 	go readUpdateElevatorOverview(newShoutFromElevatorChan, newElevatorChan, elevatorGoneChan)
+	go SendMessagesToAllElevators(sendNetworkMessageChan, newConnectionChan, endConnectionChan)
 	for{
 		select{
 		case elevGone := <- elevatorGoneChan:
 			fmt.Println("Elevator gone, address: ", elevGone)
+			endConnectionChan <- elevGone
 		case newElev := <- newElevatorChan:
 			fmt.Println("New elevator, address: ",newElev)
 		}
 	}
-	//connection := establish_connection(listenBroadCast, commonPort)
+	//connection := estabonnection(listenBroadCast, commonPort)
+	//go readMessages(connection)lish_connection(listenBroadCast, commonPort)
 	//go readMessages(connection)
 	//defer connection.Close()
 	fmt.Println("End of main")
 }
 //Start with int to test. Then network and test this
+
+
 
 func readUpdateElevatorOverview(newShoutFromElevatorChan chan string, newElevatorChan chan string, elevatorGoneChan chan string){
 	elevatorTimerList := []addrAndTimer{}
@@ -145,20 +161,48 @@ func listenForElevators(broadcastPort string, newShoutFromElevatorChan chan stri
 			fmt.Println("Error reading msg in listenForElevators, discard message")
 		} else {
 			newShoutFromElevatorChan <- senderAddr.IP.String()
-			//SEND TO OTHER GOROUTINE HANDLING ALL ELEVATORS PRESENT
 		}
 	}
 
 }
 
-func readMessages(remoteUDPConn *net.UDPConn) {
+
+func readMessages() {
 	buffer := make([]byte, 2048)
 	for {
-		_, senderAddr, err := remoteUDPConn.ReadFromUDP(buffer)
-		if err != nil {
-			fmt.Println("Error reading message, do nothing")
+		for _, remoteUDPConn := range connectionList{
+			_, senderAddr, err := remoteUDPConn.ReadFromUDP(buffer)
+			if err != nil {
+				fmt.Println("Error reading message, do nothing")
+			}else{
+				fmt.Println("Sender: ", senderAddr.IP.String(), "Typeof: ", reflect.Typeof(buffer))
+			}
 		}
-		fmt.Println("Sender: ", senderAddr.IP.String())
+	}
+}
+
+//
+func SendMessagesToAllElevators(sendNetworkMessageChan chan []byte, newConnectionChan chan string, endConnectionChan chan string){
+	var connectionList map[string] *net.UDPConn
+	for _,deferConn := range connectionList{
+		defer deferConn.Close()
+	}
+	for{
+		select{
+		case newElevator := <-newConnectionChan:
+			connectionList[newElevator] = establish_connection(newElevator, commonPort)
+			localListOfElevators = connectionList
+			defer connectionList[newElevator].Close() //This might be enough
+		case deadElevator := <-endConnectionChan:
+			connectionList[deadElevator].Close() 
+		case newMessage := <-sendNetworkMessageChan:
+			for _,conn := range connectionList{
+				_, err := conn.Write(newMessage)
+				if err != nil {
+					fmt.Println("Error in sending func, maybe some error handling later")
+				}
+			}
+		}
 	}
 }
 
