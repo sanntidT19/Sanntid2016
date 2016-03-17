@@ -6,6 +6,7 @@ import (
 	"net"
 	"reflect"
 	"time"
+	"encoding/json"
 )
 
 var broadcastAddr string = "255.255.255.255:20059" //"129.241.187.255:20059"
@@ -16,6 +17,11 @@ var listOfElevatorsInNetwork []string;
 
 var connectionList map[string] *net.UDPConn
 
+const(
+	arrayX = 5
+	arrayY = 5
+	arrayZ = 5
+)
 
 
 type addrAndTimer struct{
@@ -23,10 +29,18 @@ type addrAndTimer struct{
 	NetWorkAddr string
 }
 
-type Message struct{
+type MessageWithHeader struct{
 	Tag string
 	Ack bool
 	Data []byte 	
+}
+
+//Test udpSize by sending this on the network. 
+type HugeStruct struct{
+	HugeNumber int
+	HugeBool bool
+	HugeArray [arrayX][arrayY][arrayZ]int
+	HugeName string
 }
 
 func main() {
@@ -36,7 +50,7 @@ func main() {
 	elevatorGoneChan := make(chan string)
 	endConnectionChan := make(chan string)
 	sendNetworkMessageChan := make(chan []byte)
-	
+	messageFromNetworkChan := make(chan []byte)
 
 	localAddr := getLocalIP()
 
@@ -50,30 +64,52 @@ func main() {
 	go listenForBroadcast(broadcastPort, newShoutFromElevatorChan)
 	go readUpdateElevatorOverview(newShoutFromElevatorChan, newElevatorChan, elevatorGoneChan)
 	go SendMessagesToAllElevators(sendNetworkMessageChan, newConnectionChan, endConnectionChan)
-	go readMessagesFromNetwork(localAddr, commonPort)
-
+	go readMessagesFromNetwork(localAddr, commonPort, messageFromNetworkChan)
+	go decodeMessagesFromNetwork(messageFromNetworkChan)
+	go func(){
+		for{
+			select{
+			case elevGone := <- elevatorGoneChan:
+				fmt.Println("Elevator gone, address: ", elevGone)
+				endConnectionChan <- elevGone
+			case newElev := <- newElevatorChan:
+				fmt.Println("New elevator, address: ",newElev)
+				newConnectionChan <- newElev
+			}
+		}
+	}()
+	time.Sleep(time.Second*1)
+	//Temp encoding
+	
+	hugeS := makeHugeStruct(localAddr)
+	//var solo int = 322
+	localData, err := json.Marshal(hugeS) 
+	if err != nil{
+		fmt.Println("Something went wrong when marshaling")
+	}
+	messageToBeSent := MessageWithHeader{
+		Tag: "hugeS",
+		Ack: false,
+		Data: localData,
+	}
+	encodedMessage, err := json.Marshal(messageToBeSent)
+	if err != nil{
+		fmt.Println("Something went wrong in second marshal")
+	}
+	sendNetworkMessageChan <- encodedMessage
+	/*
 	go func(){
 		for{
 			sendNetworkMessageChan <- []byte("I am yolomaster")
 			time.Sleep(time.Millisecond*500)
 		}
-
-	}()
-	for{
-		select{
-		case elevGone := <- elevatorGoneChan:
-			fmt.Println("Elevator gone, address: ", elevGone)
-			endConnectionChan <- elevGone
-		case newElev := <- newElevatorChan:
-			fmt.Println("New elevator, address: ",newElev)
-			newConnectionChan <- newElev
-		}
-	}
+	}()*/
 
 	//defer connection.Close()
 	fmt.Println("End of main")
+	time.Sleep(time.Second*100)
 }
-//Start with int to test. Then network and test this
+
 
 
 
@@ -184,7 +220,7 @@ func listenForBroadcast(broadcastPort string, newShoutFromElevatorChan chan stri
 /* I think you only need to listen on one port */
 /* test to iterate through connections if this doesnt work*/ 
 
-func readMessagesFromNetwork(localAddr string, commonPort string) {
+func readMessagesFromNetwork(localAddr string, commonPort string, messageFromNetworkChan  chan []byte) {
 	buffer := make([]byte, 2048)
 	fullAddr := localAddr + ":" + commonPort
 	listenConnAddress, _ := net.ResolveUDPAddr("udp4",fullAddr)
@@ -192,15 +228,14 @@ func readMessagesFromNetwork(localAddr string, commonPort string) {
 	if err != nil{
 		fmt.Println("Error setting up listen-connection")
 	}
-	for {{
-		_, senderAddr, err := listenConn.ReadFromUDP(buffer)
+	for {
+		packetLength, senderAddr, err := listenConn.ReadFromUDP(buffer)
 		if err != nil {
 			fmt.Println("Error reading message, do nothing")
 		}else{
-			messageIndex := bytes.IndexByte(buffer, 0)
-			message := string(buffer[:messageIndex])
-			fmt.Println("Reading message from: ", senderAddr.IP.String(), "Message: ", message)
-		}
+			//Send messages to decodeFunc here.
+			messageFromNetworkChan<-buffer[:packetLength]
+			fmt.Println("Reading message from: ", senderAddr.IP.String())
 		}
 	}
 }
@@ -251,4 +286,75 @@ func countBoolsIncoming(boolsIncomingChan chan bool) {
 		fmt.Println("Number of true received:", trueCounter)
 		fmt.Println("Number of false received: ", falseCounter)
 	}
+}
+
+func encodeMessagesToNetwork(){
+}
+
+func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte ){
+	//If no ack. Respond immediately somewhere with ack.
+	//Switch on tag
+	for{
+		packetFromNetwork := <-messageFromNetworkChan
+		var message MessageWithHeader
+		err:= json.Unmarshal(packetFromNetwork, &message)
+		if err != nil {
+			fmt.Println("Something went from when unmarshalling packet, do nothing (for now)")
+			fmt.Println(err)
+		}else if message.Ack == true{
+			fmt.Println("Send to goroutine handling acks")
+			//Things will happen here
+		}else{
+			//Should send an ack immediately
+			switch message.Tag{
+				case "hugeS": //for now, will add many more in the future
+					var bigAssMessage HugeStruct
+					err := json.Unmarshal(message.Data, &bigAssMessage)
+					if err != nil{
+						fmt.Println("Something went wrong when unmarshalling in the switch. Do nothing (for now)")
+						fmt.Println(err)
+					}else{
+						printHugeStruct(bigAssMessage)
+					}
+				case "int":
+					var localInt int 
+					err := json.Unmarshal(message.Data, &localInt)
+					if err != nil{
+						fmt.Println("Something went wrong when unmarshalling in the switch. Do nothing (for now)")
+					}else{
+						fmt.Println("its an int!: ", localInt)
+					}
+
+			}
+		}
+	}
+}
+
+
+func printHugeStruct(bigAssMessage HugeStruct){
+	fmt.Println("HugeBool: ", bigAssMessage.HugeBool)
+	fmt.Println("HugeName aka localAddr: ", bigAssMessage.HugeName)
+	fmt.Println("HugeNumber: ", bigAssMessage.HugeNumber)
+	for i := 0; i < arrayX; i++{
+		for j := 0; j < arrayY; j++{
+			for k := 0; k < arrayZ; k++{
+			fmt.Println(bigAssMessage.HugeArray[i][j][k])
+			}
+		}	
+	}
+}
+
+func makeHugeStruct(localAddr string) HugeStruct{
+	hugeS := HugeStruct{}
+	hugeS.HugeBool = true
+	hugeS.HugeNumber = 322322
+	hugeS.HugeName = localAddr
+	for i := 0; i < arrayX; i++{
+		for j := 0; j < arrayY; j++{
+			for k := 0; k < arrayZ; k++{
+			hugeS.HugeArray[i][j][k] = i*100 + j*10 + k
+			}
+		}	
+	}
+	return hugeS
 }
