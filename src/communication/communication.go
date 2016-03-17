@@ -25,24 +25,40 @@ type addrAndTimer struct{
 
 type Message struct{
 	Tag string
-	Data byte 	
+	Ack bool
+	Data []byte 	
 }
 
 func main() {
 	newShoutFromElevatorChan := make(chan string)
 	newElevatorChan := make(chan string)
+	newConnectionChan := make(chan string)
 	elevatorGoneChan := make(chan string)
+	endConnectionChan := make(chan string)
+	sendNetworkMessageChan := make(chan []byte)
+	
+
 	localAddr := getLocalIP()
 
 	if localAddr == "" {
-		fmt.Println("Problem using getLocalIP")
+		fmt.Println("Problem using getLocalIP, expecting office-pc")
+		localAddr = "129.241.154.78"
 	}
 	fmt.Println(localAddr)
 
 	go broadcastPrecense(broadcastPort)
-	go listenForElevators(broadcastPort, newShoutFromElevatorChan)
+	go listenForBroadcast(broadcastPort, newShoutFromElevatorChan)
 	go readUpdateElevatorOverview(newShoutFromElevatorChan, newElevatorChan, elevatorGoneChan)
 	go SendMessagesToAllElevators(sendNetworkMessageChan, newConnectionChan, endConnectionChan)
+	go readMessagesFromNetwork(localAddr, commonPort)
+
+	go func(){
+		for{
+			sendNetworkMessageChan <- []byte("I am yolomaster")
+			time.Sleep(time.Millisecond*500)
+		}
+
+	}()
 	for{
 		select{
 		case elevGone := <- elevatorGoneChan:
@@ -50,11 +66,10 @@ func main() {
 			endConnectionChan <- elevGone
 		case newElev := <- newElevatorChan:
 			fmt.Println("New elevator, address: ",newElev)
+			newConnectionChan <- newElev
 		}
 	}
-	//connection := estabonnection(listenBroadCast, commonPort)
-	//go readMessages(connection)lish_connection(listenBroadCast, commonPort)
-	//go readMessages(connection)
+
 	//defer connection.Close()
 	fmt.Println("End of main")
 }
@@ -95,10 +110,10 @@ func readUpdateElevatorOverview(newShoutFromElevatorChan chan string, newElevato
 	}
 }
 
-func establish_connection(remoteIp string, remotePort string) *net.UDPConn {
+func connectToElevator(remoteIp string, remotePort string) *net.UDPConn {
 	fullAddr := remoteIp + ":" + remotePort
 	remoteUDPAddr, _ := net.ResolveUDPAddr("udp4", fullAddr)
-	connection, _ := net.ListenUDP("udp4", remoteUDPAddr)
+	connection, _ := net.DialUDP("udp4", nil, remoteUDPAddr)
 
 	return connection
 
@@ -149,7 +164,7 @@ func broadcastPrecense(broadcastPort string) {
 	}
 }
 
-func listenForElevators(broadcastPort string, newShoutFromElevatorChan chan string) {
+func listenForBroadcast(broadcastPort string, newShoutFromElevatorChan chan string) {
 	buffer := make([]byte, 2048)
 	listenBroadcastAddress := "0.0.0.0" + ":" + broadcastPort
 	broadcastUDPAddr, _ := net.ResolveUDPAddr("udp4", listenBroadcastAddress)
@@ -166,40 +181,48 @@ func listenForElevators(broadcastPort string, newShoutFromElevatorChan chan stri
 
 }
 
+/* I think you only need to listen on one port */
+/* test to iterate through connections if this doesnt work*/ 
 
-func readMessages() {
+func readMessagesFromNetwork(localAddr string, commonPort string) {
 	buffer := make([]byte, 2048)
-	for {
-		for _, remoteUDPConn := range connectionList{
-			_, senderAddr, err := remoteUDPConn.ReadFromUDP(buffer)
-			if err != nil {
-				fmt.Println("Error reading message, do nothing")
-			}else{
-				fmt.Println("Sender: ", senderAddr.IP.String(), "Typeof: ", reflect.Typeof(buffer))
-			}
+	fullAddr := localAddr + ":" + commonPort
+	listenConnAddress, _ := net.ResolveUDPAddr("udp4",fullAddr)
+	listenConn, err := net.ListenUDP("udp4",listenConnAddress)
+	if err != nil{
+		fmt.Println("Error setting up listen-connection")
+	}
+	for {{
+		_, senderAddr, err := listenConn.ReadFromUDP(buffer)
+		if err != nil {
+			fmt.Println("Error reading message, do nothing")
+		}else{
+			messageIndex := bytes.IndexByte(buffer, 0)
+			message := string(buffer[:messageIndex])
+			fmt.Println("Reading message from: ", senderAddr.IP.String(), "Message: ", message)
+		}
 		}
 	}
 }
 
 //
 func SendMessagesToAllElevators(sendNetworkMessageChan chan []byte, newConnectionChan chan string, endConnectionChan chan string){
-	var connectionList map[string] *net.UDPConn
+	connectionList := make(map[string] *net.UDPConn)
 	for _,deferConn := range connectionList{
 		defer deferConn.Close()
 	}
 	for{
 		select{
 		case newElevator := <-newConnectionChan:
-			connectionList[newElevator] = establish_connection(newElevator, commonPort)
-			localListOfElevators = connectionList
+			connectionList[newElevator] = connectToElevator(newElevator, commonPort)
 			defer connectionList[newElevator].Close() //This might be enough
 		case deadElevator := <-endConnectionChan:
 			connectionList[deadElevator].Close() 
 		case newMessage := <-sendNetworkMessageChan:
-			for _,conn := range connectionList{
-				_, err := conn.Write(newMessage)
-				if err != nil {
-					fmt.Println("Error in sending func, maybe some error handling later")
+				for _,conn := range connectionList{
+					_, err := conn.Write(newMessage)
+					if err != nil {
+						fmt.Println("Error in sending func, maybe some error handling later")
 				}
 			}
 		}
