@@ -13,14 +13,14 @@ var broadcastAddr string = "255.255.255.255:20059" //"129.241.187.255:20059"
 var commonPort string = "20059"
 var broadcastPort string = "30059"
 var listOfElevatorsInNetwork []string;
-
+var localAddr string
 
 var connectionList map[string] *net.UDPConn
 
 const(
-	arrayX = 5
-	arrayY = 5
-	arrayZ = 5
+	arrayX = 7
+	arrayY = 7
+	arrayZ = 7
 )
 
 
@@ -31,6 +31,7 @@ type addrAndTimer struct{
 
 type MessageWithHeader struct{
 	Tag string
+	SenderAddr string
 	Ack bool
 	Data []byte 	
 }
@@ -221,7 +222,7 @@ func listenForBroadcast(broadcastPort string, newShoutFromElevatorChan chan stri
 /* test to iterate through connections if this doesnt work*/ 
 
 func readMessagesFromNetwork(localAddr string, commonPort string, messageFromNetworkChan  chan []byte) {
-	buffer := make([]byte, 2048)
+	buffer := make([]byte, 4096)
 	fullAddr := localAddr + ":" + commonPort
 	listenConnAddress, _ := net.ResolveUDPAddr("udp4",fullAddr)
 	listenConn, err := net.ListenUDP("udp4",listenConnAddress)
@@ -236,6 +237,7 @@ func readMessagesFromNetwork(localAddr string, commonPort string, messageFromNet
 			//Send messages to decodeFunc here.
 			messageFromNetworkChan<-buffer[:packetLength]
 			fmt.Println("Reading message from: ", senderAddr.IP.String())
+			fmt.Println("Size of packet: ", packetLength)
 		}
 	}
 }
@@ -288,9 +290,30 @@ func countBoolsIncoming(boolsIncomingChan chan bool) {
 	}
 }
 
-func encodeMessagesToNetwork(){
+//Not completely tested yet
+func encodeMessagesToNetwork(someChannelchan chan int, sendToNetworkChan chan []byte, sendToNetworkCenterChan chan MessageWithHeader){
+	for{
+		select{
+			//The only difference between the cases is the tag that is coming along
+		case newVariable := <-someChannelchan:
+			encodedData, err := json.Marshal(newVariable)
+			if err != nil{
+				fmt.Println("error when encoding: ", err)
+			}
+			var newPacket MessageWithHeader = MessageWithHeader{Data : encodedData, Tag: "someTag", Ack: false, SenderAddr: localAddr}
+			encodedPacket, err := json.Marshal(newPacket)
+			if err != nil{
+				fmt.Println("error when encoding: ", err)
+			}
+			//Send packet to network. Send copy to local center that keeps track of Ack's
+			//Better names needed all over the place
+			sendToNetworkChan <- encodedPacket
+			sendToNetworkCenterChan <- newPacket
+		default:
+			fmt.Println("Fuck the haters")
+		}
+	}
 }
-
 func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte ){
 	//If no ack. Respond immediately somewhere with ack.
 	//Switch on tag
@@ -330,6 +353,16 @@ func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte ){
 	}
 }
 
+func setDeadlinesForAcks(deadLineTriggeredChan chan MessageWithHeader, messageReceivedByAllOtherChan chan MessageWithHeader, newMessageSentChan, newAckChan chan MessageWithHeader){
+	/*
+	NEED HERE:
+	-A structure that contains deadlines for all the elevators for each message
+	-To tell someone when the deadline is triggered and package needs to be resent
+	-To tell someone when the outgoing message is received by everyone.
+	-Set light and everything.
+	-Need to have a notion of who has sent these acks. Need to include IP in message. 
+	*/
+}
 
 func printHugeStruct(bigAssMessage HugeStruct){
 	fmt.Println("HugeBool: ", bigAssMessage.HugeBool)
