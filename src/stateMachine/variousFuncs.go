@@ -15,7 +15,7 @@ var last_floor int = -1
 var desired_floor int = -1
 var door_open bool = false
 
-//Dummy struct, for now
+//Dummy struct, for now, must be set to have dir as -1 or 1 for sort function to work properly
 var current_state ElevatorState
 
 //Should say it opens door or we need to move that one
@@ -100,10 +100,13 @@ func sort_order_queue(new_order Button, current_order_queue []Button) []Button {
 		simulated_floor = current_state.CurrentFloor + simulated_direction
 		fmt.Println("Sim_floor loop 1: ", simulated_floor)
 		fmt.Println("Sim_dir loop 1: ", simulated_direction)
+		fmt.Println("new order floor: ", new_order.Floor)
+		fmt.Println("new order direction: ", new_order.Button_type)
 		for simulated_floor >= 0 && simulated_floor < NUM_FLOORS {
 			if new_order.Floor == simulated_floor && (simulated_direction == new_order.Button_type || new_order.Button_type == COMMAND) {
 				place_in_queue = i
 				place_found = true
+				//fmt.Println("TEST 1")
 				break
 			} else if current_order_queue[i].Floor == simulated_floor && (simulated_direction == current_order_queue[i].Button_type || current_order_queue[i].Button_type == COMMAND) {
 				//order was theoretically served and next element in the current queue is up for evaluation
@@ -118,6 +121,7 @@ func sort_order_queue(new_order Button, current_order_queue []Button) []Button {
 			}
 			simulated_floor += simulated_direction
 		}
+		//fmt.Println("TEST 2")
 		simulated_floor -= simulated_direction //bounds were exceeded and you take one step back
 		simulated_direction *= -1
 		if !place_found {
@@ -141,7 +145,7 @@ func sort_order_queue(new_order Button, current_order_queue []Button) []Button {
 				simulated_floor += simulated_direction
 			}
 		}
-
+		fmt.Println("TEST 3")
 		simulated_floor -= simulated_direction //bounds were exceeded and you take one step back
 		simulated_direction *= -1
 
@@ -151,6 +155,7 @@ func sort_order_queue(new_order Button, current_order_queue []Button) []Button {
 				if new_order.Floor == simulated_floor && (simulated_direction == new_order.Button_type || new_order.Button_type == COMMAND) {
 					place_in_queue = i
 					place_found = true
+					fmt.Println("TEST 4")
 					break
 				} else if current_order_queue[i].Floor == simulated_floor && (simulated_direction == current_order_queue[i].Button_type || current_order_queue[i].Button_type == COMMAND) {
 					//order was theoretically served and next element in the current queue is up for evaluation
