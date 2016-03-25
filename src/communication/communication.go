@@ -95,16 +95,22 @@ func main() {
 		for{
 			select{
 			case elevGone := <- elevatorGoneChan:
+				fmt.Println("ip list before going through the list. Case: elevgone", listOfElevatorsInNetwork)
 				pos := -1
 				for i, v := range listOfElevatorsInNetwork{
 					if v == elevGone{
 						pos = i
+						break
 					}
 				}
 				if pos == -1 {
 					fmt.Println("main go func: elevator not found, pos == -1")
 				}else{
+					fmt.Println("position in list", pos)
+					fmt.Println("list before change: ", listOfElevatorsInNetwork)
 					listOfElevatorsInNetwork = append(listOfElevatorsInNetwork[:pos], listOfElevatorsInNetwork[pos+1:]...)
+					fmt.Println("list after change: ", listOfElevatorsInNetwork)
+
 				}
 
 
@@ -114,15 +120,25 @@ func main() {
 			case newElev := <- newElevatorChan:
 				fmt.Println("New elevator, address: ",newElev)
 				listOfElevatorsInNetwork = append(listOfElevatorsInNetwork, newElev)
+				fmt.Println("after appending ip to list : ", listOfElevatorsInNetwork)
 				newConnectionChan <- newElev
 				elevatorListChangedChan <- true
 			}
 		}
 	}()
 	time.Sleep(time.Second*5)
-	changeFromLocalElevChan <- 322
-	<-ackdByAllChan
-	fmt.Println("Message acked by all in network")
+	go func(){
+		for{
+			select{
+			case <-ackdByAllChan:
+				fmt.Println("Message ackd by all")
+			default:
+				changeFromLocalElevChan <- 322
+			}
+			time.Sleep(time.Second*2)
+
+		}
+	}()
 	fmt.Println("End of main")
 	time.Sleep(time.Second*100)
 }
@@ -246,14 +262,12 @@ func readMessagesFromNetwork(localAddr string, commonPort string, messageFromNet
 		fmt.Println("Error setting up listen-connection")
 	}
 	for {
-		packetLength, senderAddr, err := listenConn.ReadFromUDP(buffer)
+		packetLength, _, err := listenConn.ReadFromUDP(buffer)
 		if err != nil {
 			fmt.Println("Error reading message, do nothing")
 		}else{
 			//Send messages to decodeFunc here.
 			messageFromNetworkChan<-buffer[:packetLength]
-			fmt.Println("Reading message from: ", senderAddr.IP.String())
-			fmt.Println("Size of packet: ", packetLength)
 		}
 	}
 }
@@ -270,12 +284,14 @@ func SendMessagesToAllElevators(sendNetworkMessageChan chan []byte, newConnectio
 			connectionList[newElevator] = connectToElevator(newElevator, commonPort)
 			defer connectionList[newElevator].Close() //This might be enough
 		case deadElevator := <-endConnectionChan:
-			connectionList[deadElevator].Close() 
+			connectionList[deadElevator].Close()
+			delete(connectionList,deadElevator) 
 		case newMessage := <-sendNetworkMessageChan:
 				for _,conn := range connectionList{
 					_, err := conn.Write(newMessage)
 					if err != nil {
 						fmt.Println("Error in sending func, maybe some error handling later")
+						fmt.Println("Err: ", err)
 				}
 			}
 		}
@@ -395,13 +411,16 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader,ackdByAllChan 
 			//Resend everything
 			for i,v := range unAckdMessages{
 				unAckdMessages[i].DeadLine = time.Now().Add(time.Second * ACK_DEADLINE)
-				unAckdMessages[i].IpList = listOfElevatorsInNetwork;
+				localIPlist := make([]string,len(listOfElevatorsInNetwork))
+				copy(localIPlist,listOfElevatorsInNetwork)
+				unAckdMessages[i].IpList = localIPlist;
 				resendMessageChan <- v.Message //With nil entry in senderaddress, Maybe not though.
 			}
+			//fmt.Println("listOfElevatorsInNetwork when elevator change: ", listOfElevatorsInNetwork)
 		case newAck := <-newAckChan:
 			senderOfAck := newAck.SenderAddr
-			fmt.Println("sender of ack: ", senderOfAck)
-			fmt.Println("Ready to acknowledge")
+			//fmt.Println("sender of ack: ", senderOfAck)
+			//fmt.Println("Ready to acknowledge")
 			//maybe add some testing when element isnt in map, or do nothing
 			//Find same message, then find sender and remove from the list of senders still waiting to be acked
 			//If there are no more acks, assume everyone has received it. Confirm as known in network
@@ -410,8 +429,9 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader,ackdByAllChan 
 					if bytes.Equal(v.Message.Data,newAck.Data) {
 						for j, addr := range unAckdMessages[i].IpList{
 							if addr == senderOfAck {
-								fmt.Println("Address found")
+								//fmt.Println("Address found:", listOfElevatorsInNetwork)
 								unAckdMessages[i].IpList = append(unAckdMessages[i].IpList[:j], unAckdMessages[i].IpList[j+1:]...)
+								//fmt.Println("After change: ", listOfElevatorsInNetwork)
 								if len(unAckdMessages[i].IpList) == 0 {
 									ackdByAllChan <-unAckdMessages[i].Message
 									unAckdMessages = append(unAckdMessages[:i],unAckdMessages[i+1:]...)
@@ -422,7 +442,9 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader,ackdByAllChan 
 					}
 				}
 		case newMessage :=<-newMessageSentChan:
-			newAckTimer := ackTimer{Message: newMessage, DeadLine: time.Now().Add(time.Second*ACK_DEADLINE), IpList : listOfElevatorsInNetwork}
+			localIPlist := make([]string, len(listOfElevatorsInNetwork))
+			copy(localIPlist,listOfElevatorsInNetwork)
+			newAckTimer := ackTimer{Message: newMessage, DeadLine: time.Now().Add(time.Second*ACK_DEADLINE), IpList : localIPlist}
 			unAckdMessages = append(unAckdMessages, newAckTimer)
 			fmt.Println("iplist of message: ", unAckdMessages[len(unAckdMessages)-1].IpList)
 		default:
@@ -431,7 +453,8 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader,ackdByAllChan 
 					resendMessageChan <- v.Message
 					fmt.Println("ACK DEADLINE EXPIRED")
 					unAckdMessages[i].DeadLine = time.Now().Add(time.Second*ACK_DEADLINE)
-					unAckdMessages[i].IpList = listOfElevatorsInNetwork
+					localIPlist := make([]string, len(listOfElevatorsInNetwork))
+					unAckdMessages[i].IpList = localIPlist
 				}
 			}
 		}
