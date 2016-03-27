@@ -124,6 +124,14 @@ func Open_door() {
 	io_clear_bit(LIGHT_DOOR_OPEN)
 }
 
+func ElevNotMoving() bool {
+	if Io_read_analog(MOTOR) == 0 {
+		return true
+	} else {
+		return false
+	}
+}
+
 func Check_for_buttons_pressed(button_pressed_chan chan Button) {
 	for {
 		for i := 0; i < NUM_FLOORS; i++ {
@@ -147,9 +155,9 @@ func Check_for_buttons_pressed(button_pressed_chan chan Button) {
 }
 
 //Should make this general for turning on and off
-func Set_button_lights(button_pressed_chan chan Button) {
+func Set_button_lights(button_light_set_chan chan Button) {
 	for {
-		change_button := <-button_pressed_chan
+		change_button := <-button_light_set_chan
 		if change_button.Button_type == UP {
 			change_button.Button_type = 0
 		} else if change_button.Button_type == DOWN {

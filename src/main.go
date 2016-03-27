@@ -3,10 +3,10 @@ package main
 import (
 	"./driver"
 	. "./globalChans"
+	//. "./globalStructs"
 	"./stateMachine"
 	"fmt"
 	"time"
-	//."./globalStructs"
 	//"encoding/gob"
 	//"os"
 )
@@ -49,6 +49,8 @@ func read_elevator_state_from_file() {
 	//currentState = data
 }
 */
+
+/*
 func main() {
 	/*
 		//First test of basics
@@ -69,7 +71,7 @@ func main() {
 		time.Sleep(time.Second * 2)
 		read_elevator_state_from_file()
 		fmt.Printf("End of main \n")
-	*/
+
 	Init_chans()
 	driver.Elev_main_tester_function()
 	stateMachine.State_machine_top_loop()
@@ -77,4 +79,18 @@ func main() {
 		time.Sleep(5 * time.Second)
 		fmt.Printf("Main waiting woop woop...\n")
 	}
+}
+*/
+
+func main() {
+	Init_chans()
+	driver.Elev_main_tester_function()
+	go stateMachine.NewTopLoop()
+	/*floorReachedChan := make(chan Button)
+	orderServedChan := make(chan Button)
+	goUpDownChan := make(chan int)
+	go stateMachine.MoveElevatorAndOpenDoor(floorReachedChan, orderServedChan, goUpDownChan)
+	*/
+	fmt.Println("Main: sleeping")
+	time.Sleep(time.Second * 1000)
 }

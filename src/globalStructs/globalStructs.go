@@ -8,11 +8,11 @@ type Button struct {
 
 //This is a struct you could send to all other elevators
 type ElevatorState struct {
-	MyIP         int //not an int, always useful to have
-	CurrentFloor int
-	LastFloor    int
-	Direction    int
-	Orders       int //This is an array or something of all orders currently active for this elevator.
+	IP            string //not an int, always useful to have
+	CurrentFloor  int
+	PreviousFloor int
+	Direction     int
+	OrderQueue    []Button //This is an array or something of all orders currently active for this elevator.
 
 }
 
