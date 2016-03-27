@@ -1,0 +1,9 @@
+package main
+
+import (
+	"optalgtest"
+)
+
+func main_tester_func(){
+	optalgtest.opt_alg(new_order); 
+}
