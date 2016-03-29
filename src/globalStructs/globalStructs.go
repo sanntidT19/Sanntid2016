@@ -6,6 +6,17 @@ type Button struct {
 	Button_pressed bool
 }
 
+type OrderAssigned struct{
+	AssignedTo string
+	SentFrom string
+	Order ExternalOrder
+}
+
+type ExternalOrder struct {
+	Floor int
+	Direction int 
+}
+
 //This is a struct you could send to all other elevators
 type ElevatorState struct {
 	IP            string //not an int, always useful to have

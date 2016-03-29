@@ -39,7 +39,7 @@ var new_order Button = Button{Floor: 1,
 	Button_type:    1,
 	Button_pressed: false}
 
-func opt_alg(new_order Button) string {
+func Opt_alg(new_order Button) string {
 	numOfElevs := len(all_elevs)
 	IP_cost_list := make([]int, numOfElevs)
 	Queue_len_list := make([]int, numOfElevs)
