@@ -19,6 +19,7 @@ type AssignedOrderAndElevList struct{
 	ElevList []string
 }
 
+
 func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Button, ElevatorAssignedToNetworkChan chan , ElevatorAssignedFromNetworkChan chan){
 	var OrdersToBeAssignedByAll []AssignedOrderAndElevList
 	localAddr := communication.GetMyIP()
@@ -94,9 +95,10 @@ func ReassignAllOrders(commonExternalArray [][] int){
 				}
 				newOrder := ExternalOrder{Floor: i, Direction: direction}
 				//Rename channel
-				newOrderIncoming <- newOrder
+				newExternalOrderToNetwork <- newOrder
 				//Maybe a tiny sleep here, maybe not
 			}
+			commonExternalArray[i][j] = 0 
 		}
 	}
 }
@@ -107,28 +109,28 @@ func TopLogicNeedBetterName(){
 	internalArray[NUM_FLOORS] int
 	for{
 		select{
-			case newButton:=<-ButtonPressedChan: 
-				if newButton.Button_type == COMMAND{
-					sendOrderToStateMachineChan <- newButton
-				}else{
-					newOrder{}
-					sendNewOrderToNetworkChan <-newOrder
+			case newButton <-internalButtonPressedChan:
+				
+				if internalArray[newButton.Floor] == 0{
+					newOrderToStateMachineChan <- newButton
+					internalArray[newButton.Floor] = 1  //Reset when order served. Tell that total state is changed?
+					SetButtonLight(newButton)
 				}
-			case newOrder := <-NewOrderToLocalElevChan:
-				saveToArray,
-				sendOrderToStateMachineChan
+			case newOrder := <-ExternalOrderFromNetWorkChan:
+				if commonExternalArray[newOrder.Floor][newOrder.Direction] == 0{
+					newOrderToOptAlgChan <- newOrder
+					commonExternalArray[newOrder.Floor][newOrder.Direction] = 1
+					SetButtonLight(newOrder,true)
+				}
 			case <-ElevListChange:
-				ToLocal<-resetQueue
-				ReassignAllOrders(externalArray)
-			case <-OrderServedInStateMachineChan: //Here or directly from statemachine
-				if(internalOrder){
-					setlights
-				}else{
-					sendToNetWork
-				}
-			case <-externalOrderServedfromnetwork:
-				deleteFromExternal
-				setlights
+				ResetExternalOrdersInQueueChan<-true
+				ReassignAllOrders(newOrder,true)
+			case servedOrder<-InternalOrderServedChan: //Here or directly from statemachine
+				internalArray[servedOrder.Floor] = 0
+				SetButtonLight(servedOrder,false)
+			case servedOrder <-externalOrderServedfromnetwork:
+				commonExternalArray[servedOrder.Floor][servedOrder.Direction]
+				SetButtonLight(servedOrder,false)
 		}
 	}
 }

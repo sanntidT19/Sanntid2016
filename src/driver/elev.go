@@ -123,7 +123,6 @@ func Open_door() {
 	time.Sleep(3 * time.Second)
 	io_clear_bit(LIGHT_DOOR_OPEN)
 }
-
 func ElevNotMoving() bool {
 	if Io_read_analog(MOTOR) == 0 {
 		return true
@@ -132,7 +131,7 @@ func ElevNotMoving() bool {
 	}
 }
 
-func Check_for_buttons_pressed(button_pressed_chan chan Button) {
+func Check_for_buttons_pressed(internalButtonChan chan Button, externalButtonChan Chan Button) {
 	for {
 		for i := 0; i < NUM_FLOORS; i++ {
 			for j := 0; j < NUM_BUTTONS; j++ {
@@ -145,12 +144,16 @@ func Check_for_buttons_pressed(button_pressed_chan chan Button) {
 					} else {
 						button_type = COMMAND
 					}
-					button_pressed_chan <- Button{i, button_type, true}
+					if button_type == COMMAND{
+						internalButtonChan <- Button{i,button_type,true}
+					}else{
+						externalButtonChan <- Button{i, button_type, true}
+					}
 				}
 			}
 
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond) //Doblet sleep. Se hvordan det går. Kanskje også en sleep etter 
 	}
 }
 
@@ -173,6 +176,24 @@ func Set_button_lights(button_light_set_chan chan Button) {
 
 	}
 }
+
+func SetButtonLight(ButtonLight Button){
+	if ButtonLight.Button_type == UP {
+		ButtonLight.Button_type = 0
+	} else if ButtonLight.Button_type == DOWN {
+		ButtonLight.Button_type = 1
+	} else {
+		ButtonLight.Button_type = 2
+	}
+	
+	if ButtonLight.Button_pressed {
+		io_set_bit(lamp_channel_matrix[ButtonLight.Floor][ButtonLight.Button_type])
+	} else {
+		io_clear_bit(lamp_channel_matrix[ButtonLight.Floor][ButtonLight.Button_type])
+	}
+
+}
+
 
 //Lag alle simple funksjoner først. Bruker drivere som vi allerede har. Gjør det simpelt.
 //Heller mer komplekst og "go-ete" når funksjoner skal settes sammen i loops og whatever

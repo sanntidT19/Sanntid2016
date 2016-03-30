@@ -286,6 +286,8 @@ func SetButtonLights(){
 	Maybe separate one for internal.
 }
 */
+
+//Vurder omformulere denne, slik at den kalles istedenfor å kjøres i en egen goroutine
 func feedDirectionCommandsToElev(orderQueueChangeChan chan bool, sendElevInDirectionChan chan int, targetFloorReachedChan chan Button) {
 	//State of elev is known globally for now
 	//Send til hit når ordre er served også
