@@ -52,6 +52,7 @@ type HugeStruct struct{
 	HugeName string
 }
 
+
 func CommNeedBetterName() {
 	newShoutFromElevatorChan := make(chan string)
 	newElevatorChan := make(chan string)
@@ -84,7 +85,7 @@ func CommNeedBetterName() {
 	go SendMessagesToAllElevators(sendNetworkMessageChan, newConnectionChan, endConnectionChan)
 	go readMessagesFromNetwork(localAddr, commonPort, messageFromNetworkChan)
 	go decodeMessagesFromNetwork(messageFromNetworkChan, newAckFromNetworkChan, resendMessageChan)
-	go encodeMessagesToNetwork(changeFromLocalElevChan, sendNetworkMessageChan, newAckStartChan, resendMessageChan)
+	go encodeMessagesToNetwork(sendNetworkMessageChan, newAckStartChan, resendMessageChan)
 	
 
 	go setDeadlinesForAcks(resendMessageChan, ackdByAllChan, newAckStartChan, newAckFromNetworkChan, elevatorListChangedChan)
@@ -189,7 +190,7 @@ func connectToElevator(remoteIp string, remotePort string) *net.UDPConn {
 
 }
 
-func getLocalIP() string {
+func GetLocalIP() string {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		fmt.Println("Whoops..")
@@ -300,7 +301,7 @@ func SendMessagesToAllElevators(sendNetworkMessageChan chan []byte, newConnectio
 }
 
 //Not completely tested yet
-func encodeMessagesToNetwork(changeFromLocalElev chan int, sendToNetworkChan chan []byte, sendToAckTimerChan chan MessageWithHeader, resendMessageChan chan MessageWithHeader){
+func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan chan MessageWithHeader, resendMessageChan chan MessageWithHeader){
 	for{
 		var tag string = ""
 		var encodedData byte[] = nil

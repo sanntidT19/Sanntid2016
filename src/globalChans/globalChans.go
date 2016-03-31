@@ -10,7 +10,7 @@ var SetButtonLightChan chan globalStructs.Button
 var FromNetworkNewOrderChan chan globalStructs.Order
 var FromNetworkOrderAssignedToChan chan globalStructs.OrderAssigned
 var FromNetworkOrderServedChan chan globalStructs.Order
-var FromNetworkElevlistChangedChan chan //TO BE FIXED
+//var FromNetworkElevlistChangedChan chan //TO BE FIXED
 var FromNetworkNewElevStateChan chan globalStructs.ElevatorState
 
 
@@ -46,3 +46,8 @@ Internalbuttonpressedchan(driver og toplevel)
 
 ResetExternalOrdersInQueueChan (statemachine og toplevel)
 /*
+
+/*
+ny heis kommer til: ikke refordel, fordi det kan fucke opp lokal
+ny heis forsvinner: fordel ordrene som den hadde. fucker ikke opp lokal
+*/

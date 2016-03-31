@@ -1,5 +1,5 @@
 import(
-	"../globalStructs"
+	."../globalStructs"
 	"encoding/gob"
 	"os"
 	"fmt"
@@ -8,7 +8,15 @@ import(
 currentState ElevatorState
 
 //this will show 
-const PATH_OF_SAVED_STATE = "elevState.gob"
+const PATH_OF_SAVED_ORDER_STATE = "elevState.gob"
+
+
+
+type AllOrders type{
+	ExternalOrders [NUM_FLOORS][NUM_BUTTONS]int
+	InternalOrders [NUM_FLOORS] int
+}
+
 /*
 func initalize_state_tracker(){
 	//read from file to check if system was killed
@@ -24,54 +32,128 @@ func send_updated_elevator_state(){
 }
 */
 
-func write_elevator_state_to_file(){
+func WriteCurrentOrdersToFile(currentState AllOrders){
 	//temp for testing
-	test_struct := ElevatorState{255,2,1,1,0}
 	//update this whenever the local elevator gets an order/command
-	dataFile, err := os.Create(PATH_OF_SAVED_STATE)
+	dataFile, err := os.Create(PATH_OF_SAVED_ORDER_STATE)
 	if err != nil{
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
 	dataEncoder := gob.NewEncoder(dataFile)
-	dataEncoder.Encode(test_struct)
+	dataEncoder.Encode(currentState)
 	dataFile.Close()
 }
 
-func read_elevator_state_from_file(){
+func ReadOrdersStateBeforeShutdown() AllOrders{
 	//start with reading it
-	var data ElevatorState
+	var formerState AllOrders
 
-	if _, err := os.Stat("PATH_OF_SAVED_STATE"); os.IsNotExist(err){
+	if _, err := os.Stat(PATH_OF_SAVED_STATE); os.IsNotExist(err){
 		fmt.Println("Local save of elevator state not detected. It has been cleared/this is the first run on current PC")
-		return
+		return nil
 	}
 	dataFile, err := os.Open(PATH_OF_SAVED_STATE)
 
 	dataDecoder := gob.NewDecoder(dataFile)
-	err = dataDecoder.Decode(&data)
+	err = dataDecoder.Decode(&formerState)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 	dataFile.Close()
 
-	currentState = data
+	return formerState
 }
 
 
-
-
-func detect_system_killed() bool{
+func PrematureShutdownOccured(formerState) bool{
 	//only call when initializing, REDO WHEN WE KNOW HOW THE ORDERS WILL LOOK
 	for i:= 0; i < NUM_FLOORS; i++{
-		for j:= 0; j < NUM_BUTTONS; j++{
-			 
-			 if currentState.Orders[i][j] != 0{
+		if formerState.InternalOrders[i] != 0{
+			return true
+		}
+		for j:= 0; j < NUM_BUTTONS-1; j++{
+			 if formerState.ExternalOrders[i][j] != 0{
 				return true
 			}
 		}
 	}
 	return false
 }
+
+//CHANNEL NAMES MIGHT BE WRONG. MIGHT NEED TO SWAP UP AND DOWN VALUES IN INNER FOR LOOP
+//Make sure to update networkisup
+func ReassignOrdersAfterShutdown(formerState AllOrders, networkIsUp bool){
+	for i := 0; i < NUM_FLOORS; i++{
+		if formerState.InternalOrders[i] == 1{
+			NewOrderToLocalElevChan <- Order{Floor: i, Direction: COMMAND}
+		}
+	}
+	for i := 0; i< NUM_FLOORS; i++{
+		for j := 0; j < NUM_BUTTONS-1; j++{
+			if formerState.ExternalOrders[i][j] == 1{
+				direction = UP
+				if j == 0{
+					direction = DOWN
+				}
+				if networkIsUp{
+					ToNetWorkNewOrderChan <- Order{Floor: i, Direction: direction}
+				}else{
+					NewOrderToLocalElevChan <- Order{Floor:i, Direction: direction}
+				}
+			}
+		}
+	}
+
+}
+func StartUpDraft(){
+	formerState := ReadOrdersStateBeforeShutdown()
+	if formerState != nil{
+		if PrematureShutdownOccured(formerState){
+			networkIsUp := readNetwork()//something like this
+			ReassignOrdersAfterShutdown(formerState,networkIsUp)
+		SetAllLights //something like this
+		}
+	}
+}
+/*
+What is needed to save to make sure no orders are lost.
+ExternalArray and Internalarray.
+There is no need to know direction, current floor, or any such thing.
+Not even if other elevators have known stuff.
+
+Case: unserved orders are up, network detected.
+Send all orders over network. If network then suddenly shuts down,
+one will resend all external orders anyway.
+
+network not present:
+send all orders to local statemachine.
+
+
+If network suddenly appears: local statemachine will have taken all.
+Too bad. T_T
+*/
+
+/* 
+after init:
+
+elevator appears: just include it in structure which optalg uses.
+If this one already has orders, this needs to be checked, only to set lights
+do not interfere with its current queue.
+
+elevator disappears:
+both other should notice this at the same time (ish). Go through this 
+elevators current queue. Send these over the network. 
+Maybe: Have a list of unassigned orders from AssignordersAndwait for agreement
+All unassigned orders should be resent.
+
+network disappears:
+This is detected. All external orders should be sent to statemachine.
+All unassigned orders should be registered before sent to optalg.
+So no need to check with optalg-algorithm
+
+save and write to file BEFORE lights are turned on/off.
+
+*/

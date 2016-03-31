@@ -9,10 +9,10 @@ type Button struct {
 type OrderAssigned struct{
 	AssignedTo string
 	SentFrom string
-	Order ExternalOrder
+	Order Order
 }
 
-type ExternalOrder struct {
+type Order struct {
 	Floor int
 	Direction int 
 }
