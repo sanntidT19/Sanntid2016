@@ -122,7 +122,7 @@ func TopLogicNeedBetterName(){
 					commonExternalArray[newOrder.Floor][newOrder.Direction] = 1
 					SetButtonLight(newOrder,true)
 				}
-			case <-ElevListChange:
+			case <-ElevListChanged:
 				ResetExternalOrdersInQueueChan<-true
 				ReassignAllOrders(newOrder,true)
 			case servedOrder<-InternalOrderServedChan: //Here or directly from statemachine

@@ -177,7 +177,7 @@ func Set_button_lights(button_light_set_chan chan Button) {
 	}
 }
 
-func SetButtonLight(ButtonLight Button){
+func SetButtonLight(ButtonLight Button, turnOn bool){
 	if ButtonLight.Button_type == UP {
 		ButtonLight.Button_type = 0
 	} else if ButtonLight.Button_type == DOWN {
@@ -186,7 +186,7 @@ func SetButtonLight(ButtonLight Button){
 		ButtonLight.Button_type = 2
 	}
 	
-	if ButtonLight.Button_pressed {
+	if turnOn {
 		io_set_bit(lamp_channel_matrix[ButtonLight.Floor][ButtonLight.Button_type])
 	} else {
 		io_clear_bit(lamp_channel_matrix[ButtonLight.Floor][ButtonLight.Button_type])

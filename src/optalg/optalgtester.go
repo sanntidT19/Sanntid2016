@@ -83,7 +83,8 @@ func Opt_alg(new_order Button) string {
 	fmt.Print("IP 3 er:", IP_cost_list[2], "\n")
 	return Optimal_IP
 }
-
+/*
 func main() {
 	fmt.Print("optimal IP er:", opt_alg(new_order))
 }
+*/
