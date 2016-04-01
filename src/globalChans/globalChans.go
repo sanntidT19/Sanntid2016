@@ -13,6 +13,10 @@ var FromNetworkOrderServedChan chan globalStructs.Order
 //var FromNetworkElevlistChangedChan chan //TO BE FIXED
 var FromNetworkNewElevStateChan chan globalStructs.ElevatorState
 
+var FromNetworkNewElevChan chan string
+var FromNetworkElevGoneChan chan string
+var FromNetworkNetworkDownChan chan bool
+var FromNetworkNetworkUpChan chan bool
 
 var ToNetworkNewOrderChan chan globalStructs.Order
 var ToNetworkOrderAssignedToChan chan globalStructs.OrderAssigned
@@ -27,6 +31,12 @@ func Init_chans() {
 	FromNetworkOrderAssignedToChan = make(chan globalStructs.OrderAssigned)
 	FromNetworkOrderServedChan = make(chan globalStructs.Order)
 	FromNetworkNewElevStateChan = make(chan globalStructs.ElevatorState)
+
+	FromNetworkNewElevChan = make(chan string)
+	FromNetworkElevGoneChan =make(chan string)
+	FromNetworkNetworkDownChan = make(chan bool)
+	FromNetworkNetworkUpChan = make(chan bool)
+
 
 	/*
 	NewOrderFromNetWorkChan*/

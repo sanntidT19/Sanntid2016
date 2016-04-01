@@ -114,21 +114,31 @@ func CommNeedBetterName() {
 					fmt.Println("list after change: ", listOfElevatorsInNetwork)
 
 				}
-
-
 				fmt.Println("Elevator gone, address: ", elevGone)
 				endConnectionChan <- elevGone
 				elevatorListChangedChan <- true
+				FromNetworkElevGoneChan <-elevGone
+				if len(listOfElevatorsInNetwork) == 0{
+					FromNetworkNetworkDownChan<-true
+				}
+
+
 			case newElev := <- newElevatorChan:
 				fmt.Println("New elevator, address: ",newElev)
 				listOfElevatorsInNetwork = append(listOfElevatorsInNetwork, newElev)
 				fmt.Println("after appending ip to list : ", listOfElevatorsInNetwork)
 				newConnectionChan <- newElev
 				elevatorListChangedChan <- true
+				FromNetworkNewElevChan <-newElev
+				if(len(listOfElevatorsInNetwork) == 1){
+					FromNetworkNetworkUpChan <-true
+				}
 			}
 		}
 	}()
 	time.Sleep(time.Second*5)
+	
+	//move ackd by allchan. Is it needed to let someone know that everyone has received it?
 	go func(){
 		for{
 			select{
@@ -500,4 +510,10 @@ func makeHugeStruct(localAddr string) HugeStruct{
 		}	
 	}
 	return hugeS
+}
+
+func GetElevList() string[]{
+	var copyElevList := make([]string,len(listOfElevatorsInNetwork))
+	copy(copyElevList,listOfElevatorsInNetwork)
+	return copyElevList
 }

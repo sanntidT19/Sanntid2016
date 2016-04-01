@@ -88,3 +88,32 @@ func main() {
 	fmt.Print("optimal IP er:", opt_alg(new_order))
 }
 */
+func GetOrderQueueOfDeadElev(deadIP string) []Order{
+	for _,v := range all_elevs{
+		if v.MyIP == deadIP{
+			listCopy := make([]Order,len(v.Orders))
+			copy(listCopy,v.Orders)
+			return listCopy 
+		}
+	}
+	return nil
+}
+
+
+//may not need channels, think about if its better to just call it from somewhere else
+func UpdateElevatorStateList(){
+	for{
+		updatedElevState:= <-FromNetworkNewElevStateChan
+		elevInList := false
+		for i,v := range all_elevs{
+			if updatedElevState.MyIP == v.MyIP{
+				all_elevs[i] = updatedElevState
+				elevInList = true
+				break
+			}
+		}
+		if !elevInList{
+			all_elevs = append(all_elevs,updatedElevState)
+		}
+	}
+}

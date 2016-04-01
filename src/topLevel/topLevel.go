@@ -19,10 +19,13 @@ type AssignedOrderAndElevList struct{
 	ElevList []string
 }
 
+//ElevatorAssignedToNetworkChan OrderAssigned chan , ElevatorAssignedFromNetworkChan OrderAssigned chan
 
-func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Button, ElevatorAssignedToNetworkChan chan , ElevatorAssignedFromNetworkChan chan){
+func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Button, ElevListChangedResetAssignFuncChan chan bool, NewOrderAssignedChan chan OrderAssigned ){
+
 	var OrdersToBeAssignedByAll []AssignedOrderAndElevList
 	localAddr := communication.GetMyIP()
+	elevList [] string
 	for {
 		select{
 		case newOrder := <- newOrderFromNetworkChan:
@@ -37,13 +40,13 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Button, Elevat
 				assignedElevAddr := optalg.Opt_alg(newOrder)
 				NewOrderToBeAssigned := OrderAssigned{Order: newOrder, AssignedTo: assignedElevAddr, SentFrom: localAddr}
 				//Elevlist should be copied, global or maybe everyone that uses it should be in the same module
-				OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, AssignedOrderAndElevList{NewOrderToBeAssigned,ElevList})
+				OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, AssignedOrderAndElevList{NewOrderToBeAssigned,elevList})
 				time.Sleep(time.Millisecond * 20) //This is to make sure you get to make the list before
-				ElevatorAssignedToNetworkChan <- NewOrderToBeAssigned
+				ToNetWorkOrderAssignedToChan <- NewOrderToBeAssigned
 			}else{
 				fmt.Println("Order already registered. Discard message.")
 			}
-		case newOrdAss := <- ElevatorAssignedFromNetworkChan:
+		case newOrdAss := <- FromNetworkOrderAssignedToChan:
 			posInSlice := -1
 			for i, v := range OrdersToBeAssignedByAll {
 				if newAssOrd.Order == v.OrdAss.Order{
@@ -62,29 +65,27 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Button, Elevat
 					NewOrderToBeAssigned := OrderAssigned{Order: newOrdAss.Order, AssignedTo: assignedElevAddr, SentFrom: localAddr}
 					OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, AssignedOrderAndElevList{NewOrderToBeAssigned,ElevList})
 					time.Sleep(time.Millisecond * 20) //This is to make sure you get to make the list before
-					ElevatorAssignedToNetworkChan <- NewOrderToBeAssigned
+					ToNetWorkOrderAssignedToChan <- NewOrderToBeAssigned
 				}else{
 					for i,v := range OrdersToBeAssignedByAll[posInSlice].ElevList{
 						if newOrdAss.SentFrom == v{
 							OrdersToBeAssignedByAll[posInSlice].ElevList = append(OrdersToBeAssignedByAll[posInSlice].ElevList[:i], OrdersToBeAssignedByAll[posInSlice].ElevList[i+1:]...)
 							if len(OrdersToBeAssignedByAll[posInSlice].ElevList) == 0{
 								OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...)
-								if newOrdAss.AssignedTo == localAddr{
-									IWillTakeOrderChan <-newOrdAss
-									NewOrderToLocalElevChan <- newOrdAss.Order
+								NewOrderAssignedChan <-newOrdAss
 								}	
 							}
 						}
 					}
-				}
+				} 
 			}	
-		case <-elevlistchange:
+		case <-ElevListChangedResetAssignFuncChan:
+			elevList = communication.GetElevList()
 			OrdersToBeAssignedByAll = nil
-			//dump?
 		}
 	}
 }
-
+//This may not be used, yo
 func ReassignAllOrders(commonExternalArray [][] int){
 	for i := 0; i < NUM_FLOORS; i++{
 		for j := 0; j < NUM_BUTTONS -1; j++{
@@ -112,24 +113,39 @@ func TopLogicNeedBetterName(){
 			case newButton <-internalButtonPressedChan:
 				
 				if internalArray[newButton.Floor] == 0{
-					newOrderToStateMachineChan <- newButton
 					internalArray[newButton.Floor] = 1  //Reset when order served. Tell that total state is changed?
 					SetButtonLight(newButton)
+					newOrderToStateMachineChan <- newButton
 				}
 			case newOrder := <-ExternalOrderFromNetWorkChan:
-				if commonExternalArray[newOrder.Floor][newOrder.Direction] == 0{
-					newOrderToOptAlgChan <- newOrder
-					commonExternalArray[newOrder.Floor][newOrder.Direction] = 1
-					SetButtonLight(newOrder,true)
+				dir := UP
+				if newOrder.Direction == DOWN {
+					dir = 0
 				}
-			case <-ElevListChanged:
+				if commonExternalArray[newOrder.Floor][dir] == 0{
+					commonExternalArray[newOrder.Floor][dir] = 1
+
+					WRITE TO FILE
+
+				}
+				newOrderToOptAlgChan <- newOrder //the receiver will handle duplicates
+				SetButtonLight(newOrder,true)
+
+			case <-ElevListChanged://NEEDS TO CHANGE
 				ResetExternalOrdersInQueueChan<-true
 				ReassignAllOrders(newOrder,true)
 			case servedOrder<-InternalOrderServedChan: //Here or directly from statemachine
 				internalArray[servedOrder.Floor] = 0
+
+					WRITE TO FILE
+
 				SetButtonLight(servedOrder,false)
 			case servedOrder <-externalOrderServedfromnetwork:
-				commonExternalArray[servedOrder.Floor][servedOrder.Direction]
+				dir := UP
+				if servedOrder.Direction == DOWN{
+					dir = 0
+				}
+				commonExternalArray[servedOrder.Floor][dir]
 				SetButtonLight(servedOrder,false)
 		}
 	}

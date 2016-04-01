@@ -131,7 +131,7 @@ func ElevNotMoving() bool {
 	}
 }
 
-func Check_for_buttons_pressed(internalButtonChan chan Button, externalButtonChan Chan Button) {
+func Check_for_buttons_pressed(internalButtonChan chan Button, externalButtonChan chan Button) {
 	for {
 		for i := 0; i < NUM_FLOORS; i++ {
 			for j := 0; j < NUM_BUTTONS; j++ {

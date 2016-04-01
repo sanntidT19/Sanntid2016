@@ -94,7 +94,7 @@ func ReassignOrdersAfterShutdown(formerState AllOrders, networkIsUp bool){
 	for i := 0; i< NUM_FLOORS; i++{
 		for j := 0; j < NUM_BUTTONS-1; j++{
 			if formerState.ExternalOrders[i][j] == 1{
-				direction = UP
+				direction := UP
 				if j == 0{
 					direction = DOWN
 				}
@@ -118,11 +118,39 @@ func StartUpDraft(){
 		}
 	}
 }
+//If network disappears
+func SendAllExternalOrdersToLocalElev(currentState AllOrders){
+	for i:= 0; i < NUM_FLOORS; i++{
+		for j := 0; j < NUM_BUTTONS-1; j++{
+			if currentState[i][j] == 1{
+				direction := UP
+				if j == 0{
+					direction = DOWN
+				}
+				NewOrderToLocalElevChan<-Order{Floor:i, Direction: direction}
+			}
+		}
+	}
+}
+
+
+//Assume network is up. If its not, it will be detected and a different function will be called
+func ResendOrdersOfLostElev(orderQueue []Order, sendOrderToNetworkChan chan Order){
+	for _, v := range orderQueue{
+		if v.Direction != COMMAND{
+			sendOrderToNetworkChan <- v
+		} 
+	}
+}
 /*
 What is needed to save to make sure no orders are lost.
 ExternalArray and Internalarray.
 There is no need to know direction, current floor, or any such thing.
 Not even if other elevators have known stuff.
+
+HAVE AN ARRAY OF UNASSIGNED ORDERS. WHEN ORDER COMES. ADD THIS TO THE QUEUE.
+WHEN ELEVATOR DISAPPEARS, ALSO SEND THESE AND RESET STRUCT WAITING FOR AGREEMENT.
+
 
 Case: unserved orders are up, network detected.
 Send all orders over network. If network then suddenly shuts down,
@@ -141,7 +169,8 @@ after init:
 
 elevator appears: just include it in structure which optalg uses.
 If this one already has orders, this needs to be checked, only to set lights
-do not interfere with its current queue.
+do not interfere with its current queue. reset orders to be assigned by all.
+resend all unassigned orders
 
 elevator disappears:
 both other should notice this at the same time (ish). Go through this 
@@ -155,5 +184,29 @@ All unassigned orders should be registered before sent to optalg.
 So no need to check with optalg-algorithm
 
 save and write to file BEFORE lights are turned on/off.
+
+*/
+/*
+
+comm:
+need functions/channels that lets the other modules know when a new elevator is present,
+an elevator is gone, network i down, and network is up
+OK
+
+toplevel: 
+assignordersandwaitforagreement needs to reset queue when elevlist changed
+or network gone
+OK
+
+
+optalg:
+need a structure that contains all elevstructures.
+need to update these whenever it is received from network.
+remove when elevlist change/network gone.
+
+somewhere:
+need to maintain the list of elevstructs whenever its sent over network.
+
+link everything together
 
 */
