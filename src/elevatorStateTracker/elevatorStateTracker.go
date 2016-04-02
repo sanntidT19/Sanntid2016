@@ -114,8 +114,7 @@ func StartUpDraft(){
 		if PrematureShutdownOccured(formerState){
 			networkIsUp := readNetwork()//something like this
 			ReassignOrdersAfterShutdown(formerState,networkIsUp)
-		SetAllLights //something like this
-		}
+		//SetAllLights SOMETHING LIKE THIS
 	}
 }
 //If network disappears
@@ -202,10 +201,14 @@ OK
 optalg:
 need a structure that contains all elevstructures.
 need to update these whenever it is received from network.
+OK
+
 remove when elevlist change/network gone.
+
 
 somewhere:
 need to maintain the list of elevstructs whenever its sent over network.
+OK
 
 link everything together
 

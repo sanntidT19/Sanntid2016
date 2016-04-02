@@ -103,17 +103,32 @@ func GetOrderQueueOfDeadElev(deadIP string) []Order{
 //may not need channels, think about if its better to just call it from somewhere else
 func UpdateElevatorStateList(){
 	for{
-		updatedElevState:= <-FromNetworkNewElevStateChan
-		elevInList := false
-		for i,v := range all_elevs{
-			if updatedElevState.MyIP == v.MyIP{
-				all_elevs[i] = updatedElevState
-				elevInList = true
-				break
+		select{
+			case updatedElevState:= <-FromNetworkNewElevStateChan:
+			elevInList := false
+			for i,v := range all_elevs{
+				if updatedElevState.MyIP == v.MyIP{
+					all_elevs[i] = updatedElevState
+					elevInList = true
+					break
+				}
 			}
-		}
-		if !elevInList{
-			all_elevs = append(all_elevs,updatedElevState)
+			if !elevInList{
+				all_elevs = append(all_elevs,updatedElevState)
+			}
+			case elevatorTakesOrder := addOrderAssignedToElevStateChan:
+				for i, v := range all_elevs{
+					if elevatorTakesOrder.AssignedTo == v.MyIP{
+						v.Orders = append(v.Orders, elevatorTakesOrder.Order)
+					}
+				}
+			case deadElev <- ToOptAlgDeleteElevChan:
+				for i, v := range all_elevs{
+					if(v.MyIP == deadElev){
+						all_elevs = append(all_elevs[:i],all_elevs[i+1:]...)
+						break
+					}
+				}
 		}
 	}
 }

@@ -86,7 +86,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Button, ElevLi
 	}
 }
 //This may not be used, yo
-func ReassignAllOrders(commonExternalArray [][] int){
+func SendAllOrdersOfQueueToNetwork(commonExternalArray [][] int){
 	for i := 0; i < NUM_FLOORS; i++{
 		for j := 0; j < NUM_BUTTONS -1; j++{
 			if commonExternalArray[i][j] == 1 {
@@ -104,10 +104,19 @@ func ReassignAllOrders(commonExternalArray [][] int){
 	}
 }
 
+func orderIsInQueue(order_queue []Order, newOrder Order) bool {
+	for _, queueElements := range order_queue {
+		if queueElements == new_order {
+			return true
+		}
+	}
+	return false
+}
 
 func TopLogicNeedBetterName(){
 	commonExternalArray [NUM_FLOORS][NUM_BUTTONS -1] int // UP DOWN
 	internalArray[NUM_FLOORS] int
+	var externalOrdersNotTaken []Order
 	for{
 		select{
 			case newButton <-internalButtonPressedChan:
@@ -124,20 +133,29 @@ func TopLogicNeedBetterName(){
 				}
 				if commonExternalArray[newOrder.Floor][dir] == 0{
 					commonExternalArray[newOrder.Floor][dir] = 1
-
-					WRITE TO FILE
-
+				}
+				if ! orderIsInQueue(ordersNotConfirmedTaken, newOrder){
+					externalOrdersNotTaken = append(externalOrdersNotTaken,newOrder)
 				}
 				newOrderToOptAlgChan <- newOrder //the receiver will handle duplicates
 				SetButtonLight(newOrder,true)
 
-			case <-ElevListChanged://NEEDS TO CHANGE
-				ResetExternalOrdersInQueueChan<-true
-				ReassignAllOrders(newOrder,true)
+			case newOrdAss := <-NewOrderAssignedChan:
+				AddOrderAssignedToElevStateChan <- newOrdAss
+				for i,v := range externalOrdersNotTaken{
+					if v == newOrdAss.Order{
+						externalOrdersNotTaken = append(externalOrdersNotTaken[:i], externalOrdersNotTaken[i+1:]...)
+					}
+				}
+				if newOrdass.AssignedTo == communication.GetMyIP(){
+					NewOrderToLocalElevChan <- newOrdAss.Order
+				}
+
+
 			case servedOrder<-InternalOrderServedChan: //Here or directly from statemachine
 				internalArray[servedOrder.Floor] = 0
 
-					WRITE TO FILE
+					//   WRITE TO FILE
 
 				SetButtonLight(servedOrder,false)
 			case servedOrder <-externalOrderServedfromnetwork:
@@ -147,6 +165,37 @@ func TopLogicNeedBetterName(){
 				}
 				commonExternalArray[servedOrder.Floor][dir]
 				SetButtonLight(servedOrder,false)
+
+			case elevGone := <-FromNetworkElevGoneChan:
+				deadElevOrders := optalgtester.GetOrderQueueOfDeadElev(elevGone)
+				ToOptAlgDeleteElevChan <-elevgone
+				for _, v := range deadElevOrders}{
+					ToNetworkNewOrderChan <- v
+				}
+				for _, v := range externalOrdersNotTaken{
+					ToNetworkNewOrderChan <- v 
+				}
+
+ 			case newElev := <-FromNetworkNewElevChan:
+				fmt.Println("DONT KNOW IF WE NEED THIS CASE")
+
+			case <-FromNetworkNetworkDownChan:
+
+				externalOrdersNotTaken = nil
+				for i:= 0; i < NUM_FLOORS; i++{
+					for j := 0; j < NUM_BUTTONS -1; j++{
+						if commonExternalArray[i][j] == 1{
+							dir = UP
+							if j == 0{
+								dir = DOWN
+							}
+							NewOrderToLocalElevChan <- Order{Floor: i, Direction: dir}
+						}
+					}
+				}
 		}
 	}
 }
+
+//MULIG VI MÅ FLYTTE DE SOM TAR IMOT NYE ORDRE OG DE SOM SENDER NYE ORDRE I FORSKJELLIGE LOOPS
+//PROBLEM NÅR MANGE ORDRE BLIR SENDT PÅ NYTT
