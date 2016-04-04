@@ -83,8 +83,8 @@ func main() {
 */
 
 func main() {
-	Init_chans()
-	driver.Elev_main_tester_function()
+	InitChans()
+	driver.ElevMainTesterFunction()
 	go stateMachine.NewTopLoop()
 	/*floorReachedChan := make(chan Button)
 	orderServedChan := make(chan Button)

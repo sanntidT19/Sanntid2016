@@ -23,7 +23,7 @@ var ToNetworkOrderAssignedToChan chan globalStructs.OrderAssigned
 var ToNetworkOrderServedChan chan globalStructs.Order //Maybe external
 var ToNetworkNewElevStateChan chan globalStructs.ElevatorState
 
-func Init_chans() {
+func InitChans() {
 	ButtonPressedChan = make(chan globalStructs.Button)
 	SetButtonLightChan = make(chan globalStructs.Button)
 	
