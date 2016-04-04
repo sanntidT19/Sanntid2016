@@ -64,44 +64,44 @@ func ElevInit() {
 
 func ElevDriveElevator(dirn int) {
 	if dirn == 0 {
-		io_write_analog(MOTOR, 0)
+		IoWriteAnalog(MOTOR, 0)
 	} else if dirn > 0 {
-		io_clear_bit(MOTORDIR)
-		io_write_analog(MOTOR, MOTOR_SPEED)
+		IoClearBit(MOTORDIR)
+		IoWriteAnalog(MOTOR, MOTOR_SPEED)
 	} else if dirn < 0 {
-		io_set_bit(MOTORDIR)
-		io_write_analog(MOTOR, MOTOR_SPEED)
+		IoSetBit(MOTORDIR)
+		IoWriteAnalog(MOTOR, MOTOR_SPEED)
 	}
 }
 
 func ElevSetDoorOpenLamp(turn_on bool) {
 	if turn_on {
-		io_set_bit(LIGHT_DOOR_OPEN)
+		IoSetBit(LIGHT_DOOR_OPEN)
 	} else {
-		io_clear_bit(LIGHT_DOOR_OPEN)
+		IoClearBit(LIGHT_DOOR_OPEN)
 	}
 }
 
 func ElevSetStopLamp(turn_on bool) {
 	if turn_on {
-		io_set_bit(STOP)
+		IoSetBit(STOP)
 	} else {
-		io_clear_bit(STOP)
+		IoClearBit(STOP)
 	}
 }
 
 func ElevSetButtonLight(button int, floor int, value bool) {
 	if value {
-		io_set_bit(lamp_channel_matrix[floor][button])
+		IoSetBit(lamp_channel_matrix[floor][button])
 	} else {
-		io_clear_bit(lamp_channel_matrix[floor][button])
+		IoClearBit(lamp_channel_matrix[floor][button])
 	}
 	return
 }
 
 //Vurder senere om bool eller int er best her
 func ElevGetButtonSignal(button int, floor int) bool {
-	if io_read_bit(button_channel_matrix[floor][button]) {
+	if IoReadBit(button_channel_matrix[floor][button]) {
 		return true
 	} else {
 		return false
@@ -119,12 +119,12 @@ func ElevSetFloorLight(floor int) {
 }
 
 func OpenDoor() {
-	io_set_bit(LIGHT_DOOR_OPEN)
+	IoSetBit(LIGHT_DOOR_OPEN)
 	time.Sleep(3 * time.Second)
-	io_clear_bit(LIGHT_DOOR_OPEN)
+	IoClearBit(LIGHT_DOOR_OPEN)
 }
 func ElevNotMoving() bool {
-	if Io_read_analog(MOTOR) == 0 {
+	if IoReadAnalog(MOTOR) == 0 {
 		return true
 	} else {
 		return false
@@ -135,7 +135,7 @@ func CheckForButtonsPressed(internalButtonChan chan Button, externalButtonChan c
 	for {
 		for i := 0; i < NUM_FLOORS; i++ {
 			for j := 0; j < NUM_BUTTONS; j++ {
-				if io_read_bit(button_channel_matrix[i][j]) {
+				if IoReadBit(button_channel_matrix[i][j]) {
 					var button_type int
 					if j == 0 {
 						button_type = UP
@@ -169,9 +169,9 @@ func SetButtonLights(button_light_set_chan chan Button) {
 			change_button.Button_type = 2
 		}
 		if change_button.Button_pressed {
-			io_set_bit(lamp_channel_matrix[change_button.Floor][change_button.Button_type])
+			IoSetBit(lamp_channel_matrix[change_button.Floor][change_button.Button_type])
 		} else {
-			io_clear_bit(lamp_channel_matrix[change_button.Floor][change_button.Button_type])
+			IoClearBit(lamp_channel_matrix[change_button.Floor][change_button.Button_type])
 		}
 
 	}
@@ -187,9 +187,9 @@ func SetButtonLight(ButtonLight Button, turnOn bool){
 	}
 	
 	if turnOn {
-		io_set_bit(lamp_channel_matrix[ButtonLight.Floor][ButtonLight.Button_type])
+		IoSetBit(lamp_channel_matrix[ButtonLight.Floor][ButtonLight.Button_type])
 	} else {
-		io_clear_bit(lamp_channel_matrix[ButtonLight.Floor][ButtonLight.Button_type])
+		IoClearBit(lamp_channel_matrix[ButtonLight.Floor][ButtonLight.Button_type])
 	}
 
 }
@@ -199,7 +199,7 @@ func SetButtonLight(ButtonLight Button, turnOn bool){
 //Heller mer komplekst og "go-ete" når funksjoner skal settes sammen i loops og whatever
 
 func ElevMainTesterFunction() {
-	io_init()
+	IoInit()
 	ElevInit()
 	go ElevFloorLightUpdater()
 	go CheckForButtonsPressed(ButtonPressedChan)
