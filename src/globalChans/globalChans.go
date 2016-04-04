@@ -27,10 +27,11 @@ var NewOrderToLocalElevChan chan globalStructs.Order
 
 var ToOptAlgDeleteElevChan chan string
 
+var AddOrderAssignedToElevStateChan chan globalStructs.OrderAssigned
+
+var InternalOrderServedChan chan globalStructs.Order //Cover this in statemachine too
 
 func InitChans() {
-	ButtonPressedChan = make(chan globalStructs.Button)
-	SetButtonLightChan = make(chan globalStructs.Button)
 	
 	FromNetworkNewOrderChan = make(chan globalStructs.Order)
 	FromNetworkOrderAssignedToChan = make(chan globalStructs.OrderAssigned)
@@ -52,4 +53,6 @@ func InitChans() {
 	//To optalg for now
 	ToOptAlgDeleteElevChan = make(chan string)
 	AddOrderAssignedToElevStateChan = make(chan globalStructs.OrderAssigned)
+
+	InternalOrderServedChan = make(chan globalStructs.Order)
 }

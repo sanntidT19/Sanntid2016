@@ -1,5 +1,15 @@
 package globalStructs
 
+const(
+	UP          = 1
+	DOWN        = -1
+	COMMAND     = 0
+	NUM_BUTTONS = 3
+	NUM_FLOORS  = 4
+	MOTOR_SPEED = 2800
+)
+
+
 type Button struct {
 	Floor          int
 	Button_type    int
@@ -23,15 +33,11 @@ type ElevatorState struct {
 	CurrentFloor  int
 	PreviousFloor int
 	Direction     int
-	OrderQueue    []Button //This is an array or something of all orders currently active for this elevator.
+	OrderQueue    []Order //This is an array or something of all orders currently active for this elevator.
 
 }
 
-const (
-	UP          = 1
-	DOWN        = -1
-	COMMAND     = 0
-	NUM_BUTTONS = 3
-	NUM_FLOORS  = 4
-	MOTOR_SPEED = 2800
-)
+type AllOrders struct{
+	ExternalOrders [NUM_FLOORS][NUM_BUTTONS-1] int
+	InternalOrders [NUM_FLOORS] int
+}

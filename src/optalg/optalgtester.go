@@ -1,23 +1,14 @@
 package optalg
 
-import "math"
-import "fmt"
+import (
+	"math"
+	"fmt"
+	."../globalStructs"
+	."../globalChans"
 
-type ElevatorState struct {
-	MyIP         string //not an int, always useful to have
-	CurrentFloor int
-	LastFloor    int
-	Direction    int
-	Orders       []Button //This is an array or something of all orders currently active for this elevator.
+)
 
-}
-
-type Button struct {
-	Floor          int
-	Button_type    int
-	Button_pressed bool
-}
-
+/*
 var el_state1 ElevatorState = ElevatorState{MyIP: "123.123.123.123",
 	CurrentFloor: 3,
 	LastFloor:    2,
@@ -26,20 +17,18 @@ var el_state2 ElevatorState = ElevatorState{MyIP: "123.123.123.124",
 	CurrentFloor: 2,
 	LastFloor:    1,
 	Direction:    1,
-	Orders:       []Button{Button{3, -1, false}, {2, 0, false}}}
+	OrderQueue:       []Button{Button{3, -1, false}, {2, 0, false}}}
 
 var el_state3 ElevatorState = ElevatorState{MyIP: "123.123.123.125",
 	CurrentFloor: 3,
 	LastFloor:    3,
 	Direction:    1,
-	Orders:       []Button{Button{2, -1, false}}}
+	OrderQueue:       []Button{Button{2, -1, false}}}
+*/
+var all_elevs []ElevatorState
 
-var all_elevs = []ElevatorState{el_state1, el_state2, el_state3}
-var new_order Button = Button{Floor: 1,
-	Button_type:    1,
-	Button_pressed: false}
 
-func Opt_alg(new_order Button) string {
+func Opt_alg(new_order Order) string {
 	numOfElevs := len(all_elevs)
 	IP_cost_list := make([]int, numOfElevs)
 	Queue_len_list := make([]int, numOfElevs)
@@ -47,7 +36,7 @@ func Opt_alg(new_order Button) string {
 	var IP_score int = 100
 	var Optimal_IP string = "0"
 	for i, v := range all_elevs {
-		Queue_len_list[i] = len(v.Orders)
+		Queue_len_list[i] = len(v.OrderQueue)
 		if v.CurrentFloor < new_order.Floor {
 			if v.Direction != 1 {
 				IP_cost_list[i] += 1
@@ -62,16 +51,16 @@ func Opt_alg(new_order Button) string {
 	}
 	for k := 0; k < len(IP_cost_list); k += 1 {
 		if IP_cost_list[k] < IP_score {
-			Optimal_IP = all_elevs[k].MyIP
+			Optimal_IP = all_elevs[k].IP
 			IP_score = IP_cost_list[k]
 			Ele_nmr = k
 		} else if IP_cost_list[k] == IP_score {
-			if len(all_elevs[k].Orders) < len(all_elevs[Ele_nmr].Orders) {
-				Optimal_IP = all_elevs[k].MyIP
+			if len(all_elevs[k].OrderQueue) < len(all_elevs[Ele_nmr].OrderQueue) {
+				Optimal_IP = all_elevs[k].IP
 				Ele_nmr = k
-			} else if len(all_elevs[k].Orders) == len(all_elevs[Ele_nmr].Orders) {
-				if all_elevs[k].MyIP > Optimal_IP {
-					Optimal_IP = all_elevs[k].MyIP
+			} else if len(all_elevs[k].OrderQueue) == len(all_elevs[Ele_nmr].OrderQueue) {
+				if all_elevs[k].IP > Optimal_IP {
+					Optimal_IP = all_elevs[k].IP
 					Ele_nmr = k
 				}
 			}
@@ -90,9 +79,9 @@ func main() {
 */
 func GetOrderQueueOfDeadElev(deadIP string) []Order{
 	for _,v := range all_elevs{
-		if v.MyIP == deadIP{
-			listCopy := make([]Order,len(v.Orders))
-			copy(listCopy,v.Orders)
+		if v.IP == deadIP{
+			listCopy := make([]Order,len(v.OrderQueue))
+			copy(listCopy,v.OrderQueue)
 			return listCopy 
 		}
 	}
@@ -107,7 +96,7 @@ func UpdateElevatorStateList(){
 			case updatedElevState:= <-FromNetworkNewElevStateChan:
 			elevInList := false
 			for i,v := range all_elevs{
-				if updatedElevState.MyIP == v.MyIP{
+				if updatedElevState.IP == v.IP{
 					all_elevs[i] = updatedElevState
 					elevInList = true
 					break
@@ -117,14 +106,14 @@ func UpdateElevatorStateList(){
 				all_elevs = append(all_elevs,updatedElevState)
 			}
 			case elevatorTakesOrder := <-AddOrderAssignedToElevStateChan:
-				for i, v := range all_elevs{
-					if elevatorTakesOrder.AssignedTo == v.MyIP{
-						v.Orders = append(v.Orders, elevatorTakesOrder.Order)
+				for _, v := range all_elevs{
+					if elevatorTakesOrder.AssignedTo == v.IP{
+						v.OrderQueue = append(v.OrderQueue, elevatorTakesOrder.Order)
 					}
 				}
-			case deadElev <- ToOptAlgDeleteElevChan:
+			case deadElev :=<- ToOptAlgDeleteElevChan:
 				for i, v := range all_elevs{
-					if(v.MyIP == deadElev){
+					if(v.IP == deadElev){
 						all_elevs = append(all_elevs[:i],all_elevs[i+1:]...)
 						break
 					}

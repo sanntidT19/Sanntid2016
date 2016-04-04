@@ -158,20 +158,19 @@ func CheckForButtonsPressed() {
 	}
 }
 
-
 func SetButtonLight(ButtonLight Order, turnOn bool){
-	if ButtonLight.Button_type == UP {
-		ButtonLight.Button_type = 0
-	} else if ButtonLight.Button_type == DOWN {
-		ButtonLight.Button_type = 1
+	if ButtonLight.Direction == UP {
+		ButtonLight.Direction = 0
+	} else if ButtonLight.Direction == DOWN {
+		ButtonLight.Direction = 1
 	} else {
-		ButtonLight.Button_type = 2
+		ButtonLight.Direction = 2
 	}
 	
 	if turnOn {
-		io_set_bit(lamp_channel_matrix[ButtonLight.Floor][ButtonLight.Button_type])
+		IoSetBit(lamp_channel_matrix[ButtonLight.Floor][ButtonLight.Direction])
 	} else {
-		io_clear_bit(lamp_channel_matrix[ButtonLight.Floor][ButtonLight.Button_type])
+		IoClearBit(lamp_channel_matrix[ButtonLight.Floor][ButtonLight.Direction])
 	}
 
 }
@@ -182,7 +181,7 @@ func ElevMainTesterFunction() {
 	IoInit()
 	ElevInit()
 	go ElevFloorLightUpdater()
-	go CheckForButtonsPressed(ButtonPressedChan)
+	go CheckForButtonsPressed()
 	return
 }
 //Use of last_floor may need to be exported og gotten somewhere else

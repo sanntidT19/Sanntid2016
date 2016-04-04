@@ -3,7 +3,7 @@ package main
 import (
 	"./driver"
 	. "./globalChans"
-	. "./globalStructs"
+	//. "./globalStructs"
 	"./stateMachine"
 	"./elevatorStateTracker"
 	"./optalg"
@@ -93,7 +93,7 @@ func main() {
 	go elevatorStateTracker.StartupDraft()
 	go stateMachine.NewTopLoop()
 	go topLevel.TopLogicNeedBetterName()
-	go optalg.UpdateElevatorStatelist()
+	go optalg.UpdateElevatorStateList()
 	go communication.CommNeedBetterName()
 
 

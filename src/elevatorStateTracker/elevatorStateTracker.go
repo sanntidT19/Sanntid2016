@@ -1,21 +1,17 @@
+package elevatorStateTracker
 import(
 	."../globalStructs"
+	."../globalChans"
 	"encoding/gob"
 	"os"
 	"fmt"
 )
 
-currentState ElevatorState
 
 //this will show 
 const PATH_OF_SAVED_ORDER_STATE = "elevState.gob"
 
 
-
-type AllOrders type{
-	ExternalOrders [NUM_FLOORS][NUM_BUTTONS]int
-	InternalOrders [NUM_FLOORS] int
-}
 
 /*
 func initalize_state_tracker(){
@@ -50,11 +46,11 @@ func ReadOrdersStateBeforeShutdown() AllOrders{
 	//start with reading it
 	var formerState AllOrders
 
-	if _, err := os.Stat(PATH_OF_SAVED_STATE); os.IsNotExist(err){
+	if _, err := os.Stat(PATH_OF_SAVED_ORDER_STATE); os.IsNotExist(err){
 		fmt.Println("Local save of elevator state not detected. It has been cleared/this is the first run on current PC")
-		return nil
+		return formerState
 	}
-	dataFile, err := os.Open(PATH_OF_SAVED_STATE)
+	dataFile, err := os.Open(PATH_OF_SAVED_ORDER_STATE)
 
 	dataDecoder := gob.NewDecoder(dataFile)
 	err = dataDecoder.Decode(&formerState)
@@ -68,10 +64,9 @@ func ReadOrdersStateBeforeShutdown() AllOrders{
 }
 
 
-func PrematureShutdownOccured(formerState) bool{
-	//only call when initializing, REDO WHEN WE KNOW HOW THE ORDERS WILL LOOK
+func PrematureShutdownOccured(formerState AllOrders) bool{
 	for i:= 0; i < NUM_FLOORS; i++{
-		if formerState.InternalOrders[i] != 0{
+		if formerState.InternalOrders[i] != 0{
 			return true
 		}
 		for j:= 0; j < NUM_BUTTONS-1; j++{
@@ -82,6 +77,7 @@ func PrematureShutdownOccured(formerState) bool{
 	}
 	return false
 }
+
 
 //CHANNEL NAMES MIGHT BE WRONG. MIGHT NEED TO SWAP UP AND DOWN VALUES IN INNER FOR LOOP
 //Make sure to update networkisup
@@ -99,7 +95,7 @@ func ReassignOrdersAfterShutdown(formerState AllOrders, networkIsUp bool){
 					direction = DOWN
 				}
 				if networkIsUp{
-					ToNetWorkNewOrderChan <- Order{Floor: i, Direction: direction}
+					ToNetworkNewOrderChan <- Order{Floor: i, Direction: direction}
 				}else{
 					NewOrderToLocalElevChan <- Order{Floor:i, Direction: direction}
 				}
@@ -108,17 +104,20 @@ func ReassignOrdersAfterShutdown(formerState AllOrders, networkIsUp bool){
 	}
 
 }
-func StartUpDraft(){
+func StartupDraft(){
 	formerState := ReadOrdersStateBeforeShutdown()
-	if formerState != nil{
+	var emptyState AllOrders = AllOrders{}
+	if formerState != emptyState{
 		if PrematureShutdownOccured(formerState){
-			networkIsUp := readNetwork()//something like this
-			ReassignOrdersAfterShutdown(formerState,networkIsUp)
+			//networkIsUp := readNetwork()//something like this           CHECK IF NETWORK IS UP HERE
+			ReassignOrdersAfterShutdown(formerState,true) //FOR NOW TEMPFIX         
 			//SET UP LIGHTS HERE
 		}		
 	}
 }
-//If network disappears
+//If network disappears 
+//DONT THINK WE WILL USE THIS
+/*
 func SendAllExternalOrdersToLocalElev(currentState AllOrders){
 	for i:= 0; i < NUM_FLOORS; i++{
 		for j := 0; j < NUM_BUTTONS-1; j++{
@@ -132,7 +131,7 @@ func SendAllExternalOrdersToLocalElev(currentState AllOrders){
 		}
 	}
 }
-
+*/
 
 //Assume network is up. If its not, it will be detected and a different function will be called
 func ResendOrdersOfLostElev(orderQueue []Order, sendOrderToNetworkChan chan Order){
