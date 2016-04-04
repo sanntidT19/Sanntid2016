@@ -3,8 +3,13 @@ package main
 import (
 	"./driver"
 	. "./globalChans"
-	//. "./globalStructs"
+	. "./globalStructs"
 	"./stateMachine"
+	"./elevatorStateTracker"
+	"./optalg"
+	"./communication"
+	"./topLevel"
+	
 	"fmt"
 	"time"
 	//"encoding/gob"
@@ -83,14 +88,16 @@ func main() {
 */
 
 func main() {
-	Init_chans()
-	driver.Elev_main_tester_function()
+	InitChans()
+	driver.ElevMainTesterFunction()
+	go elevatorStateTracker.StartupDraft()
 	go stateMachine.NewTopLoop()
-	/*floorReachedChan := make(chan Button)
-	orderServedChan := make(chan Button)
-	goUpDownChan := make(chan int)
-	go stateMachine.MoveElevatorAndOpenDoor(floorReachedChan, orderServedChan, goUpDownChan)
-	*/
+	go topLevel.TopLogicNeedBetterName()
+	go optalg.UpdateElevatorStatelist()
+	go communication.CommNeedBetterName()
+
+
+
 	fmt.Println("Main: sleeping")
 	time.Sleep(time.Second * 1000)
 }

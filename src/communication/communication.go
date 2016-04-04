@@ -84,8 +84,8 @@ func CommNeedBetterName() {
 	go readUpdateElevatorOverview(newShoutFromElevatorChan, newElevatorChan, elevatorGoneChan)
 	go SendMessagesToAllElevators(sendNetworkMessageChan, newConnectionChan, endConnectionChan)
 	go readMessagesFromNetwork(localAddr, commonPort, messageFromNetworkChan)
-	go decodeMessagesFromNetwork(messageFromNetworkChan, newAckFromNetworkChan, resendMessageChan)
-	go encodeMessagesToNetwork(sendNetworkMessageChan, newAckStartChan, resendMessageChan)
+	go decodeMessagesFromNetwork(messageFromNetworkChan, newAckFromNetworkChan)
+	go encodeMessagesToNetwork(sendNetworkMessageChan, newAckStartChan, sendToNetworkChan)
 	
 
 	go setDeadlinesForAcks(resendMessageChan, ackdByAllChan, newAckStartChan, newAckFromNetworkChan, elevatorListChangedChan)
@@ -341,13 +341,13 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 			if err != nil{
 				fmt.Println("error when encoding: ", err)
 			}
-		//Timer reset in ack-func, no need to start it again put somewhere else
-		case resendMessage := <-resendMessageChan:
-			encodedPacket, err := json.Marshal(resendMessage)
+		//Resends message when timer runs out
+		case message := <-resendMessageChan:
+			tag = message.Tag
+			encodedData = message.Data
 			if err != nil{
 				fmt.Println("error encoding resend message")
 			}
-			sendToNetworkChan <- encodedPacket
 		}
 		//alt felles gjøres her
 		var newPacket MessageWithHeader = MessageWithHeader{Data : encodedData, Tag: tag Ack: false, SenderAddr: localAddr}
@@ -361,7 +361,18 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 		sendToAckTimerChan <- newPacket
 	}
 }
-func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNetworkChan chan MessageWithHeader, resendMessageChan chan MessageWithHeader){
+
+func sendAck(message MessageWithHeader, sendToNetworkChan chan []byte){
+	message.Ack = true;
+	message.SenderAddr = localAddr
+	encodedPacket, err := json.Marshal(message)
+	if err != nil{
+			fmt.Println("error encoding resend message")
+	}
+	sendToNetworkChan <- encodedPacket
+}
+
+func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNetworkChan chan MessageWithHeader, resendMessageChan chan MessageWithHeader,sendToNetworkChan chan []byte){
 	//If no ack. Respond immediately somewhere with ack.
 	//Switch on tag
 	for{
@@ -376,9 +387,6 @@ func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNet
 			//Things will happen here
 		}else{
 			//Maybe have this ack-echo somewhere else. For now its here
-			message.Ack = true;
-			message.SenderAddr = localAddr
-			resendMessageChan <- message
 			switch message.Tag{
 				case "newOrd":
 					var newOrder Order
@@ -413,6 +421,7 @@ func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNet
 						FromNetworkNewElevStateChan <- newState
 					}
 			}
+			sendAck(message, sendToNetworkChan)
 		}
 	}
 }

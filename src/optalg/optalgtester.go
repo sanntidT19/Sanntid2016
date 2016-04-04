@@ -1,4 +1,4 @@
-package main
+package optalg
 
 import "math"
 import "fmt"
@@ -116,7 +116,7 @@ func UpdateElevatorStateList(){
 			if !elevInList{
 				all_elevs = append(all_elevs,updatedElevState)
 			}
-			case elevatorTakesOrder := addOrderAssignedToElevStateChan:
+			case elevatorTakesOrder := <-AddOrderAssignedToElevStateChan:
 				for i, v := range all_elevs{
 					if elevatorTakesOrder.AssignedTo == v.MyIP{
 						v.Orders = append(v.Orders, elevatorTakesOrder.Order)

@@ -263,6 +263,7 @@ func MoveElevatorAndOpenDoor(floorWithOrderReachedChan chan Button, orderServedC
 				driver.Elev_drive_elevator(DOWN)
 				StateOfElev.Direction = DOWN
 			}
+			ToNetworkNewElevStateChan <-StateOfElev
 			//go to floor, if below, go up. if above, go down. This is only needed when the elevator is idle.
 		}
 	}
@@ -275,6 +276,7 @@ func DetectNewFloorReached() {
 			mostRecentFloorVisited = sensor_result
 			StateOfElev.PreviousFloor = StateOfElev.CurrentFloor
 			StateOfElev.CurrentFloor = sensor_result
+			ToNetworkNewElevStateChan <- StateOfElev
 		}
 		time.Sleep(time.Millisecond * 50)
 	}
@@ -326,6 +328,7 @@ func NewTopLoop() {
 	//Her kan man anta at man står stille i en etasje
 	StateOfElev.CurrentFloor = driver.Elev_get_floor_sensor_signal()
 	StateOfElev.Direction = DOWN
+	StateOfElev.MyIP = communication.GetMyIP()
 
 	targetFloorReachedChan := make(chan Button)
 	orderServedChan := make(chan Button)
@@ -349,6 +352,8 @@ func NewTopLoop() {
 				}
 
 			}
+
+
 			if indexOfServedOrder == -1 {
 				fmt.Println("Error! Couldnt find served order in local queue")
 			} else {
@@ -358,7 +363,8 @@ func NewTopLoop() {
 				orderQueueChangeChan <- true
 				fmt.Println("order served")
 			}
-		case newOrder := <-ButtonPressedChan: //newOrderToElevChan when we have mothership ready
+			ToNetworkNewElevStateChan <- StateOfElev
+		case newOrder := <-NewOrderToLocalElevChan: //newOrderToElevChan when we have mothership ready
 			if isOrderInQueue(StateOfElev.OrderQueue, newOrder) {
 				break
 			} else {
@@ -368,6 +374,7 @@ func NewTopLoop() {
 				orderQueueChangeChan <- true
 				SetButtonLightChan <- newOrder
 			}
+			ToNetworkNewElevStateChan <-StateOfElev
 		}
 	}
 

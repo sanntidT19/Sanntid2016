@@ -114,7 +114,8 @@ func StartUpDraft(){
 		if PrematureShutdownOccured(formerState){
 			networkIsUp := readNetwork()//something like this
 			ReassignOrdersAfterShutdown(formerState,networkIsUp)
-		//SetAllLights SOMETHING LIKE THIS
+			//SET UP LIGHTS HERE
+		}		
 	}
 }
 //If network disappears
@@ -141,6 +142,7 @@ func ResendOrdersOfLostElev(orderQueue []Order, sendOrderToNetworkChan chan Orde
 		} 
 	}
 }
+
 /*
 What is needed to save to make sure no orders are lost.
 ExternalArray and Internalarray.
@@ -204,7 +206,7 @@ need to update these whenever it is received from network.
 OK
 
 remove when elevlist change/network gone.
-
+ok
 
 somewhere:
 need to maintain the list of elevstructs whenever its sent over network.

@@ -3,8 +3,8 @@ package topLevel
 import(
 	"../communication"
 	"../optalg"
-	"../globalStructs"
-	"../globalChans"
+	."../globalStructs"
+	."../globalChans"
 	"time"
 	"fmt"
 )
@@ -19,9 +19,11 @@ type AssignedOrderAndElevList struct{
 	ElevList []string
 }
 
+var externalOrdersNotTaken []Order
+var commonExternalArray [NUM_FLOORS][NUM_BUTTONS -1] int
 //ElevatorAssignedToNetworkChan OrderAssigned chan , ElevatorAssignedFromNetworkChan OrderAssigned chan
 
-func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Button, ElevListChangedResetAssignFuncChan chan bool, NewOrderAssignedChan chan OrderAssigned ){
+func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Button, resetAssignFuncChan chan bool, newOrderAssignedChan chan OrderAssigned){
 
 	var OrdersToBeAssignedByAll []AssignedOrderAndElevList
 	localAddr := communication.GetMyIP()
@@ -72,14 +74,14 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Button, ElevLi
 							OrdersToBeAssignedByAll[posInSlice].ElevList = append(OrdersToBeAssignedByAll[posInSlice].ElevList[:i], OrdersToBeAssignedByAll[posInSlice].ElevList[i+1:]...)
 							if len(OrdersToBeAssignedByAll[posInSlice].ElevList) == 0{
 								OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...)
-								NewOrderAssignedChan <-newOrdAss
+								newOrderAssignedChan <-newOrdAss
 								}	
 							}
 						}
 					}
 				} 
 			}	
-		case <-ElevListChangedResetAssignFuncChan:
+		case <-resetAssignFuncChan:
 			elevList = communication.GetElevList()
 			OrdersToBeAssignedByAll = nil
 		}
@@ -116,15 +118,19 @@ func orderIsInQueue(order_queue []Order, newOrder Order) bool {
 func TopLogicNeedBetterName(){
 	commonExternalArray [NUM_FLOORS][NUM_BUTTONS -1] int // UP DOWN
 	internalArray[NUM_FLOORS] int
-	var externalOrdersNotTaken []Order
+
+	resetAssignFuncChan := make(chan bool)
+	go ResendOrdersWhenError(resetAssignFuncChan)
+	go AssignOrdersAndWaitForAgreement(newOrderToBeAssignedChan, resetAssignFuncChan, newOrderAssignedChan)
 	for{
 		select{
 			case newButton <-internalButtonPressedChan:
 				
 				if internalArray[newButton.Floor] == 0{
 					internalArray[newButton.Floor] = 1  //Reset when order served. Tell that total state is changed?
+					elevatorStateTracker.WriteCurrentOrdersToFile(Allorders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
 					SetButtonLight(newButton)
-					newOrderToStateMachineChan <- newButton
+					NewOrderToLocalElevChan <- newButton
 				}
 			case newOrder := <-ExternalOrderFromNetWorkChan:
 				dir := UP
@@ -134,13 +140,16 @@ func TopLogicNeedBetterName(){
 				if commonExternalArray[newOrder.Floor][dir] == 0{
 					commonExternalArray[newOrder.Floor][dir] = 1
 				}
-				if ! orderIsInQueue(ordersNotConfirmedTaken, newOrder){
+
+				elevatorStateTracker.WriteCurrentOrdersToFile(Allorders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
+
+				if !orderIsInQueue(ordersNotConfirmedTaken, newOrder){
 					externalOrdersNotTaken = append(externalOrdersNotTaken,newOrder)
 				}
-				newOrderToOptAlgChan <- newOrder //the receiver will handle duplicates
+				newOrderToBeAssignedChan <- newOrder //the receiver will handle duplicates
 				SetButtonLight(newOrder,true)
 
-			case newOrdAss := <-NewOrderAssignedChan:
+			case newOrdAss := <-newOrderAssignedChan:
 				AddOrderAssignedToElevStateChan <- newOrdAss
 				for i,v := range externalOrdersNotTaken{
 					if v == newOrdAss.Order{
@@ -155,7 +164,7 @@ func TopLogicNeedBetterName(){
 			case servedOrder<-InternalOrderServedChan: //Here or directly from statemachine
 				internalArray[servedOrder.Floor] = 0
 
-					//   WRITE TO FILE
+				elevatorStateTracker.WriteCurrentOrdersToFile(Allorders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
 
 				SetButtonLight(servedOrder,false)
 			case servedOrder <-externalOrderServedfromnetwork:
@@ -163,24 +172,25 @@ func TopLogicNeedBetterName(){
 				if servedOrder.Direction == DOWN{
 					dir = 0
 				}
-				commonExternalArray[servedOrder.Floor][dir]
+				commonExternalArray[servedOrder.Floor][dir] = 0
+				elevatorStateTracker.WriteCurrentOrdersToFile(Allorders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
 				SetButtonLight(servedOrder,false)
-
-			case elevGone := <-FromNetworkElevGoneChan:
-				deadElevOrders := optalgtester.GetOrderQueueOfDeadElev(elevGone)
-				ToOptAlgDeleteElevChan <-elevgone
-				for _, v := range deadElevOrders}{
-					ToNetworkNewOrderChan <- v
-				}
-				for _, v := range externalOrdersNotTaken{
-					ToNetworkNewOrderChan <- v 
-				}
 
  			case newElev := <-FromNetworkNewElevChan:
 				fmt.Println("DONT KNOW IF WE NEED THIS CASE")
 
-			case <-FromNetworkNetworkDownChan:
+		}
+	}
+}
 
+//MULIG VI MÅ FLYTTE DE SOM TAR IMOT NYE ORDRE OG DE SOM SENDER NYE ORDRE I FORSKJELLIGE LOOPS
+//PROBLEM NÅR MANGE ORDRE BLIR SENDT PÅ NYTT
+
+func ResendOrdersWhenError(resetAssignFuncChan chan bool){
+	for{
+		select{
+			case <-FromNetworkNetworkDownChan:
+				resetAssignFuncChan<-true
 				externalOrdersNotTaken = nil
 				for i:= 0; i < NUM_FLOORS; i++{
 					for j := 0; j < NUM_BUTTONS -1; j++{
@@ -193,9 +203,16 @@ func TopLogicNeedBetterName(){
 						}
 					}
 				}
+			case elevGone := <-FromNetworkElevGoneChan:
+				deadElevOrders := optalgtester.GetOrderQueueOfDeadElev(elevGone)
+				ToOptAlgDeleteElevChan <-elevGone
+				resetAssignFuncChan<-true
+				for _, v := range deadElevOrders}{
+					ToNetworkNewOrderChan <- v
+				}
+				for _, v := range externalOrdersNotTaken{
+					ToNetworkNewOrderChan <- v 
+				}
 		}
 	}
 }
-
-//MULIG VI MÅ FLYTTE DE SOM TAR IMOT NYE ORDRE OG DE SOM SENDER NYE ORDRE I FORSKJELLIGE LOOPS
-//PROBLEM NÅR MANGE ORDRE BLIR SENDT PÅ NYTT

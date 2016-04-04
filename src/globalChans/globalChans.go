@@ -4,8 +4,8 @@ import (
 	"../globalStructs"
 )
 
-var ButtonPressedChan chan globalStructs.Button
-var SetButtonLightChan chan globalStructs.Button
+var ExternalButtonPressedChan chan globalStructs.Order
+var InternalButtonPressedChan chan globalStructs.Order
 
 var FromNetworkNewOrderChan chan globalStructs.Order
 var FromNetworkOrderAssignedToChan chan globalStructs.OrderAssigned
@@ -23,7 +23,12 @@ var ToNetworkOrderAssignedToChan chan globalStructs.OrderAssigned
 var ToNetworkOrderServedChan chan globalStructs.Order //Maybe external
 var ToNetworkNewElevStateChan chan globalStructs.ElevatorState
 
-func Init_chans() {
+var NewOrderToLocalElevChan chan globalStructs.Order
+
+var ToOptAlgDeleteElevChan chan string
+
+
+func InitChans() {
 	ButtonPressedChan = make(chan globalStructs.Button)
 	SetButtonLightChan = make(chan globalStructs.Button)
 	
@@ -37,27 +42,14 @@ func Init_chans() {
 	FromNetworkNetworkDownChan = make(chan bool)
 	FromNetworkNetworkUpChan = make(chan bool)
 
-
-	/*
-	NewOrderFromNetWorkChan*/
 	ToNetworkNewOrderChan = make(chan globalStructs.Order)
 	ToNetworkOrderAssignedToChan = make(chan globalStructs.OrderAssigned)
 	ToNetworkOrderServedChan = make(chan globalStructs.Order)
 	ToNetworkNewElevStateChan = make(chan globalStructs.ElevatorState)
 
+	NewOrderToLocalElevChan = make(chan globalStructs.Order)
+	
+	//To optalg for now
+	ToOptAlgDeleteElevChan = make(chan string)
+	AddOrderAssignedToElevStateChan = make(chan globalStructs.OrderAssigned)
 }
-
-/*
-global chans som må fikses:
-Externalbuttonpressedchan(driver og network)
-Internalbuttonpressedchan(driver og toplevel)
-
-
-
-ResetExternalOrdersInQueueChan (statemachine og toplevel)
-/*
-
-/*
-ny heis kommer til: ikke refordel, fordi det kan fucke opp lokal
-ny heis forsvinner: fordel ordrene som den hadde. fucker ikke opp lokal
-*/
