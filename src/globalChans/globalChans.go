@@ -2,6 +2,7 @@ package globalChans
 
 import (
 	"../globalStructs"
+	"fmt"
 )
 
 var ExternalButtonPressedChan chan globalStructs.Order
@@ -10,6 +11,7 @@ var InternalButtonPressedChan chan globalStructs.Order
 var FromNetworkNewOrderChan chan globalStructs.Order
 var FromNetworkOrderAssignedToChan chan globalStructs.OrderAssigned
 var FromNetworkOrderServedChan chan globalStructs.Order
+
 //var FromNetworkElevlistChangedChan chan //TO BE FIXED
 var FromNetworkNewElevStateChan chan globalStructs.ElevatorState
 
@@ -32,14 +34,14 @@ var AddOrderAssignedToElevStateChan chan globalStructs.OrderAssigned
 var InternalOrderServedChan chan globalStructs.Order //Cover this in statemachine too
 
 func InitChans() {
-	
+	fmt.Println("initializing chans")
 	FromNetworkNewOrderChan = make(chan globalStructs.Order)
 	FromNetworkOrderAssignedToChan = make(chan globalStructs.OrderAssigned)
 	FromNetworkOrderServedChan = make(chan globalStructs.Order)
 	FromNetworkNewElevStateChan = make(chan globalStructs.ElevatorState)
 
 	FromNetworkNewElevChan = make(chan string)
-	FromNetworkElevGoneChan =make(chan string)
+	FromNetworkElevGoneChan = make(chan string)
 	FromNetworkNetworkDownChan = make(chan bool)
 	FromNetworkNetworkUpChan = make(chan bool)
 
@@ -49,10 +51,11 @@ func InitChans() {
 	ToNetworkNewElevStateChan = make(chan globalStructs.ElevatorState)
 
 	NewOrderToLocalElevChan = make(chan globalStructs.Order)
-	
+
 	//To optalg for now
 	ToOptAlgDeleteElevChan = make(chan string)
 	AddOrderAssignedToElevStateChan = make(chan globalStructs.OrderAssigned)
 
 	InternalOrderServedChan = make(chan globalStructs.Order)
+	fmt.Println("finished initializing chans")
 }

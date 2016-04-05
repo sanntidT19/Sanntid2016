@@ -49,6 +49,7 @@ func ElevInit() {
 	C.elev_init()
 	lamp_channel_matrix = ElevMakeStdLMatrix()
 	button_channel_matrix = ElevMakeStdBMatrix()
+	fmt.Println("i get here")
 	if ElevGetFloorSensorSignal() == -1 {
 		ElevDriveElevator(-1)
 		for ElevGetFloorSensorSignal() == -1 {
@@ -59,7 +60,6 @@ func ElevInit() {
 	fmt.Printf("Initialization of elevator complete.\n")
 
 }
-
 
 func ElevDriveElevator(dirn int) {
 	if dirn == 0 {
@@ -80,7 +80,6 @@ func ElevSetDoorOpenLamp(turn_on bool) {
 		IoClearBit(LIGHT_DOOR_OPEN)
 	}
 }
-
 
 func ElevSetStopLamp(turn_on bool) {
 	if turn_on {
@@ -118,7 +117,6 @@ func ElevSetFloorLight(floor int) {
 	return
 }
 
-
 func OpenDoor() {
 	IoSetBit(LIGHT_DOOR_OPEN)
 	time.Sleep(3 * time.Second)
@@ -132,7 +130,7 @@ func ElevNotMoving() bool {
 		return false
 	}
 }
-func CheckForButtonsPressed() {
+func CheckForButtonsPressed() { //denne stopper ved trykk på en knapp. Hvorfor?
 	for {
 		for i := 0; i < NUM_FLOORS; i++ {
 			for j := 0; j < NUM_BUTTONS; j++ {
@@ -145,20 +143,20 @@ func CheckForButtonsPressed() {
 					} else {
 						button_type = COMMAND
 					}
-					if button_type == COMMAND{
-						InternalButtonPressedChan <- Order{i,button_type}
-					}else{
-						ExternalButtonPressedChan <- Order{i, button_type}
+					if button_type == COMMAND {
+						InternalButtonPressedChan <- Order{i, button_type} //funksjonen stopper her
+					} else {
+						ExternalButtonPressedChan <- Order{i, button_type} // og her
 					}
 				}
 			}
 
 		}
-		time.Sleep(100 * time.Millisecond) //Doblet sleep. Se hvordan det går. Kanskje også en sleep etter 
+		time.Sleep(100 * time.Millisecond) //Doblet sleep. Se hvordan det går. Kanskje også en sleep etter
 	}
 }
 
-func SetButtonLight(ButtonLight Order, turnOn bool){
+func SetButtonLight(ButtonLight Order, turnOn bool) {
 	if ButtonLight.Direction == UP {
 		ButtonLight.Direction = 0
 	} else if ButtonLight.Direction == DOWN {
@@ -166,7 +164,7 @@ func SetButtonLight(ButtonLight Order, turnOn bool){
 	} else {
 		ButtonLight.Direction = 2
 	}
-	
+
 	if turnOn {
 		IoSetBit(lamp_channel_matrix[ButtonLight.Floor][ButtonLight.Direction])
 	} else {
@@ -175,15 +173,17 @@ func SetButtonLight(ButtonLight Order, turnOn bool){
 
 }
 
-
 //Rename
 func ElevMainTesterFunction() {
+	fmt.Println("starting tester function")
 	IoInit()
 	ElevInit()
+	fmt.Println("finished initializing elev")
 	go ElevFloorLightUpdater()
 	go CheckForButtonsPressed()
 	return
 }
+
 //Use of last_floor may need to be exported og gotten somewhere else
 func ElevFloorLightUpdater() {
 	current_floor := -1

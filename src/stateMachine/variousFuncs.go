@@ -1,6 +1,7 @@
 package stateMachine
 
 import (
+	"../communication"
 	"../driver"
 	. "../globalChans"
 	. "../globalStructs"
@@ -23,11 +24,11 @@ var StateOfElev ElevatorState
 
 //Should say it opens door or we need to move that one
 //Will this stop when we are idle as well? Desired floor should be set to -1 somewhere
-func Stop_at_desired_floor(order_served_chan chan bool) {
+/*func Stop_at_desired_floor(order_served_chan chan bool) {
 	for {
-		if driver.Elev_get_floor_sensor_signal() == desired_floor {
+		if driver.ElevGetFloorSensorSignal() == desired_floor {
 			desired_floor = -1000 //tempfix
-			driver.Elev_drive_elevator(0)
+			driver.ElevDriveElevator(0)
 			fmt.Println("I GET HERE BEFORE OPENING DOOR")
 			door_open = true
 			driver.Open_door()
@@ -38,12 +39,12 @@ func Stop_at_desired_floor(order_served_chan chan bool) {
 		time.Sleep(200 * time.Millisecond)
 	}
 }
-
-func Print_order(order Button) {
+*/
+func Print_order(order Order) {
 	var x string
-	if order.Button_type == COMMAND {
+	if order.Direction == COMMAND {
 		x = "Command"
-	} else if order.Button_type == UP {
+	} else if order.Direction == UP {
 		x = "Up"
 	} else {
 		x = "Down"
@@ -51,6 +52,7 @@ func Print_order(order Button) {
 	fmt.Println("Floor: ", order.Floor+1, " Type :", x)
 }
 
+/*
 //avoid the word "execute". Better name needed
 func Execute_order(next_order_chan chan int) {
 	for {
@@ -58,19 +60,19 @@ func Execute_order(next_order_chan chan int) {
 		desired_floor = next_order
 		fmt.Printf("desired floor is:", desired_floor)
 		if next_order > current_state.CurrentFloor && !door_open {
-			driver.Elev_drive_elevator(1)
+			driver.ElevDriveElevator(1)
 			current_state.Direction = 1
 		} else if next_order < current_state.CurrentFloor && !door_open {
-			driver.Elev_drive_elevator(-1)
+			driver.ElevDriveElevator(-1)
 			current_state.Direction = -1
 		}
 	}
 }
-
+*/
 /*
 func Get_current_floor() {
 	for {
-		if sensor_result := driver.Elev_get_floor_sensor_signal(); sensor_result != -1 && sensor_result != current_state.CurrentFloor {
+		if sensor_result := driver.ElevGetFloorSensorSignal(); sensor_result != -1 && sensor_result != current_state.CurrentFloor {
 			current_state.LastFloor = current_state.CurrentFloor
 			current_state.CurrentFloor = sensor_result
 			fmt.Println("Sensor result:", sensor_result)
@@ -78,10 +80,11 @@ func Get_current_floor() {
 		time.Sleep(time.Millisecond * 50)
 	}
 }*/
-
-func sort_order_queue(new_order Button, current_state ElevatorState) []Button {
+/*
+ */
+func sort_order_queue(new_order Order, current_state ElevatorState) []Order {
 	common_current_order_queue := current_state.OrderQueue
-	current_order_queue := make([]Button, len(common_current_order_queue))
+	current_order_queue := make([]Order, len(common_current_order_queue))
 	copy(current_order_queue, common_current_order_queue)
 
 	var simulated_direction int
@@ -90,10 +93,10 @@ func sort_order_queue(new_order Button, current_state ElevatorState) []Button {
 	fmt.Println("Current order queue at start of sort", current_order_queue)
 	//if queue is empty
 	if len(current_order_queue) == 0 {
-		sorted_order_queue := []Button{new_order}
+		sorted_order_queue := []Order{new_order}
 		fmt.Println("Queue is empty")
 		return sorted_order_queue
-	} else if (new_order.Button_type == current_state.Direction || new_order.Button_type == COMMAND) && new_order.Floor == driver.Elev_get_floor_sensor_signal() {
+	} else if (new_order.Direction == current_state.Direction || new_order.Direction == COMMAND) && new_order.Floor == driver.ElevGetFloorSensorSignal() {
 		//check if you are in the actual floor in correct direction and should stop immediately
 		place_in_queue = 0
 	} else {
@@ -103,20 +106,20 @@ func sort_order_queue(new_order Button, current_state ElevatorState) []Button {
 		//Perform a simulation of what the elevator will do with current queue and find out where the new order belongs
 		simulated_direction = current_state.Direction
 		simulated_floor = current_state.CurrentFloor
-		if driver.Elev_get_floor_sensor_signal() == -1 {
+		if driver.ElevGetFloorSensorSignal() == -1 {
 			fmt.Println("Elevator not in current floor, simulate past current floor")
 			simulated_floor = current_state.CurrentFloor + simulated_direction //er dette riktig?
 		}
 		fmt.Println("Sim_floor loop 1: ", simulated_floor)
 		fmt.Println("Sim_dir loop 1: ", simulated_direction)
 		fmt.Println("new order floor: ", new_order.Floor)
-		fmt.Println("new order direction: ", new_order.Button_type)
+		fmt.Println("new order direction: ", new_order.Direction)
 		for simulated_floor >= 0 && simulated_floor < NUM_FLOORS {
-			if new_order.Floor == simulated_floor && (simulated_direction == new_order.Button_type || new_order.Button_type == COMMAND) {
+			if new_order.Floor == simulated_floor && (simulated_direction == new_order.Direction || new_order.Direction == COMMAND) {
 				place_in_queue = i
 				place_found = true
 				break
-			} else if current_order_queue[i].Floor == simulated_floor && (simulated_direction == current_order_queue[i].Button_type || current_order_queue[i].Button_type == COMMAND) {
+			} else if current_order_queue[i].Floor == simulated_floor && (simulated_direction == current_order_queue[i].Direction || current_order_queue[i].Direction == COMMAND) {
 				//order was theoretically served and next element in the current queue is up for evaluation
 				i++
 				fmt.Println("i, sim1: ", i)
@@ -134,11 +137,11 @@ func sort_order_queue(new_order Button, current_state ElevatorState) []Button {
 		if !place_found {
 			for simulated_floor >= 0 && simulated_floor < NUM_FLOORS {
 
-				if new_order.Floor == simulated_floor && (simulated_direction == new_order.Button_type || new_order.Button_type == COMMAND) {
+				if new_order.Floor == simulated_floor && (simulated_direction == new_order.Direction || new_order.Direction == COMMAND) {
 					place_in_queue = i
 					place_found = true
 					break
-				} else if current_order_queue[i].Floor == simulated_floor && (simulated_direction == current_order_queue[i].Button_type || current_order_queue[i].Button_type == COMMAND) {
+				} else if current_order_queue[i].Floor == simulated_floor && (simulated_direction == current_order_queue[i].Direction || current_order_queue[i].Direction == COMMAND) {
 					//order was theoretically served and next element in the current queue is up for evaluation
 					i++
 					fmt.Println("i, sim2: ", i)
@@ -157,11 +160,11 @@ func sort_order_queue(new_order Button, current_state ElevatorState) []Button {
 
 		if !place_found {
 			for simulated_floor != (current_state.CurrentFloor + simulated_direction) {
-				if new_order.Floor == simulated_floor && (simulated_direction == new_order.Button_type || new_order.Button_type == COMMAND) {
+				if new_order.Floor == simulated_floor && (simulated_direction == new_order.Direction || new_order.Direction == COMMAND) {
 					place_in_queue = i
 					place_found = true
 					break
-				} else if current_order_queue[i].Floor == simulated_floor && (simulated_direction == current_order_queue[i].Button_type || current_order_queue[i].Button_type == COMMAND) {
+				} else if current_order_queue[i].Floor == simulated_floor && (simulated_direction == current_order_queue[i].Direction || current_order_queue[i].Direction == COMMAND) {
 					//order was theoretically served and next element in the current queue is up for evaluation
 					i++
 					fmt.Println("i, sim3: ", i)
@@ -176,7 +179,7 @@ func sort_order_queue(new_order Button, current_state ElevatorState) []Button {
 			}
 		}
 	}
-	sorted_order_queue := append(current_order_queue[:place_in_queue], append([]Button{new_order}, current_order_queue[place_in_queue:]...)...)
+	sorted_order_queue := append(current_order_queue[:place_in_queue], append([]Order{new_order}, current_order_queue[place_in_queue:]...)...)
 	fmt.Println("Order queue after sort")
 	for _, v := range sorted_order_queue {
 		Print_order(v)
@@ -233,7 +236,9 @@ func State_machine_top_loop() {
 	}
 }
 */
-func isOrderInQueue(order_queue []Button, new_order Button) bool {
+/*
+ */
+func isOrderInQueue(order_queue []Order, new_order Order) bool {
 	for _, queueElements := range order_queue {
 		if queueElements == new_order {
 			return true
@@ -243,36 +248,36 @@ func isOrderInQueue(order_queue []Button, new_order Button) bool {
 }
 
 //UTKAST TIL REFORMATERT HEIS ER UNDER HER. KOM MED GODE NAVN PÅ TING ALLEREDE NÅ
-func MoveElevatorAndOpenDoor(floorWithOrderReachedChan chan Button, orderServedChan chan Button, sendElevInDirectionChan chan int) {
+func MoveElevatorAndOpenDoor(floorWithOrderReachedChan chan Order, orderServedChan chan Order, sendElevInDirectionChan chan int) {
 	//CAN BE: IDLE, OPEN_DOOR, GO_TO_FLOOR (evt can G_T_F be go_up, and go_down)
 	for {
 		select {
 		case newestOrder := <-floorWithOrderReachedChan:
-			if newestOrder.Button_type != COMMAND {
-				StateOfElev.Direction = newestOrder.Button_type
+			if newestOrder.Direction != COMMAND {
+				StateOfElev.Direction = newestOrder.Direction
 			}
-			driver.Elev_drive_elevator(0)
-			driver.Open_door()
+			driver.ElevDriveElevator(0)
+			driver.OpenDoor()
 			//After door is closed. Tell someone above
 			orderServedChan <- newestOrder
 		case goInDirection := <-sendElevInDirectionChan:
 			if goInDirection == UP {
-				driver.Elev_drive_elevator(UP)
+				driver.ElevDriveElevator(UP)
 				StateOfElev.Direction = UP
 			} else {
-				driver.Elev_drive_elevator(DOWN)
+				driver.ElevDriveElevator(DOWN)
 				StateOfElev.Direction = DOWN
 			}
-			ToNetworkNewElevStateChan <-StateOfElev
+			ToNetworkNewElevStateChan <- StateOfElev
 			//go to floor, if below, go up. if above, go down. This is only needed when the elevator is idle.
 		}
 	}
 }
 
 func DetectNewFloorReached() {
-	mostRecentFloorVisited := driver.Elev_get_floor_sensor_signal()
+	mostRecentFloorVisited := driver.ElevGetFloorSensorSignal()
 	for {
-		if sensor_result := driver.Elev_get_floor_sensor_signal(); sensor_result != -1 && sensor_result != mostRecentFloorVisited {
+		if sensor_result := driver.ElevGetFloorSensorSignal(); sensor_result != -1 && sensor_result != mostRecentFloorVisited {
 			mostRecentFloorVisited = sensor_result
 			StateOfElev.PreviousFloor = StateOfElev.CurrentFloor
 			StateOfElev.CurrentFloor = sensor_result
@@ -290,14 +295,14 @@ func SetButtonLights(){
 */
 
 //Vurder omformulere denne, slik at den kalles istedenfor å kjøres i en egen goroutine
-func feedDirectionCommandsToElev(orderQueueChangeChan chan bool, sendElevInDirectionChan chan int, targetFloorReachedChan chan Button) {
+func feedDirectionCommandsToElev(orderQueueChangeChan chan bool, sendElevInDirectionChan chan int, targetFloorReachedChan chan Order) {
 	//State of elev is known globally for now
 	//Send til hit når ordre er served også
 	stopSignalSent := false
 	go func() {
 		for {
 			if len(StateOfElev.OrderQueue) > 0 {
-				if StateOfElev.OrderQueue[0].Floor == driver.Elev_get_floor_sensor_signal() {
+				if StateOfElev.OrderQueue[0].Floor == driver.ElevGetFloorSensorSignal() {
 					if !stopSignalSent {
 						targetFloorReachedChan <- StateOfElev.OrderQueue[0]
 						stopSignalSent = true
@@ -326,12 +331,12 @@ func feedDirectionCommandsToElev(orderQueueChangeChan chan bool, sendElevInDirec
 
 func NewTopLoop() {
 	//Her kan man anta at man står stille i en etasje
-	StateOfElev.CurrentFloor = driver.Elev_get_floor_sensor_signal()
+	StateOfElev.CurrentFloor = driver.ElevGetFloorSensorSignal()
 	StateOfElev.Direction = DOWN
-	StateOfElev.MyIP = communication.GetMyIP()
+	StateOfElev.IP = communication.GetLocalIP()
 
-	targetFloorReachedChan := make(chan Button)
-	orderServedChan := make(chan Button)
+	targetFloorReachedChan := make(chan Order)
+	orderServedChan := make(chan Order)
 	sendElevInDirectionChan := make(chan int)
 	orderQueueChangeChan := make(chan bool)
 
@@ -353,12 +358,9 @@ func NewTopLoop() {
 
 			}
 
-
 			if indexOfServedOrder == -1 {
 				fmt.Println("Error! Couldnt find served order in local queue")
 			} else {
-				servedOrder.Button_pressed = false
-				SetButtonLightChan <- servedOrder
 				StateOfElev.OrderQueue = append(StateOfElev.OrderQueue[:indexOfServedOrder], StateOfElev.OrderQueue[indexOfServedOrder+1:]...)
 				orderQueueChangeChan <- true
 				fmt.Println("order served")
@@ -369,12 +371,11 @@ func NewTopLoop() {
 				break
 			} else {
 				StateOfElev.OrderQueue = sort_order_queue(newOrder, StateOfElev)
-				copyOfOrderList := make([]Button, len(StateOfElev.OrderQueue))
+				copyOfOrderList := make([]Order, len(StateOfElev.OrderQueue))
 				copy(copyOfOrderList, StateOfElev.OrderQueue)
 				orderQueueChangeChan <- true
-				SetButtonLightChan <- newOrder
 			}
-			ToNetworkNewElevStateChan <-StateOfElev
+			ToNetworkNewElevStateChan <- StateOfElev
 		}
 	}
 
