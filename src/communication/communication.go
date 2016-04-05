@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"reflect"
+	//"reflect"
 	"time"
 )
 
@@ -61,7 +61,6 @@ func CommNeedBetterName() {
 	sendNetworkMessageChan := make(chan []byte)
 	messageFromNetworkChan := make(chan []byte)
 
-	changeFromLocalElevChan := make(chan int)
 	ackdByAllChan := make(chan MessageWithHeader)
 	resendMessageChan := make(chan MessageWithHeader)
 	newAckFromNetworkChan := make(chan MessageWithHeader)
@@ -127,23 +126,10 @@ func CommNeedBetterName() {
 			}
 		}
 	}()
-	time.Sleep(time.Second * 5)
-
-	//move ackd by allchan. Is it needed to let someone know that everyone has received it?
-	go func() {
-		for {
-			select {
-			case <-ackdByAllChan:
-				fmt.Println("Message ackd by all")
-			default:
-				changeFromLocalElevChan <- 322
-			}
-			time.Sleep(time.Second * 2)
-
-		}
-	}()
-	fmt.Println("End of main")
-	time.Sleep(time.Second * 100)
+	for {
+		<-ackdByAllChan
+		fmt.Println("ackd by all!")
+	}
 }
 
 func readUpdateElevatorOverview(newShoutFromElevatorChan chan string, newElevatorChan chan string, elevatorGoneChan chan string) {
@@ -208,7 +194,7 @@ func GetLocalIP() string {
 				ip = v.IP
 			}
 			if bytes.Compare(ip, ipLow) >= 0 && bytes.Compare(ip, ipHigh) <= 0 {
-				fmt.Println("Printing type: ", reflect.TypeOf(ip))
+				//fmt.Println("Printing type: ", reflect.TypeOf(ip))
 				return ip.String()
 			}
 		}
@@ -300,31 +286,43 @@ func SendMessagesToAllElevators(sendNetworkMessageChan chan []byte, newConnectio
 
 //Not completely tested yet
 func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan chan MessageWithHeader, resendMessageChan chan MessageWithHeader) {
+	go func() {
+		for {
+			expiredMessage := <-resendMessageChan
+			expiredMessage.Ack = false
+			expiredMessage.SenderAddr = GetLocalIP()
+			encodedPacket, err := json.Marshal(expiredMessage)
+			fmt.Println("Message expired, resend")
+			if err != nil {
+				fmt.Println("error when encoding: ", err)
+			}
+			sendToNetworkChan <- encodedPacket
+		}
+
+	}()
 	for {
 		var tag string = ""
 		var encodedData []byte = nil
+		fmt.Println("encodemessages: start of select")
 		select {
-		//The only difference between the cases is the tag that is coming along
-		case newOrder := <-ToNetworkNewOrderChan:
+		case newOrder := <-ExternalButtonPressedChan:
 			tag = "newOrd"
 			encodedData, _ = json.Marshal(newOrder)
+			fmt.Println("encodeMessagesToNetwork: order encoded1")
 		case orderTo := <-ToNetworkOrderAssignedToChan:
 			tag = "ordTo"
 			encodedData, _ = json.Marshal(orderTo)
-
+			fmt.Println("encodeMessagesToNetwork: order encoded2")
 		case orderServed := <-ToNetworkOrderServedChan:
 			tag = "ordSer"
 			encodedData, _ = json.Marshal(orderServed)
-
+			fmt.Println("encodeMessagesToNetwork: order encoded3")
 		case elevState := <-ToNetworkNewElevStateChan:
 			tag = "elSta"
 			encodedData, _ = json.Marshal(elevState)
-
-		//Resends message when timer runs out
-		case message := <-resendMessageChan:
-			tag = message.Tag
-			encodedData = message.Data
+			fmt.Println("encodeMessagesToNetwork: order encoded4")
 		}
+		fmt.Println("encodemessages: end of select")
 		//alt felles gjøres her
 		var newPacket MessageWithHeader = MessageWithHeader{Data: encodedData, Tag: tag, Ack: false, SenderAddr: localAddr}
 		encodedPacket, err := json.Marshal(newPacket)
@@ -334,7 +332,9 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 		//Send packet to network. Send copy to local center that keeps track of Ack's
 		//Better names needed all over the place
 		sendToNetworkChan <- encodedPacket
+		fmt.Println("packet sent to network")
 		sendToAckTimerChan <- newPacket
+		fmt.Println("End of encodedfunc")
 	}
 }
 
@@ -389,6 +389,7 @@ func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNet
 					FromNetworkOrderAssignedToChan <- orderAss
 				}
 			case "elSta":
+				fmt.Println("elevatorstate received go encode")
 				var newState ElevatorState
 				err := json.Unmarshal(message.Data, &newState)
 				if err != nil {
@@ -402,6 +403,10 @@ func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNet
 	}
 }
 
+/*
+Ting skal helst kun sendes en gang over nett. Det er greit å discarde meldinger, men
+
+*/
 func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, ackdByAllChan chan MessageWithHeader, newMessageSentChan chan MessageWithHeader, newAckChan chan MessageWithHeader, elevatorListChangedChan chan bool) {
 	var unAckdMessages []ackTimer
 	/*
@@ -423,9 +428,11 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, ackdByAllChan
 				unAckdMessages[i].IpList = localIPlist
 				resendMessageChan <- v.Message //With nil entry in senderaddress, Maybe not though.
 			}
+
 			//fmt.Println("listOfElevatorsInNetwork when elevator change: ", listOfElevatorsInNetwork)
 		case newAck := <-newAckChan:
 			senderOfAck := newAck.SenderAddr
+
 			//fmt.Println("sender of ack: ", senderOfAck)
 			//fmt.Println("Ready to acknowledge")
 			//maybe add some testing when element isnt in map, or do nothing
@@ -449,18 +456,26 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, ackdByAllChan
 				}
 			}
 		case newMessage := <-newMessageSentChan:
-			localIPlist := make([]string, len(listOfElevatorsInNetwork))
-			copy(localIPlist, listOfElevatorsInNetwork)
-			newAckTimer := ackTimer{Message: newMessage, DeadLine: time.Now().Add(time.Second * ACK_DEADLINE), IpList: localIPlist}
-			unAckdMessages = append(unAckdMessages, newAckTimer)
-			fmt.Println("iplist of message: ", unAckdMessages[len(unAckdMessages)-1].IpList)
+			notInUnackdMessages := true
+			for _, v := range unAckdMessages {
+				if bytes.Equal(v.Message.Data, newMessage.Data) {
+					notInUnackdMessages = false
+				}
+
+			}
+			if notInUnackdMessages {
+				localIPlist := make([]string, len(listOfElevatorsInNetwork))
+				copy(localIPlist, listOfElevatorsInNetwork)
+				newAckTimer := ackTimer{Message: newMessage, DeadLine: time.Now().Add(time.Second * ACK_DEADLINE), IpList: localIPlist}
+				unAckdMessages = append(unAckdMessages, newAckTimer)
+			}
 		default:
 			for i, v := range unAckdMessages {
 				if time.Now().After(v.DeadLine) {
 					resendMessageChan <- v.Message
-					fmt.Println("ACK DEADLINE EXPIRED")
 					unAckdMessages[i].DeadLine = time.Now().Add(time.Second * ACK_DEADLINE)
 					localIPlist := make([]string, len(listOfElevatorsInNetwork))
+					copy(localIPlist, listOfElevatorsInNetwork)
 					unAckdMessages[i].IpList = localIPlist
 				}
 			}

@@ -30,27 +30,32 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 	var OrdersToBeAssignedByAll []AssignedOrderAndElevList
 	localAddr := communication.GetLocalIP()
 	var elevList []string
+
 	for {
 		select {
 		case newOrder := <-newOrderFromNetworkChan:
 			orderIsRegistered := false
+			fmt.Println("Iterating..")
 			for _, v := range OrdersToBeAssignedByAll {
 				if v.OrdAss.Order == newOrder {
 					orderIsRegistered = true
 				}
 			}
+			fmt.Println("done searching for order")
 			if !orderIsRegistered {
 				//for now, the elevator states are all globally known. May send copy or something else later.
 				assignedElevAddr := optalg.Opt_alg(newOrder)
+				fmt.Println("optalg complete")
 				NewOrderToBeAssigned := OrderAssigned{Order: newOrder, AssignedTo: assignedElevAddr, SentFrom: localAddr}
 				//Elevlist should be copied, global or maybe everyone that uses it should be in the same module
 				OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, AssignedOrderAndElevList{NewOrderToBeAssigned, elevList})
-				time.Sleep(time.Millisecond * 20) //This is to make sure you get to make the list before
+				time.Sleep(time.Millisecond * 100) //This is to make sure you get to make the list before
 				ToNetworkOrderAssignedToChan <- NewOrderToBeAssigned
 			} else {
 				fmt.Println("Order already registered. Discard message.")
 			}
 		case newOrdAss := <-FromNetworkOrderAssignedToChan:
+			fmt.Println("new order assigned to discovered!")
 			posInSlice := -1
 			for i, v := range OrdersToBeAssignedByAll {
 				if newOrdAss.Order == v.OrdAss.Order {
@@ -71,6 +76,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 					time.Sleep(time.Millisecond * 20) //This is to make sure you get to make the list before
 					ToNetworkOrderAssignedToChan <- NewOrderToBeAssigned
 				} else {
+					fmt.Println("")
 					for i, v := range OrdersToBeAssignedByAll[posInSlice].ElevList {
 						if newOrdAss.SentFrom == v {
 							OrdersToBeAssignedByAll[posInSlice].ElevList = append(OrdersToBeAssignedByAll[posInSlice].ElevList[:i], OrdersToBeAssignedByAll[posInSlice].ElevList[i+1:]...)
@@ -121,12 +127,13 @@ func orderIsInQueue(orderQueue []Order, newOrder Order) bool {
 
 func TopLogicNeedBetterName() {
 	var internalArray [NUM_FLOORS]int
-
 	resetAssignFuncChan := make(chan bool)
 	newOrderToBeAssignedChan := make(chan Order)
 	orderDoneAssignedChan := make(chan OrderAssigned)
 	go ResendOrdersWhenError(resetAssignFuncChan)
 	go AssignOrdersAndWaitForAgreement(newOrderToBeAssignedChan, resetAssignFuncChan, orderDoneAssignedChan)
+
+	fmt.Println(commonExternalArray)
 	for {
 		select {
 		case newButton := <-InternalButtonPressedChan:
@@ -138,7 +145,7 @@ func TopLogicNeedBetterName() {
 				NewOrderToLocalElevChan <- newButton
 			}
 		case newOrder := <-FromNetworkNewOrderChan:
-			fmt.Println("wooo")
+			fmt.Println("wooo2")
 			dir := UP
 			if newOrder.Direction == DOWN {
 				dir = 0
@@ -146,12 +153,14 @@ func TopLogicNeedBetterName() {
 			if commonExternalArray[newOrder.Floor][dir] == 0 {
 				commonExternalArray[newOrder.Floor][dir] = 1
 			}
-
 			elevatorStateTracker.WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
 
 			if !orderIsInQueue(externalOrdersNotTaken, newOrder) {
 				externalOrdersNotTaken = append(externalOrdersNotTaken, newOrder)
 			}
+			driver.SetButtonLight(newOrder, true)
+
+			fmt.Println("TOPLOGIC: to assign func")
 			newOrderToBeAssignedChan <- newOrder //the receiver will handle duplicates
 			driver.SetButtonLight(newOrder, true)
 
@@ -184,8 +193,8 @@ func TopLogicNeedBetterName() {
 			elevatorStateTracker.WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
 			driver.SetButtonLight(servedOrder, false)
 
-			/*case newElev := <-FromNetworkNewElevChan:
-			fmt.Println("DONT KNOW IF WE NEED THIS CASE", newElev)*/
+		case <-FromNetworkNewElevChan:
+			resetAssignFuncChan <- true
 
 		}
 	}

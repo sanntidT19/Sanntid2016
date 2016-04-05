@@ -1,15 +1,15 @@
 package main
 
 import (
+	"./communication"
 	"./driver"
+	"./elevatorStateTracker"
 	. "./globalChans"
 	//. "./globalStructs"
-	"./stateMachine"
-	"./elevatorStateTracker"
 	"./optalg"
-	"./communication"
+	"./stateMachine"
 	"./topLevel"
-	
+
 	"fmt"
 	"time"
 	//"encoding/gob"
@@ -91,13 +91,10 @@ func main() {
 	InitChans()
 	driver.ElevMainTesterFunction()
 	go elevatorStateTracker.StartupDraft()
-	go stateMachine.NewTopLoop()
 	go topLevel.TopLogicNeedBetterName()
 	go optalg.UpdateElevatorStateList()
 	go communication.CommNeedBetterName()
-
-
-
+	go stateMachine.NewTopLoop()
 	fmt.Println("Main: sleeping")
 	time.Sleep(time.Second * 1000)
 }

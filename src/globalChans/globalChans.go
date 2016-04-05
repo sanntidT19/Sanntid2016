@@ -57,5 +57,9 @@ func InitChans() {
 	AddOrderAssignedToElevStateChan = make(chan globalStructs.OrderAssigned)
 
 	InternalOrderServedChan = make(chan globalStructs.Order)
+
+	ExternalButtonPressedChan = make(chan globalStructs.Order)
+	InternalButtonPressedChan = make(chan globalStructs.Order)
+
 	fmt.Println("finished initializing chans")
 }

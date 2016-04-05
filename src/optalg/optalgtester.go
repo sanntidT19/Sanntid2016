@@ -1,11 +1,10 @@
 package optalg
 
 import (
-	"math"
+	. "../globalChans"
+	. "../globalStructs"
 	"fmt"
-	."../globalStructs"
-	."../globalChans"
-
+	"math"
 )
 
 /*
@@ -27,7 +26,6 @@ var el_state3 ElevatorState = ElevatorState{MyIP: "123.123.123.125",
 */
 var all_elevs []ElevatorState
 
-
 func Opt_alg(new_order Order) string {
 	numOfElevs := len(all_elevs)
 	IP_cost_list := make([]int, numOfElevs)
@@ -35,6 +33,7 @@ func Opt_alg(new_order Order) string {
 	var Ele_nmr int = -1
 	var IP_score int = 100
 	var Optimal_IP string = "0"
+	fmt.Println("optalg: number of elevs seen: ", numOfElevs)
 	for i, v := range all_elevs {
 		Queue_len_list[i] = len(v.OrderQueue)
 		if v.CurrentFloor < new_order.Floor {
@@ -66,58 +65,54 @@ func Opt_alg(new_order Order) string {
 			}
 		}
 	}
-
-	fmt.Print("IP 1 er:", IP_cost_list[0], "\n")
-	fmt.Print("IP 2 er:", IP_cost_list[1], "\n")
-	fmt.Print("IP 3 er:", IP_cost_list[2], "\n")
 	return Optimal_IP
 }
+
 /*
 func main() {
 	fmt.Print("optimal IP er:", opt_alg(new_order))
 }
 */
-func GetOrderQueueOfDeadElev(deadIP string) []Order{
-	for _,v := range all_elevs{
-		if v.IP == deadIP{
-			listCopy := make([]Order,len(v.OrderQueue))
-			copy(listCopy,v.OrderQueue)
-			return listCopy 
+func GetOrderQueueOfDeadElev(deadIP string) []Order {
+	for _, v := range all_elevs {
+		if v.IP == deadIP {
+			listCopy := make([]Order, len(v.OrderQueue))
+			copy(listCopy, v.OrderQueue)
+			return listCopy
 		}
 	}
 	return nil
 }
 
-
 //may not need channels, think about if its better to just call it from somewhere else
-func UpdateElevatorStateList(){
-	for{
-		select{
-			case updatedElevState:= <-FromNetworkNewElevStateChan:
+func UpdateElevatorStateList() {
+	for {
+		select {
+		case updatedElevState := <-FromNetworkNewElevStateChan:
 			elevInList := false
-			for i,v := range all_elevs{
-				if updatedElevState.IP == v.IP{
+			for i, v := range all_elevs {
+				if updatedElevState.IP == v.IP {
 					all_elevs[i] = updatedElevState
 					elevInList = true
 					break
 				}
 			}
-			if !elevInList{
-				all_elevs = append(all_elevs,updatedElevState)
+			if !elevInList {
+				all_elevs = append(all_elevs, updatedElevState)
 			}
-			case elevatorTakesOrder := <-AddOrderAssignedToElevStateChan:
-				for _, v := range all_elevs{
-					if elevatorTakesOrder.AssignedTo == v.IP{
-						v.OrderQueue = append(v.OrderQueue, elevatorTakesOrder.Order)
-					}
+		case elevatorTakesOrder := <-AddOrderAssignedToElevStateChan:
+			for _, v := range all_elevs {
+				if elevatorTakesOrder.AssignedTo == v.IP {
+					v.OrderQueue = append(v.OrderQueue, elevatorTakesOrder.Order)
 				}
-			case deadElev :=<- ToOptAlgDeleteElevChan:
-				for i, v := range all_elevs{
-					if(v.IP == deadElev){
-						all_elevs = append(all_elevs[:i],all_elevs[i+1:]...)
-						break
-					}
+			}
+		case deadElev := <-ToOptAlgDeleteElevChan:
+			for i, v := range all_elevs {
+				if v.IP == deadElev {
+					all_elevs = append(all_elevs[:i], all_elevs[i+1:]...)
+					break
 				}
+			}
 		}
 	}
 }

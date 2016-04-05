@@ -144,15 +144,17 @@ func CheckForButtonsPressed() { //denne stopper ved trykk på en knapp. Hvorfor?
 						button_type = COMMAND
 					}
 					if button_type == COMMAND {
+						fmt.Println("CheckForButtonsPressed: internal button pressed")
 						InternalButtonPressedChan <- Order{i, button_type} //funksjonen stopper her
 					} else {
+						fmt.Println("CheckForButtonsPressed: external button pressed")
 						ExternalButtonPressedChan <- Order{i, button_type} // og her
 					}
 				}
 			}
 
 		}
-		time.Sleep(100 * time.Millisecond) //Doblet sleep. Se hvordan det går. Kanskje også en sleep etter
+		time.Sleep(200 * time.Millisecond) //Doblet sleep. Se hvordan det går. Kanskje også en sleep etter
 	}
 }
 

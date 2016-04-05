@@ -334,6 +334,7 @@ func NewTopLoop() {
 	StateOfElev.CurrentFloor = driver.ElevGetFloorSensorSignal()
 	StateOfElev.Direction = DOWN
 	StateOfElev.IP = communication.GetLocalIP()
+	ToNetworkNewElevStateChan <- StateOfElev
 
 	targetFloorReachedChan := make(chan Order)
 	orderServedChan := make(chan Order)
@@ -343,6 +344,8 @@ func NewTopLoop() {
 	go DetectNewFloorReached()
 	go MoveElevatorAndOpenDoor(targetFloorReachedChan, orderServedChan, sendElevInDirectionChan)
 	go feedDirectionCommandsToElev(orderQueueChangeChan, sendElevInDirectionChan, targetFloorReachedChan)
+
+	fmt.Println("Statemachine: ready")
 	for {
 		select {
 		//Might need to put the first case in its on goroutine
@@ -357,12 +360,16 @@ func NewTopLoop() {
 				}
 
 			}
-
 			if indexOfServedOrder == -1 {
 				fmt.Println("Error! Couldnt find served order in local queue")
 			} else {
 				StateOfElev.OrderQueue = append(StateOfElev.OrderQueue[:indexOfServedOrder], StateOfElev.OrderQueue[indexOfServedOrder+1:]...)
 				orderQueueChangeChan <- true
+				if servedOrder.Direction == COMMAND {
+					InternalOrderServedChan <- servedOrder
+				} else {
+					ToNetworkOrderServedChan <- servedOrder
+				}
 				fmt.Println("order served")
 			}
 			ToNetworkNewElevStateChan <- StateOfElev
