@@ -24,10 +24,13 @@ var el_state3 ElevatorState = ElevatorState{MyIP: "123.123.123.125",
 	Direction:    1,
 	OrderQueue:       []Button{Button{2, -1, false}}}
 */
-var all_elevs []ElevatorState
+var allElevs []ElevatorState
 
 func Opt_alg(new_order Order) string {
-	numOfElevs := len(all_elevs)
+	numOfElevs := len(allElevs)
+	all_elevs := make([]ElevatorState, numOfElevs)
+	copy(all_elevs, allElevs)
+
 	IP_cost_list := make([]int, numOfElevs)
 	Queue_len_list := make([]int, numOfElevs)
 	var Ele_nmr int = -1
@@ -65,6 +68,7 @@ func Opt_alg(new_order Order) string {
 			}
 		}
 	}
+	fmt.Println("My choice: ", Optimal_IP)
 	return Optimal_IP
 }
 
@@ -74,7 +78,7 @@ func main() {
 }
 */
 func GetOrderQueueOfDeadElev(deadIP string) []Order {
-	for _, v := range all_elevs {
+	for _, v := range allElevs {
 		if v.IP == deadIP {
 			listCopy := make([]Order, len(v.OrderQueue))
 			copy(listCopy, v.OrderQueue)
@@ -89,27 +93,28 @@ func UpdateElevatorStateList() {
 	for {
 		select {
 		case updatedElevState := <-FromNetworkNewElevStateChan:
+			fmt.Println("New state received!")
 			elevInList := false
-			for i, v := range all_elevs {
+			for i, v := range allElevs {
 				if updatedElevState.IP == v.IP {
-					all_elevs[i] = updatedElevState
+					allElevs[i] = updatedElevState
 					elevInList = true
 					break
 				}
 			}
 			if !elevInList {
-				all_elevs = append(all_elevs, updatedElevState)
+				allElevs = append(allElevs, updatedElevState)
 			}
 		case elevatorTakesOrder := <-AddOrderAssignedToElevStateChan:
-			for _, v := range all_elevs {
+			for _, v := range allElevs {
 				if elevatorTakesOrder.AssignedTo == v.IP {
 					v.OrderQueue = append(v.OrderQueue, elevatorTakesOrder.Order)
 				}
 			}
 		case deadElev := <-ToOptAlgDeleteElevChan:
-			for i, v := range all_elevs {
+			for i, v := range allElevs {
 				if v.IP == deadElev {
-					all_elevs = append(all_elevs[:i], all_elevs[i+1:]...)
+					allElevs = append(allElevs[:i], allElevs[i+1:]...)
 					break
 				}
 			}

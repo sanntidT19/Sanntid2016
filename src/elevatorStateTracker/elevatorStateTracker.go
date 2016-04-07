@@ -7,6 +7,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"os"
+	"time"
 )
 
 //this will show
@@ -82,6 +83,7 @@ func ReassignOrdersAfterShutdown(formerState AllOrders, networkIsUp bool) {
 	for i := 0; i < NUM_FLOORS; i++ {
 		if formerState.InternalOrders[i] == 1 {
 			NewOrderToLocalElevChan <- Order{Floor: i, Direction: COMMAND}
+			time.Sleep(time.Millisecond * 100)
 		}
 	}
 	for i := 0; i < NUM_FLOORS; i++ {
@@ -96,6 +98,7 @@ func ReassignOrdersAfterShutdown(formerState AllOrders, networkIsUp bool) {
 				} else {
 					NewOrderToLocalElevChan <- Order{Floor: i, Direction: direction}
 				}
+				time.Sleep(time.Millisecond * 100)
 			}
 		}
 	}
