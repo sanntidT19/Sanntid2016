@@ -180,10 +180,10 @@ func sort_order_queue(new_order Order, current_state ElevatorState) []Order {
 		}
 	}
 	sorted_order_queue := append(current_order_queue[:place_in_queue], append([]Order{new_order}, current_order_queue[place_in_queue:]...)...)
-	fmt.Println("Order queue after sort")
+	/*fmt.Println("Order queue after sort")
 	for _, v := range sorted_order_queue {
 		Print_order(v)
-	}
+	}*/
 	return sorted_order_queue
 }
 

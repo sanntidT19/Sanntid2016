@@ -1,6 +1,6 @@
 package globalStructs
 
-const(
+const (
 	UP          = 1
 	DOWN        = -1
 	COMMAND     = 0
@@ -9,22 +9,21 @@ const(
 	MOTOR_SPEED = 2800
 )
 
-
 type Button struct {
 	Floor          int
 	Button_type    int
 	Button_pressed bool
 }
 
-type OrderAssigned struct{
+type OrderAssigned struct {
 	AssignedTo string
-	SentFrom string
-	Order Order
+	SentFrom   string
+	Order      Order
 }
 
 type Order struct {
-	Floor int
-	Direction int 
+	Floor     int
+	Direction int
 }
 
 //This is a struct you could send to all other elevators
@@ -37,7 +36,7 @@ type ElevatorState struct {
 
 }
 
-type AllOrders struct{
-	ExternalOrders [NUM_FLOORS][NUM_BUTTONS-1] int
-	InternalOrders [NUM_FLOORS] int
+type AllOrders struct {
+	ExternalOrders [NUM_FLOORS][NUM_BUTTONS - 1]int
+	InternalOrders [NUM_FLOORS]int
 }

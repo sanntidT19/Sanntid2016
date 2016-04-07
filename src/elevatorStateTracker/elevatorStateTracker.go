@@ -1,24 +1,23 @@
 package elevatorStateTracker
-import(
-	."../globalStructs"
-	."../globalChans"
+
+import (
+	"../driver"
+	. "../globalChans"
+	. "../globalStructs"
 	"encoding/gob"
-	"os"
 	"fmt"
+	"os"
 )
 
-
-//this will show 
+//this will show
 const PATH_OF_SAVED_ORDER_STATE = "elevState.gob"
-
-
 
 /*
 func initalize_state_tracker(){
 	//read from file to check if system was killed
 	//easy solution: if thats the case, set current state to that (may serve same order twice, but sverre wont die and its avoiding complicated solutions)
-	//if not, initialize normally	
-	// get floor and all that shit from other modules 
+	//if not, initialize normally
+	// get floor and all that shit from other modules
 	//send the current state to everybody
 }*/
 
@@ -28,11 +27,11 @@ func send_updated_elevator_state(){
 }
 */
 
-func WriteCurrentOrdersToFile(currentState AllOrders){
+func WriteCurrentOrdersToFile(currentState AllOrders) {
 	//temp for testing
 	//update this whenever the local elevator gets an order/command
 	dataFile, err := os.Create(PATH_OF_SAVED_ORDER_STATE)
-	if err != nil{
+	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
@@ -42,11 +41,11 @@ func WriteCurrentOrdersToFile(currentState AllOrders){
 	dataFile.Close()
 }
 
-func ReadOrdersStateBeforeShutdown() AllOrders{
+func ReadOrdersStateBeforeShutdown() AllOrders {
 	//start with reading it
 	var formerState AllOrders
 
-	if _, err := os.Stat(PATH_OF_SAVED_ORDER_STATE); os.IsNotExist(err){
+	if _, err := os.Stat(PATH_OF_SAVED_ORDER_STATE); os.IsNotExist(err) {
 		fmt.Println("Local save of elevator state not detected. It has been cleared/this is the first run on current PC")
 		return formerState
 	}
@@ -63,14 +62,13 @@ func ReadOrdersStateBeforeShutdown() AllOrders{
 	return formerState
 }
 
-
-func PrematureShutdownOccured(formerState AllOrders) bool{
-	for i:= 0; i < NUM_FLOORS; i++{
-		if formerState.InternalOrders[i] != 0{
+func PrematureShutdownOccured(formerState AllOrders) bool {
+	for i := 0; i < NUM_FLOORS; i++ {
+		if formerState.InternalOrders[i] != 0 {
 			return true
 		}
-		for j:= 0; j < NUM_BUTTONS-1; j++{
-			 if formerState.ExternalOrders[i][j] != 0{
+		for j := 0; j < NUM_BUTTONS-1; j++ {
+			if formerState.ExternalOrders[i][j] != 0 {
 				return true
 			}
 		}
@@ -78,44 +76,70 @@ func PrematureShutdownOccured(formerState AllOrders) bool{
 	return false
 }
 
-
 //CHANNEL NAMES MIGHT BE WRONG. MIGHT NEED TO SWAP UP AND DOWN VALUES IN INNER FOR LOOP
 //Make sure to update networkisup
-func ReassignOrdersAfterShutdown(formerState AllOrders, networkIsUp bool){
-	for i := 0; i < NUM_FLOORS; i++{
-		if formerState.InternalOrders[i] == 1{
+func ReassignOrdersAfterShutdown(formerState AllOrders, networkIsUp bool) {
+	for i := 0; i < NUM_FLOORS; i++ {
+		if formerState.InternalOrders[i] == 1 {
 			NewOrderToLocalElevChan <- Order{Floor: i, Direction: COMMAND}
 		}
 	}
-	for i := 0; i< NUM_FLOORS; i++{
-		for j := 0; j < NUM_BUTTONS-1; j++{
-			if formerState.ExternalOrders[i][j] == 1{
+	for i := 0; i < NUM_FLOORS; i++ {
+		for j := 0; j < NUM_BUTTONS-1; j++ {
+			if formerState.ExternalOrders[i][j] == 1 {
 				direction := UP
-				if j == 0{
+				if j == 0 {
 					direction = DOWN
 				}
-				if networkIsUp{
-					ToNetworkNewOrderChan <- Order{Floor: i, Direction: direction}
-				}else{
-					NewOrderToLocalElevChan <- Order{Floor:i, Direction: direction}
+				if networkIsUp {
+					ExternalButtonPressedChan <- Order{Floor: i, Direction: direction}
+				} else {
+					NewOrderToLocalElevChan <- Order{Floor: i, Direction: direction}
 				}
 			}
 		}
 	}
 
 }
-func StartupDraft(){
+func StartupDraft() {
 	formerState := ReadOrdersStateBeforeShutdown()
 	var emptyState AllOrders = AllOrders{}
-	if formerState != emptyState{
-		if PrematureShutdownOccured(formerState){
+	/*
+		networkIsUpAtInit := false
+		select {
+		case <-timerchifan:
+			break
+		case <-FromNetworkNetworkUpChan:
+			networkIsUpAtInit = true
+		}*/
+	if formerState != emptyState {
+		if PrematureShutdownOccured(formerState) {
+
+			//Set lights!
+			for i := 0; i < NUM_FLOORS; i++ {
+				if formerState.InternalOrders[i] == 1 {
+					driver.SetButtonLight(Order{Floor: i, Direction: COMMAND}, true)
+				}
+			}
+			for i := 0; i < NUM_FLOORS; i++ {
+				for j := 0; j < NUM_BUTTONS-1; j++ {
+					if formerState.ExternalOrders[i][j] == 1 {
+						direction := UP
+						if j == 0 {
+							direction = DOWN
+						}
+						driver.SetButtonLight(Order{Floor: i, Direction: direction}, true)
+					}
+				}
+			}
+
 			//networkIsUp := readNetwork()//something like this           CHECK IF NETWORK IS UP HERE
-			ReassignOrdersAfterShutdown(formerState,true) //FOR NOW TEMPFIX         
-			//SET UP LIGHTS HERE
-		}		
+			ReassignOrdersAfterShutdown(formerState, true) //FOR NOW TEMPFIX
+		}
 	}
 }
-//If network disappears 
+
+//If network disappears
 //DONT THINK WE WILL USE THIS
 /*
 func SendAllExternalOrdersToLocalElev(currentState AllOrders){
@@ -134,11 +158,11 @@ func SendAllExternalOrdersToLocalElev(currentState AllOrders){
 */
 
 //Assume network is up. If its not, it will be detected and a different function will be called
-func ResendOrdersOfLostElev(orderQueue []Order, sendOrderToNetworkChan chan Order){
-	for _, v := range orderQueue{
-		if v.Direction != COMMAND{
+func ResendOrdersOfLostElev(orderQueue []Order, sendOrderToNetworkChan chan Order) {
+	for _, v := range orderQueue {
+		if v.Direction != COMMAND {
 			sendOrderToNetworkChan <- v
-		} 
+		}
 	}
 }
 
@@ -164,7 +188,7 @@ If network suddenly appears: local statemachine will have taken all.
 Too bad. T_T
 */
 
-/* 
+/*
 after init:
 
 elevator appears: just include it in structure which optalg uses.
@@ -173,8 +197,8 @@ do not interfere with its current queue. reset orders to be assigned by all.
 resend all unassigned orders
 
 elevator disappears:
-both other should notice this at the same time (ish). Go through this 
-elevators current queue. Send these over the network. 
+both other should notice this at the same time (ish). Go through this
+elevators current queue. Send these over the network.
 Maybe: Have a list of unassigned orders from AssignordersAndwait for agreement
 All unassigned orders should be resent.
 
@@ -193,7 +217,7 @@ need functions/channels that lets the other modules know when a new elevator is 
 an elevator is gone, network i down, and network is up
 OK
 
-toplevel: 
+toplevel:
 assignordersandwaitforagreement needs to reset queue when elevlist changed
 or network gone
 OK

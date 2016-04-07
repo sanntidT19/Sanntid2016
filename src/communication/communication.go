@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	//"reflect"
+	"reflect"
 	"time"
 )
 
@@ -39,8 +39,8 @@ type addrAndTimer struct {
 
 type MessageWithHeader struct {
 	Tag        string
-	SenderAddr string
 	Ack        bool
+	SenderAddr string
 	Data       []byte
 }
 
@@ -68,15 +68,16 @@ func CommNeedBetterName() {
 	elevatorListChangedChan := make(chan bool)
 
 	localAddr = GetLocalIP()
-
+	fmt.Println("type of getlocip return: ", reflect.TypeOf(localAddr))
 	if localAddr == "" {
 		fmt.Println("Problem using getLocalIP, expecting office-pc")
 		localAddr = "129.241.154.78"
 	}
-	fmt.Println(localAddr)
+	fmt.Println("YOLO             local addr:", localAddr)
 
 	go broadcastPrecense(broadcastPort)
 	go listenForBroadcast(broadcastPort, newShoutFromElevatorChan)
+
 	go readUpdateElevatorOverview(newShoutFromElevatorChan, newElevatorChan, elevatorGoneChan)
 	go SendMessagesToAllElevators(sendNetworkMessageChan, newConnectionChan, endConnectionChan)
 	go readMessagesFromNetwork(localAddr, commonPort, messageFromNetworkChan)
@@ -115,6 +116,7 @@ func CommNeedBetterName() {
 
 			case newElev := <-newElevatorChan:
 				fmt.Println("New elevator, address: ", newElev)
+				fmt.Println("list before change: ", listOfElevatorsInNetwork)
 				listOfElevatorsInNetwork = append(listOfElevatorsInNetwork, newElev)
 				fmt.Println("after appending ip to list : ", listOfElevatorsInNetwork)
 				newConnectionChan <- newElev
@@ -127,8 +129,13 @@ func CommNeedBetterName() {
 		}
 	}()
 	for {
-		<-ackdByAllChan
-		fmt.Println("ackd by all!")
+		select {
+		case <-ackdByAllChan:
+			fmt.Println("ackd by all!")
+		case <-FromNetworkNetworkUpChan:
+			fmt.Println("Network is up!")
+
+		}
 	}
 }
 
@@ -213,7 +220,7 @@ func broadcastPrecense(broadcastPort string) {
 	for {
 		_, err := connection.Write([]byte("I am here"))
 		if err != nil {
-			fmt.Println("BroadcastPrecense: msg not sent")
+			fmt.Println("error in bcastpres: ", err)
 		}
 		time.Sleep(time.Millisecond * 500)
 	}
@@ -240,7 +247,7 @@ func listenForBroadcast(broadcastPort string, newShoutFromElevatorChan chan stri
 /* test to iterate through connections if this doesnt work*/
 
 func readMessagesFromNetwork(localAddr string, commonPort string, messageFromNetworkChan chan []byte) {
-	buffer := make([]byte, 4096)
+	buffer := make([]byte, 2048)
 	fullAddr := localAddr + ":" + commonPort
 	listenConnAddress, _ := net.ResolveUDPAddr("udp4", fullAddr)
 	listenConn, err := net.ListenUDP("udp4", listenConnAddress)
@@ -253,7 +260,11 @@ func readMessagesFromNetwork(localAddr string, commonPort string, messageFromNet
 			fmt.Println("Error reading message, do nothing")
 		} else {
 			//Send messages to decodeFunc here.
-			messageFromNetworkChan <- buffer[:packetLength]
+			fmt.Println("length of packet:             ", packetLength)
+
+			byteSliceToDecoder := make([]byte, packetLength)
+			copy(byteSliceToDecoder, buffer[:packetLength])
+			messageFromNetworkChan <- byteSliceToDecoder
 		}
 	}
 }
@@ -290,9 +301,8 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 		for {
 			expiredMessage := <-resendMessageChan
 			expiredMessage.Ack = false
-			expiredMessage.SenderAddr = GetLocalIP()
+			expiredMessage.SenderAddr = localAddr
 			encodedPacket, err := json.Marshal(expiredMessage)
-			fmt.Println("Message expired, resend")
 			if err != nil {
 				fmt.Println("error when encoding: ", err)
 			}
@@ -303,26 +313,38 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 	for {
 		var tag string = ""
 		var encodedData []byte = nil
+		var err error
 		fmt.Println("encodemessages: start of select")
 		select {
 		case newOrder := <-ExternalButtonPressedChan:
-			tag = "newOrd"
-			encodedData, _ = json.Marshal(newOrder)
+			tag = "newOr"
+			encodedData, err = json.Marshal(newOrder)
 			fmt.Println("encodeMessagesToNetwork: order encoded1")
+			if err != nil {
+				fmt.Println("Error when encoding: ", err)
+			}
 		case orderTo := <-ToNetworkOrderAssignedToChan:
 			tag = "ordTo"
-			encodedData, _ = json.Marshal(orderTo)
+			encodedData, err = json.Marshal(orderTo)
 			fmt.Println("encodeMessagesToNetwork: order encoded2")
+			if err != nil {
+				fmt.Println("Error when encoding: ", err)
+			}
 		case orderServed := <-ToNetworkOrderServedChan:
-			tag = "ordSer"
-			encodedData, _ = json.Marshal(orderServed)
+			tag = "ordSe"
+			encodedData, err = json.Marshal(orderServed)
 			fmt.Println("encodeMessagesToNetwork: order encoded3")
+			if err != nil {
+				fmt.Println("Error when encoding: ", err)
+			}
 		case elevState := <-ToNetworkNewElevStateChan:
 			tag = "elSta"
-			encodedData, _ = json.Marshal(elevState)
+			encodedData, err = json.Marshal(elevState)
 			fmt.Println("encodeMessagesToNetwork: order encoded4")
+			if err != nil {
+				fmt.Println("Error when encoding: ", err)
+			}
 		}
-		fmt.Println("encodemessages: end of select")
 		//alt felles gjøres her
 		var newPacket MessageWithHeader = MessageWithHeader{Data: encodedData, Tag: tag, Ack: false, SenderAddr: localAddr}
 		encodedPacket, err := json.Marshal(newPacket)
@@ -332,16 +354,20 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 		//Send packet to network. Send copy to local center that keeps track of Ack's
 		//Better names needed all over the place
 		sendToNetworkChan <- encodedPacket
-		fmt.Println("packet sent to network")
+		fmt.Println("packet sent to network    LENGTH OF PACKET:  ", len(encodedPacket))
 		sendToAckTimerChan <- newPacket
 		fmt.Println("End of encodedfunc")
 	}
 }
 
 func sendAck(message MessageWithHeader, sendToNetworkChan chan []byte) {
-	message.Ack = true
-	message.SenderAddr = localAddr
-	encodedPacket, err := json.Marshal(message)
+	ackMessage := MessageWithHeader{}
+	ackMessage.Ack = true
+	ackMessage.Tag = message.Tag
+	ackMessage.SenderAddr = localAddr
+	ackMessage.Data = make([]byte, len(message.Data))
+	copy(ackMessage.Data, message.Data)
+	encodedPacket, err := json.Marshal(ackMessage)
 	if err != nil {
 		fmt.Println("error encoding resend message")
 	}
@@ -353,18 +379,19 @@ func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNet
 	//Switch on tag
 	for {
 		packetFromNetwork := <-messageFromNetworkChan
-		var message MessageWithHeader
+		var message MessageWithHeader = MessageWithHeader{}
 		err := json.Unmarshal(packetFromNetwork, &message)
 		if err != nil {
-			fmt.Println("Something went from when unmarshalling packet, do nothing (for now)")
+			fmt.Println("Something went wrong when unmarshalling packet, do nothing (for now)")
 			fmt.Println(err)
 		} else if message.Ack == true {
 			newAckFromNetworkChan <- message
 			//Things will happen here
 		} else {
 			//Maybe have this ack-echo somewhere else. For now its here
+			sendAck(message, sendToNetworkChan)
 			switch message.Tag {
-			case "newOrd":
+			case "newOr":
 				var newOrder Order
 				err := json.Unmarshal(message.Data, &newOrder)
 				if err != nil {
@@ -372,7 +399,7 @@ func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNet
 				} else {
 					FromNetworkNewOrderChan <- newOrder
 				}
-			case "ordSer":
+			case "ordSe":
 				var orderServed Order
 				err := json.Unmarshal(message.Data, &orderServed)
 				if err != nil {
@@ -389,7 +416,6 @@ func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNet
 					FromNetworkOrderAssignedToChan <- orderAss
 				}
 			case "elSta":
-				fmt.Println("elevatorstate received go encode")
 				var newState ElevatorState
 				err := json.Unmarshal(message.Data, &newState)
 				if err != nil {
@@ -398,7 +424,6 @@ func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNet
 					FromNetworkNewElevStateChan <- newState
 				}
 			}
-			sendAck(message, sendToNetworkChan)
 		}
 	}
 }

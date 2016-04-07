@@ -154,7 +154,7 @@ func CheckForButtonsPressed() { //denne stopper ved trykk på en knapp. Hvorfor?
 			}
 
 		}
-		time.Sleep(200 * time.Millisecond) //Doblet sleep. Se hvordan det går. Kanskje også en sleep etter
+		time.Sleep(100 * time.Millisecond) //Doblet sleep. Se hvordan det går. Kanskje også en sleep etter
 	}
 }
 

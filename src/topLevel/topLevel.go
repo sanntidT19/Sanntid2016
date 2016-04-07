@@ -95,6 +95,20 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 	}
 }
 
+/*
+func UpdateNetworkCondition() {
+	networkIsUp := false
+	for {
+		select {
+		case <-FromNetworkNetworkUpChan:
+			networkIsUp = true
+		case <-FromNetworkNetworkDownChan:
+			networkIsUp = false
+		}
+
+	}
+}/*
+
 //This may not be used, yo
 /*
 func SendAllOrdersOfQueueToNetwork(commonExternalArray [][] int){
@@ -137,7 +151,6 @@ func TopLogicNeedBetterName() {
 	for {
 		select {
 		case newButton := <-InternalButtonPressedChan:
-			fmt.Println("wooo")
 			if internalArray[newButton.Floor] == 0 {
 				internalArray[newButton.Floor] = 1 //Reset when order served. Tell that total state is changed?
 				elevatorStateTracker.WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
@@ -145,7 +158,6 @@ func TopLogicNeedBetterName() {
 				NewOrderToLocalElevChan <- newButton
 			}
 		case newOrder := <-FromNetworkNewOrderChan:
-			fmt.Println("wooo2")
 			dir := UP
 			if newOrder.Direction == DOWN {
 				dir = 0
@@ -165,7 +177,6 @@ func TopLogicNeedBetterName() {
 			driver.SetButtonLight(newOrder, true)
 
 		case newOrdAss := <-orderDoneAssignedChan:
-			fmt.Println("wooo")
 			AddOrderAssignedToElevStateChan <- newOrdAss
 			for i, v := range externalOrdersNotTaken {
 				if v == newOrdAss.Order {
@@ -177,14 +188,12 @@ func TopLogicNeedBetterName() {
 			}
 
 		case servedOrder := <-InternalOrderServedChan:
-			fmt.Println("wooo") //Here or directly from statemachine
 			internalArray[servedOrder.Floor] = 0
 
 			elevatorStateTracker.WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
 
 			driver.SetButtonLight(servedOrder, false)
 		case servedOrder := <-FromNetworkOrderServedChan:
-			fmt.Println("wooo")
 			dir := UP
 			if servedOrder.Direction == DOWN {
 				dir = 0
@@ -195,7 +204,6 @@ func TopLogicNeedBetterName() {
 
 		case <-FromNetworkNewElevChan:
 			resetAssignFuncChan <- true
-
 		}
 	}
 }
