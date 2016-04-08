@@ -1,1 +1,6 @@
-CHANGES
+change newButton to neworder in case newButton := <-InternalButtonPressedChan:  (toplevel 153)
+
+make sure to send your state when elev is here. Can send the one in optalg. Might be too much hassle to tell statemachine. 
+Can make a function that sends it like: statemachine.SendMyState()
+
+
