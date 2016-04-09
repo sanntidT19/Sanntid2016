@@ -3,12 +3,13 @@ package optalg
 import (
 	. "../globalChans"
 	. "../globalStructs"
+	"../stateMachine"
 	"fmt"
 	"math"
 )
 
-/*
-var el_state1 ElevatorState = ElevatorState{MyIP: "123.123.123.123",
+/*0
+,State{MyIP: "123.123.123.123",
 	CurrentFloor: 3,
 	LastFloor:    2,
 	Direction:    -1}
@@ -40,16 +41,26 @@ func Opt_alg(new_order Order) string {
 	for i, v := range all_elevs {
 		Queue_len_list[i] = len(v.OrderQueue)
 		if v.CurrentFloor < new_order.Floor {
-			if v.Direction != 1 {
+			if v.Direction == DOWN {
 				IP_cost_list[i] += 1
 			}
 		} else if v.CurrentFloor > new_order.Floor {
-			if v.Direction != -1 {
+			if v.Direction == UP {
 				IP_cost_list[i] += 1
+				//Add distance to last order in queue and distance from last order to new order, only if there are orders
+				if len(v.OrderQueue) > 0{
+					lastFloorInOrderQueue := v.OrderQueue[len(v.OrderQueue) -1].Floor
+					
+					floorsToBeVisited := int(math.Abs(float64(v.CurrentFloor - lastFloorInOrderQueue)) + math.Abs(float64(new_order.Floor - lastFloorInOrderQueue)))
+
+
+					IP_cost_list[i] += floorsToBeVisited
+				}
 			}
 		}
 		float_difference := float64(v.CurrentFloor - new_order.Floor)
 		IP_cost_list[i] += int(math.Abs(float_difference))
+		IP_cost_list[i] += len(v.OrderQueue)
 	}
 	for k := 0; k < len(IP_cost_list); k += 1 {
 		if IP_cost_list[k] < IP_score {
@@ -68,6 +79,8 @@ func Opt_alg(new_order Order) string {
 			}
 		}
 	}
+	fmt.Println("For this order: ")
+	stateMachine.PrintOrder(new_order)
 	fmt.Println("My choice: ", Optimal_IP)
 	return Optimal_IP
 }
@@ -85,6 +98,7 @@ func GetOrderQueueOfDeadElev(deadIP string) []Order {
 			return listCopy
 		}
 	}
+	fmt.Println("Elevator not found")
 	return nil
 }
 

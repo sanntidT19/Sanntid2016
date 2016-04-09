@@ -40,7 +40,7 @@ var StateOfElev ElevatorState
 	}
 }
 */
-func Print_order(order Order) {
+func PrintOrder(order Order) {
 	var x string
 	if order.Direction == COMMAND {
 		x = "Command"
@@ -274,7 +274,7 @@ func MoveElevatorAndOpenDoor(floorWithOrderReachedChan chan Order, orderServedCh
 	}
 }
 
-func DetectNewFloorReached() {
+func UpdateNewFloorReached() {
 	mostRecentFloorVisited := driver.ElevGetFloorSensorSignal()
 	for {
 		if sensor_result := driver.ElevGetFloorSensorSignal(); sensor_result != -1 && sensor_result != mostRecentFloorVisited {
@@ -340,19 +340,19 @@ func NewTopLoop() {
 	orderServedChan := make(chan Order)
 	sendElevInDirectionChan := make(chan int)
 	orderQueueChangeChan := make(chan bool)
-
-	go DetectNewFloorReached()
+	go SpamCurrentQueue()
+	go UpdateNewFloorReached()
 	go MoveElevatorAndOpenDoor(targetFloorReachedChan, orderServedChan, sendElevInDirectionChan)
 	go feedDirectionCommandsToElev(orderQueueChangeChan, sendElevInDirectionChan, targetFloorReachedChan)
-
 	fmt.Println("Statemachine: ready")
+	defer driver.ElevDriveElevator(0)
 	for {
 		select {
 		//Might need to put the first case in its on goroutine
 		//Send up about change
 		case servedOrder := <-orderServedChan:
 			fmt.Println("This order is served")
-			Print_order(servedOrder)
+			PrintOrder(servedOrder)
 			indexOfServedOrder := -1
 			for i, v := range StateOfElev.OrderQueue {
 				if v == servedOrder {
@@ -364,12 +364,13 @@ func NewTopLoop() {
 				fmt.Println("Error! Couldnt find served order in local queue")
 			} else {
 				StateOfElev.OrderQueue = append(StateOfElev.OrderQueue[:indexOfServedOrder], StateOfElev.OrderQueue[indexOfServedOrder+1:]...)
+				
+
 				orderQueueChangeChan <- true
-				if servedOrder.Direction == COMMAND {
-					InternalOrderServedChan <- servedOrder
-				} else {
-					ToNetworkOrderServedChan <- servedOrder
-				}
+
+			
+				OrderServedLocallyChan <- servedOrder
+
 				fmt.Println("order served")
 			}
 			ToNetworkNewElevStateChan <- StateOfElev
@@ -386,4 +387,22 @@ func NewTopLoop() {
 		}
 	}
 
+}
+
+func SendElevStateToNetwork(toNetworkChan chan ElevatorState){
+	copyOfElevState := StateOfElev
+	copyOfOrderList := make([]Order, len(StateOfElev.OrderQueue))
+	copy(copyOfOrderList,StateOfElev.OrderQueue)
+	copyOfElevState.OrderQueue = copyOfOrderList
+	toNetworkChan <-copyOfElevState
+}
+
+func SpamCurrentQueue(){
+	for{
+		for _, v := range StateOfElev.OrderQueue{
+			PrintOrder(v)
+		}
+		fmt.Println()
+		time.Sleep(time.Second*1)
+	}
 }

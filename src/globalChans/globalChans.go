@@ -31,7 +31,10 @@ var ToOptAlgDeleteElevChan chan string
 
 var AddOrderAssignedToElevStateChan chan globalStructs.OrderAssigned
 
-var InternalOrderServedChan chan globalStructs.Order //Cover this in statemachine too
+var OrderServedLocallyChan chan globalStructs.Order //Cover this in statemachine too
+
+var FromNetworkExternalArrayChan chan [globalStructs.NUM_FLOORS][globalStructs.NUM_BUTTONS-1]int
+var ToNetworkExternalArrayChan chan [globalStructs.NUM_FLOORS][globalStructs.NUM_BUTTONS-1]int
 
 func InitChans() {
 	fmt.Println("initializing chans")
@@ -56,10 +59,13 @@ func InitChans() {
 	ToOptAlgDeleteElevChan = make(chan string)
 	AddOrderAssignedToElevStateChan = make(chan globalStructs.OrderAssigned)
 
-	InternalOrderServedChan = make(chan globalStructs.Order)
+	OrderServedLocallyChan = make(chan globalStructs.Order)
 
 	ExternalButtonPressedChan = make(chan globalStructs.Order)
 	InternalButtonPressedChan = make(chan globalStructs.Order)
+
+	FromNetworkExternalArrayChan = make(chan [globalStructs.NUM_FLOORS][globalStructs.NUM_BUTTONS-1]int)
+	ToNetworkExternalArrayChan = make(chan [globalStructs.NUM_FLOORS][globalStructs.NUM_BUTTONS-1]int)
 
 	fmt.Println("finished initializing chans")
 }

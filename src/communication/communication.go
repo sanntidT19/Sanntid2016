@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"reflect"
 	"time"
 )
 
@@ -68,12 +67,10 @@ func CommNeedBetterName() {
 	elevatorListChangedChan := make(chan bool)
 
 	localAddr = GetLocalIP()
-	fmt.Println("type of getlocip return: ", reflect.TypeOf(localAddr))
 	if localAddr == "" {
 		fmt.Println("Problem using getLocalIP, expecting office-pc")
 		localAddr = "129.241.154.78"
 	}
-	fmt.Println("YOLO             local addr:", localAddr)
 
 	go broadcastPrecense(broadcastPort)
 	go listenForBroadcast(broadcastPort, newShoutFromElevatorChan)
@@ -260,8 +257,6 @@ func readMessagesFromNetwork(localAddr string, commonPort string, messageFromNet
 			fmt.Println("Error reading message, do nothing")
 		} else {
 			//Send messages to decodeFunc here.
-			fmt.Println("length of packet:             ", packetLength)
-
 			byteSliceToDecoder := make([]byte, packetLength)
 			copy(byteSliceToDecoder, buffer[:packetLength])
 			messageFromNetworkChan <- byteSliceToDecoder
@@ -306,6 +301,7 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 			if err != nil {
 				fmt.Println("error when encoding: ", err)
 			}
+			fmt.Println("Ack expired, resend.")
 			sendToNetworkChan <- encodedPacket
 		}
 
@@ -341,6 +337,13 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 			tag = "elSta"
 			encodedData, err = json.Marshal(elevState)
 			fmt.Println("encodeMessagesToNetwork: order encoded4")
+			if err != nil {
+				fmt.Println("Error when encoding: ", err)
+			}
+		case externalArray := <-ToNetworkExternalArrayChan:
+			tag = "extAr"
+			encodedData, err = json.Marshal(externalArray)
+			fmt.Println("encodeMessagesToNetwork: order encoded5")
 			if err != nil {
 				fmt.Println("Error when encoding: ", err)
 			}
@@ -423,8 +426,17 @@ func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNet
 				} else {
 					FromNetworkNewElevStateChan <- newState
 				}
+			case "extAr":
+				var newExternalArray [NUM_FLOORS][NUM_BUTTONS-1]int
+				err := json.Unmarshal(message.Data, &newExternalArray)
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					FromNetworkExternalArrayChan <- newExternalArray
+				}
 			}
 		}
+		fmt.Println("Message ackd and sent to local")
 	}
 }
 
@@ -448,8 +460,7 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, ackdByAllChan
 			//Resend everything
 			for i, v := range unAckdMessages {
 				unAckdMessages[i].DeadLine = time.Now().Add(time.Second * ACK_DEADLINE)
-				localIPlist := make([]string, len(listOfElevatorsInNetwork))
-				copy(localIPlist, listOfElevatorsInNetwork)
+				localIPlist := GetElevList()
 				unAckdMessages[i].IpList = localIPlist
 				resendMessageChan <- v.Message //With nil entry in senderaddress, Maybe not though.
 			}

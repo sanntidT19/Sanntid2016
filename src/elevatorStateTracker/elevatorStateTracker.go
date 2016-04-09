@@ -4,6 +4,7 @@ import (
 	"../driver"
 	. "../globalChans"
 	. "../globalStructs"
+	"../communication"
 	"encoding/gob"
 	"fmt"
 	"os"
@@ -106,15 +107,8 @@ func ReassignOrdersAfterShutdown(formerState AllOrders, networkIsUp bool) {
 }
 func StartupDraft() {
 	formerState := ReadOrdersStateBeforeShutdown()
-	var emptyState AllOrders = AllOrders{}
-	/*
-		networkIsUpAtInit := false
-		select {
-		case <-timerchifan:
-			break
-		case <-FromNetworkNetworkUpChan:
-			networkIsUpAtInit = true
-		}*/
+	var emptyState AllOrders = AllOrders{} //sleep to make sure network reads if its up
+
 	if formerState != emptyState {
 		if PrematureShutdownOccured(formerState) {
 
@@ -135,9 +129,14 @@ func StartupDraft() {
 					}
 				}
 			}
-
 			//networkIsUp := readNetwork()//something like this           CHECK IF NETWORK IS UP HERE
-			ReassignOrdersAfterShutdown(formerState, true) //FOR NOW TEMPFIX
+			time.Sleep(time.Millisecond * 300)
+			networkIsUp := false
+			currentElevList := communication.GetElevList()
+			if len(currentElevList) > 0{
+				networkIsUp = true
+			}
+			ReassignOrdersAfterShutdown(formerState,networkIsUp) //FOR NOW TEMPFIX
 		}
 	}
 }
