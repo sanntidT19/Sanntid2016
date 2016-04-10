@@ -406,3 +406,113 @@ func SpamCurrentQueue(){
 		time.Sleep(time.Second*1)
 	}
 }
+
+
+
+func insertOrderIntoQueue(newOrder Order, currentState ElevatorState) []Order {
+	common_current_order_queue := currentState.OrderQueue
+	orderQueueCopy := make([]Button, len(common_current_order_queue))
+	copy(orderQueueCopy, common_current_order_queue)
+	var placeInQueue int
+	fmt.Println("Current order queue at start of sort", orderQueueCopy)
+	//if queue is empty
+	if len(orderQueueCopy) == 0 {
+		newOrderQueue := []Order{newOrder}
+		return newOrderQueue
+	} else if (newOrder.Direction == currentState.Direction || newOrder.Direction == COMMAND) && newOrder.Floor == driver.Elev_get_floor_sensor_signal() {
+		//check if you are in the actual floor in correct direction and should stop immediately
+		placeInQueue = 0
+	} else {
+		//Perform a simulation of what the elevator will do with current queue and find out where the new order belongs
+		currentDirection = currentState.Direction
+		firstFloorToVisit = currentState.CurrentFloor
+		if driver.Elev_get_floor_sensor_signal() == -1 {
+			fmt.Println("Elevator not in current floor, simulate past current floor")
+			firstFloorToVisit = currentState.CurrentFloor + simulatedDirection //er dette riktig?
+		}
+		placeInQueue = SimulateElevDrivingFindOrderIndex(firstFloorToVisit,currentDirection, orderQueueCopy, newOrder)
+	}
+	newOrderQueue := append(orderQueueCopy[:placeInQueue], append([]Button{newOrder}, orderQueueCopy[placeInQueue:]...)...)
+	fmt.Println("Order queue after sort")
+	for _, v := range newOrderQueue {
+		Print_order(v)
+	}
+	return newOrderQueue
+}
+
+
+
+/*
+Simulate driving the elevator from current floor and serve all possible orders.
+*/
+func SimulateElevDrivingFindOrderIndex(startingFloor int,startingDirection int,orderQueue []Order, newOrder Order) int{
+	simulatedFloor := startingFloor
+	simulatedDirection := startingDirection
+	placeInQueue := 0
+	i := 0
+	for simulatedFloor >= 0 && simulatedFloor < NUM_FLOORS {
+		if new_order.Floor == simulatedFloor && (simulatedDirection == new_order.Direction || new_order.Direction == COMMAND) {
+			placeInQueue = i
+			return placeInQueue
+		} else if orderQueue[i].Floor == simulatedFloor && (simulatedDirection == orderQueue[i].Direction || orderQueue[i].Direction == COMMAND) {
+			i++
+			if i == len(orderQueue) {
+				placeInQueue = i
+				return placeInQueue
+			}
+		}
+			simulatedFloor += simulatedDirection
+	}
+
+	simulatedFloor -= simulatedDirection
+	if simulatedDirection == UP{
+		simulatedDirection = DOWN
+	}else{
+		simulatedDirection = UP
+	}
+	for simulatedFloor >= 0 && simulatedFloor < NUM_FLOORS {
+			if new_order.Floor == simulatedFloor && (simulatedDirection == new_order.Direction || new_order.Direction == COMMAND) {
+				placeInQueue = i
+				return placeInQueue
+			} else if orderQueue[i].Floor == simulatedFloor && (simulatedDirection == orderQueue[i].Direction || orderQueue[i].Direction == COMMAND) {
+				i++
+				if i == len(orderQueue) {
+					placeInQueue = i
+					return placeInQueue
+				}
+			}
+			simulatedFloor += simulatedDirection
+		}
+	}
+
+	simulatedFloor -= simulatedDirection //bounds were exceeded and you take one step back
+	if simulatedDirection == UP{
+		simulatedDirection = DOWN
+	}else{
+		simulatedDirection = UP
+	}
+	for simulatedFloor != (current_state.CurrentFloor + simulatedDirection) {
+		if new_order.Floor == simulatedFloor && (simulatedDirection == new_order.Direction || new_order.Direction == COMMAND) {
+			placeInQueue = i
+				return placeInQueue
+			} else if orderQueue[i].Floor == simulatedFloor && (simulatedDirection == orderQueue[i].Direction || orderQueue[i].Direction == COMMAND) {
+				//order was theoretically served and next element in the current queue is up for evaluation
+				i++
+				fmt.Println("i, sim3: ", i)
+				if i == len(orderQueue) {
+					//all orders in queue evaluated. put new order at end
+					place_in_queue = i
+				}
+			}
+		simulatedFloor += simulatedDirection
+	}
+	return placeInQueue
+}
+func isOrderInQueue(order_queue []Button, new_order Button) bool {
+	for _, queueElements := range order_queue {
+		if queueElements == new_order {
+			return true
+		}
+	}
+	return false
+}
