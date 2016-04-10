@@ -45,7 +45,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 			fmt.Println("done searching for order")
 			if !orderIsRegistered {
 				//for now, the elevator states are all globally known. May send copy or something else later.
-				assignedElevAddr := optalg.Opt_alg(newOrder)
+				assignedElevAddr := optalg.OptAlg(newOrder)
 				fmt.Println("optalg complete")
 				NewOrderToBeAssigned := OrderAssigned{Order: newOrder, AssignedTo: assignedElevAddr, SentFrom: localAddr}
 				//Elevlist should be copied, global or maybe everyone that uses it should be in the same module
@@ -72,7 +72,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 				if newOrdAss.AssignedTo != OrdersToBeAssignedByAll[posInSlice].OrdAss.AssignedTo {
 					fmt.Println("Disagreement, recalculate with optalg")
 					OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...) //slicetricks
-					assignedElevAddr := optalg.Opt_alg(newOrdAss.Order)
+					assignedElevAddr := optalg.OptAlg(newOrdAss.Order)
 					NewOrderToBeAssigned := OrderAssigned{Order: newOrdAss.Order, AssignedTo: assignedElevAddr, SentFrom: localAddr}
 					elevList := communication.GetElevList()
 					OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, AssignedOrderAndElevList{NewOrderToBeAssigned, elevList})
