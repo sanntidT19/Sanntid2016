@@ -1,6 +1,16 @@
-change newButton to neworder in case newButton := <-InternalButtonPressedChan:  (toplevel 153)
+Til sigurds morgentesting:
 
-make sure to send your state when elev is here. Can send the one in optalg. Might be too much hassle to tell statemachine. 
-Can make a function that sends it like: statemachine.SendMyState()
+--I variousfuncs--
+Jeg har erstattet sortOrderQueue med insertOrderInQueue. Test en heis alene med normalt bruk og sjekk at jeg ikke har gjort noen mongofeil.
 
+--I communication--
+Jeg har lagt til og kommentert ut en ting som kan vise deg hva som blir sendt over nett i encodedfunc (rundt linje 309)
+Dette sjekker kun orderassigned (som er hovedmistenkt). Du kan endre hvis du vil sjekke andre type meldinger
 
+Jeg la til en .Println() i sendAck(...). (rundt linje 390) Den blir kalt hver gang en melding mottas i decodeMessagesFromNetwork(...)
+
+Hvis den sender ack, men meldingene fortsetter å bryte deadline, er det trolig i SetDeadlinesForAcks noe er fucked.
+
+Sjekk om listen over IP-er som den bruker ikke blir monga av at en heis dør.
+
+Lykke til!

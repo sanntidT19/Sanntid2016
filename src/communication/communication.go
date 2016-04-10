@@ -289,6 +289,9 @@ func SendMessagesToAllElevators(sendNetworkMessageChan chan []byte, newConnectio
 		}
 	}
 }
+AssignedTo string
+	SentFrom   string
+	Order      Order
 
 //Not completely tested yet
 func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan chan MessageWithHeader, resendMessageChan chan MessageWithHeader) {
@@ -302,6 +305,16 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 				fmt.Println("error when encoding: ", err)
 			}
 			fmt.Println("Ack expired, resend.")
+			
+			/*if expiredMessage.Tag == "ordTo"{
+				var orderAss OrderAssigned
+				_ := json.Unmarshal(message.Data, &orderAss)
+				fmt.Println("Content of expired orderAss message.: ")
+				fmt.Println("assigned to: ",orderAss.AssignedTo)
+				fmt.Println("sent from", orderAss.SentFrom)
+				fmt.Println("order", orderAss.Order)
+
+			}*/
 			sendToNetworkChan <- encodedPacket
 		}
 
@@ -374,6 +387,7 @@ func sendAck(message MessageWithHeader, sendToNetworkChan chan []byte) {
 	if err != nil {
 		fmt.Println("error encoding resend message")
 	}
+	fmt.Println("Ack sent")
 	sendToNetworkChan <- encodedPacket
 }
 
