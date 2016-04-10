@@ -238,14 +238,15 @@ func State_machine_top_loop() {
 */
 /*
  */
-func isOrderInQueue(order_queue []Order, new_order Order) bool {
+func isOrderInQueue(order_queue []Order, newOrder Order) bool {
 	for _, queueElements := range order_queue {
-		if queueElements == new_order {
+		if queueElements == newOrder {
 			return true
 		}
 	}
 	return false
 }
+
 
 //UTKAST TIL REFORMATERT HEIS ER UNDER HER. KOM MED GODE NAVN PÅ TING ALLEREDE NÅ
 func MoveElevatorAndOpenDoor(floorWithOrderReachedChan chan Order, orderServedChan chan Order, sendElevInDirectionChan chan int) {
@@ -268,12 +269,14 @@ func MoveElevatorAndOpenDoor(floorWithOrderReachedChan chan Order, orderServedCh
 				driver.ElevDriveElevator(DOWN)
 				StateOfElev.Direction = DOWN
 			}
-			ToNetworkNewElevStateChan <- StateOfElev
+			SendElevStateToNetwork(ToNetworkNewElevStateChan)
 			//go to floor, if below, go up. if above, go down. This is only needed when the elevator is idle.
 		}
 	}
 }
 
+
+//
 func UpdateNewFloorReached() {
 	mostRecentFloorVisited := driver.ElevGetFloorSensorSignal()
 	for {
@@ -281,7 +284,7 @@ func UpdateNewFloorReached() {
 			mostRecentFloorVisited = sensor_result
 			StateOfElev.PreviousFloor = StateOfElev.CurrentFloor
 			StateOfElev.CurrentFloor = sensor_result
-			ToNetworkNewElevStateChan <- StateOfElev
+			SendElevStateToNetwork(ToNetworkNewElevStateChan)
 		}
 		time.Sleep(time.Millisecond * 50)
 	}
@@ -294,7 +297,7 @@ func SetButtonLights(){
 }
 */
 
-//Vurder omformulere denne, slik at den kalles istedenfor å kjøres i en egen goroutine
+//split into two: need to control shared var stopSignalSent
 func feedDirectionCommandsToElev(orderQueueChangeChan chan bool, sendElevInDirectionChan chan int, targetFloorReachedChan chan Order) {
 	//State of elev is known globally for now
 	//Send til hit når ordre er served også
@@ -334,7 +337,7 @@ func NewTopLoop() {
 	StateOfElev.CurrentFloor = driver.ElevGetFloorSensorSignal()
 	StateOfElev.Direction = DOWN
 	StateOfElev.IP = communication.GetLocalIP()
-	ToNetworkNewElevStateChan <- StateOfElev
+	SendElevStateToNetwork(ToNetworkNewElevStateChan)
 
 	targetFloorReachedChan := make(chan Order)
 	orderServedChan := make(chan Order)
@@ -345,7 +348,6 @@ func NewTopLoop() {
 	go MoveElevatorAndOpenDoor(targetFloorReachedChan, orderServedChan, sendElevInDirectionChan)
 	go feedDirectionCommandsToElev(orderQueueChangeChan, sendElevInDirectionChan, targetFloorReachedChan)
 	fmt.Println("Statemachine: ready")
-	defer driver.ElevDriveElevator(0)
 	for {
 		select {
 		//Might need to put the first case in its on goroutine
@@ -373,17 +375,15 @@ func NewTopLoop() {
 
 				fmt.Println("order served")
 			}
-			ToNetworkNewElevStateChan <- StateOfElev
+			SendElevStateToNetwork(ToNetworkNewElevStateChan)
 		case newOrder := <-NewOrderToLocalElevChan: //newOrderToElevChan when we have mothership ready
 			if isOrderInQueue(StateOfElev.OrderQueue, newOrder) {
 				break
 			} else {
-				StateOfElev.OrderQueue = sort_order_queue(newOrder, StateOfElev)
-				copyOfOrderList := make([]Order, len(StateOfElev.OrderQueue))
-				copy(copyOfOrderList, StateOfElev.OrderQueue)
+				StateOfElev.OrderQueue = insertOrderIntoQueue(newOrder, StateOfElev)
 				orderQueueChangeChan <- true
 			}
-			ToNetworkNewElevStateChan <- StateOfElev
+			SendElevStateToNetwork(ToNetworkNewElevStateChan)
 		}
 	}
 
@@ -411,7 +411,7 @@ func SpamCurrentQueue(){
 
 func insertOrderIntoQueue(newOrder Order, currentState ElevatorState) []Order {
 	common_current_order_queue := currentState.OrderQueue
-	orderQueueCopy := make([]Button, len(common_current_order_queue))
+	orderQueueCopy := make([]Order, len(common_current_order_queue))
 	copy(orderQueueCopy, common_current_order_queue)
 	var placeInQueue int
 	fmt.Println("Current order queue at start of sort", orderQueueCopy)
@@ -419,23 +419,23 @@ func insertOrderIntoQueue(newOrder Order, currentState ElevatorState) []Order {
 	if len(orderQueueCopy) == 0 {
 		newOrderQueue := []Order{newOrder}
 		return newOrderQueue
-	} else if (newOrder.Direction == currentState.Direction || newOrder.Direction == COMMAND) && newOrder.Floor == driver.Elev_get_floor_sensor_signal() {
+	} else if (newOrder.Direction == currentState.Direction || newOrder.Direction == COMMAND) && newOrder.Floor == driver.ElevGetFloorSensorSignal() {
 		//check if you are in the actual floor in correct direction and should stop immediately
 		placeInQueue = 0
 	} else {
 		//Perform a simulation of what the elevator will do with current queue and find out where the new order belongs
-		currentDirection = currentState.Direction
-		firstFloorToVisit = currentState.CurrentFloor
-		if driver.Elev_get_floor_sensor_signal() == -1 {
+		currentDirection := currentState.Direction
+		firstFloorToVisit := currentState.CurrentFloor
+		if driver.ElevGetFloorSensorSignal() == -1 {
 			fmt.Println("Elevator not in current floor, simulate past current floor")
-			firstFloorToVisit = currentState.CurrentFloor + simulatedDirection //er dette riktig?
+			firstFloorToVisit = currentState.CurrentFloor + currentDirection //er dette riktig?
 		}
 		placeInQueue = SimulateElevDrivingFindOrderIndex(firstFloorToVisit,currentDirection, orderQueueCopy, newOrder)
 	}
-	newOrderQueue := append(orderQueueCopy[:placeInQueue], append([]Button{newOrder}, orderQueueCopy[placeInQueue:]...)...)
+	newOrderQueue := append(orderQueueCopy[:placeInQueue], append([]Order{newOrder}, orderQueueCopy[placeInQueue:]...)...)
 	fmt.Println("Order queue after sort")
 	for _, v := range newOrderQueue {
-		Print_order(v)
+		PrintOrder(v)
 	}
 	return newOrderQueue
 }
@@ -451,7 +451,7 @@ func SimulateElevDrivingFindOrderIndex(startingFloor int,startingDirection int,o
 	placeInQueue := 0
 	i := 0
 	for simulatedFloor >= 0 && simulatedFloor < NUM_FLOORS {
-		if new_order.Floor == simulatedFloor && (simulatedDirection == new_order.Direction || new_order.Direction == COMMAND) {
+		if newOrder.Floor == simulatedFloor && (simulatedDirection == newOrder.Direction || newOrder.Direction == COMMAND) {
 			placeInQueue = i
 			return placeInQueue
 		} else if orderQueue[i].Floor == simulatedFloor && (simulatedDirection == orderQueue[i].Direction || orderQueue[i].Direction == COMMAND) {
@@ -471,48 +471,39 @@ func SimulateElevDrivingFindOrderIndex(startingFloor int,startingDirection int,o
 		simulatedDirection = UP
 	}
 	for simulatedFloor >= 0 && simulatedFloor < NUM_FLOORS {
-			if new_order.Floor == simulatedFloor && (simulatedDirection == new_order.Direction || new_order.Direction == COMMAND) {
+		if newOrder.Floor == simulatedFloor && (simulatedDirection == newOrder.Direction || newOrder.Direction == COMMAND) {
+			placeInQueue = i
+			return placeInQueue
+		} else if orderQueue[i].Floor == simulatedFloor && (simulatedDirection == orderQueue[i].Direction || orderQueue[i].Direction == COMMAND) {
+			i++
+			if i == len(orderQueue) {
 				placeInQueue = i
 				return placeInQueue
-			} else if orderQueue[i].Floor == simulatedFloor && (simulatedDirection == orderQueue[i].Direction || orderQueue[i].Direction == COMMAND) {
-				i++
-				if i == len(orderQueue) {
-					placeInQueue = i
-					return placeInQueue
-				}
 			}
-			simulatedFloor += simulatedDirection
 		}
+		simulatedFloor += simulatedDirection
 	}
 
 	simulatedFloor -= simulatedDirection //bounds were exceeded and you take one step back
+	
 	if simulatedDirection == UP{
 		simulatedDirection = DOWN
 	}else{
 		simulatedDirection = UP
 	}
 	for simulatedFloor != (current_state.CurrentFloor + simulatedDirection) {
-		if new_order.Floor == simulatedFloor && (simulatedDirection == new_order.Direction || new_order.Direction == COMMAND) {
+		if newOrder.Floor == simulatedFloor && (simulatedDirection == newOrder.Direction || newOrder.Direction == COMMAND) {
 			placeInQueue = i
 				return placeInQueue
 			} else if orderQueue[i].Floor == simulatedFloor && (simulatedDirection == orderQueue[i].Direction || orderQueue[i].Direction == COMMAND) {
 				//order was theoretically served and next element in the current queue is up for evaluation
 				i++
-				fmt.Println("i, sim3: ", i)
 				if i == len(orderQueue) {
 					//all orders in queue evaluated. put new order at end
-					place_in_queue = i
+					placeInQueue = i
 				}
 			}
 		simulatedFloor += simulatedDirection
 	}
 	return placeInQueue
-}
-func isOrderInQueue(order_queue []Button, new_order Button) bool {
-	for _, queueElements := range order_queue {
-		if queueElements == new_order {
-			return true
-		}
-	}
-	return false
 }

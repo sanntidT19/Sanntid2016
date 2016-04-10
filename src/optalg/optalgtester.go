@@ -28,9 +28,9 @@ var el_state3 ElevatorState = ElevatorState{MyIP: "123.123.123.125",
 var allElevStates []ElevatorState
 
 func OptAlg(newOrder Order) string {
-	numOfElevs := len(allElevs)
-	elevStatesCopy := make([]ElevatorState, numOfElevs)
+	elevStatesCopy := make([]ElevatorState, len(allElevStates))
 	copy(elevStatesCopy, allElevStates)
+	numOfElevs := len(elevStatesCopy)
 
 	IPCostList := make([]int, numOfElevs)
 	queueLenList := make([]int, numOfElevs)
@@ -38,13 +38,13 @@ func OptAlg(newOrder Order) string {
 	var lowestCost int = 100
 	var optimalIP string = "0"
 	fmt.Println("optalg: number of elevs seen: ", numOfElevs)
-	for i, v := range allOptElevs {
+	for i, v := range elevStatesCopy {
 		queueLenList[i] = len(v.OrderQueue)
 		if v.CurrentFloor < newOrder.Floor {
 			if v.Direction == DOWN {
 				IPCostList[i] += 1
 			}
-		} else if v.CurrentFloor > new_order.Floor {
+		} else if v.CurrentFloor > newOrder.Floor {
 			if v.Direction == UP {
 				IPCostList[i] += 1
 				//Add distance to last order in queue and distance from last order to new order, only if there are orders
@@ -63,19 +63,19 @@ func OptAlg(newOrder Order) string {
 		IPCostList[i] += int(math.Abs(floatDifference))
 		IPCostList[i] += len(v.OrderQueue)
 	}
-	for k := 0; k < len(ipCostList); k += 1 {
+	for k := 0; k < len(IPCostList); k += 1 {
 		if IPCostList[k] < lowestCost {
 			optimalIP = elevStatesCopy[k].IP
 			lowestCost = IPCostList[k]
 			elevNmr = k
 		} else if IPCostList[k] == lowestCost {
-			if len(elevStatesCopy[k].OrderQueue) < len(elevStatesCopy[ElevNmr].OrderQueue) {
+			if len(elevStatesCopy[k].OrderQueue) < len(elevStatesCopy[elevNmr].OrderQueue) {
 				optimalIP = elevStatesCopy[k].IP
-				ElevNmr = k
-			} else if len(elevStatesCopy[k].OrderQueue) == len(elevStatesCopy[Ele_nmr].OrderQueue) {
-				if elevStatesCopy[k].IP > OptimalIP {
+				elevNmr = k
+			} else if len(elevStatesCopy[k].OrderQueue) == len(elevStatesCopy[elevNmr].OrderQueue) {
+				if elevStatesCopy[k].IP > optimalIP {
 					optimalIP = elevStatesCopy[k].IP
-					ElevNmr = k
+					elevNmr = k
 				}
 			}
 		}
