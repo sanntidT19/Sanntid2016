@@ -289,9 +289,10 @@ func SendMessagesToAllElevators(sendNetworkMessageChan chan []byte, newConnectio
 		}
 	}
 }
-AssignedTo string
-	SentFrom   string
-	Order      Order
+
+//AssignedTo string
+//SentFrom   string
+//Order      Order
 
 //Not completely tested yet
 func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan chan MessageWithHeader, resendMessageChan chan MessageWithHeader) {
@@ -299,13 +300,16 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 		for {
 			expiredMessage := <-resendMessageChan
 			expiredMessage.Ack = false
+			copyOfData := make([]byte, len(expiredMessage.Data))
+			copy(copyOfData, expiredMessage.Data)
+			expiredMessage.Data = copyOfData
 			expiredMessage.SenderAddr = localAddr
 			encodedPacket, err := json.Marshal(expiredMessage)
 			if err != nil {
 				fmt.Println("error when encoding: ", err)
 			}
 			fmt.Println("Ack expired, resend.")
-			
+
 			/*if expiredMessage.Tag == "ordTo"{
 				var orderAss OrderAssigned
 				_ := json.Unmarshal(message.Data, &orderAss)
@@ -370,7 +374,6 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 		//Send packet to network. Send copy to local center that keeps track of Ack's
 		//Better names needed all over the place
 		sendToNetworkChan <- encodedPacket
-		fmt.Println("packet sent to network    LENGTH OF PACKET:  ", len(encodedPacket))
 		sendToAckTimerChan <- newPacket
 		fmt.Println("End of encodedfunc")
 	}
@@ -441,7 +444,7 @@ func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNet
 					FromNetworkNewElevStateChan <- newState
 				}
 			case "extAr":
-				var newExternalArray [NUM_FLOORS][NUM_BUTTONS-1]int
+				var newExternalArray [NUM_FLOORS][NUM_BUTTONS - 1]int
 				err := json.Unmarshal(message.Data, &newExternalArray)
 				if err != nil {
 					fmt.Println(err)

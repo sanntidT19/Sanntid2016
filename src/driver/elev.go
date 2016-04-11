@@ -50,6 +50,7 @@ func ElevInit() {
 	lamp_channel_matrix = ElevMakeStdLMatrix()
 	button_channel_matrix = ElevMakeStdBMatrix()
 	fmt.Println("i get here")
+	ElevDriveElevator(0)
 	if ElevGetFloorSensorSignal() == -1 {
 		ElevDriveElevator(-1)
 		for ElevGetFloorSensorSignal() == -1 {

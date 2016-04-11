@@ -26,7 +26,7 @@ var commonExternalArray [NUM_FLOORS][NUM_BUTTONS - 1]int
 
 //ElevatorAssignedToNetworkChan OrderAssigned chan , ElevatorAssignedFromNetworkChan OrderAssigned chan
 
-func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAssignFuncChan chan bool, newOrderAssignedChan chan OrderAssigned) {
+func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, networkErrorChan chan bool, untakenOrdersChan chan []Order, newElevChan chan bool) {
 
 	var OrdersToBeAssignedByAll []AssignedOrderAndElevList
 	localAddr := communication.GetLocalIP()
@@ -34,7 +34,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 	for {
 		select {
 		case newOrder := <-newOrderFromNetworkChan:
-			fmt.Println("newOrder := <-newOrderFromNetworkChan:")
+			fmt.Println("Order received from above:")
 			orderIsRegistered := false
 			fmt.Println("Iterating..")
 			for _, v := range OrdersToBeAssignedByAll {
@@ -44,6 +44,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 			}
 			fmt.Println("done searching for order")
 			if !orderIsRegistered {
+				//ad external order to queue here
 				//for now, the elevator states are all globally known. May send copy or something else later.
 				assignedElevAddr := optalg.OptAlg(newOrder)
 				fmt.Println("optalg complete")
@@ -51,8 +52,9 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 				//Elevlist should be copied, global or maybe everyone that uses it should be in the same module
 				elevList := communication.GetElevList()
 				OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, AssignedOrderAndElevList{NewOrderToBeAssigned, elevList})
-				time.Sleep(time.Millisecond * 100) //This is to make sure you get to make the list before
+				time.Sleep(time.Millisecond * 200) //This is to make sure you get to make the list before
 				ToNetworkOrderAssignedToChan <- NewOrderToBeAssigned
+				fmt.Println("                                                              SENT TO NETWORK WAWAWAWAWAAW")
 			} else {
 				fmt.Println("Order already registered. Discard message.")
 			}
@@ -67,8 +69,9 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 			}
 			if posInSlice == -1 {
 				fmt.Println("Old/garbage order")
+				stateMachine.PrintOrder(newOrdAss.Order)
 			} else {
-				fmt.Println("posInSlice: ",posInSlice)
+				fmt.Println("posInSlice: ", posInSlice)
 				if newOrdAss.AssignedTo != OrdersToBeAssignedByAll[posInSlice].OrdAss.AssignedTo {
 					fmt.Println("Disagreement, recalculate with optalg")
 					OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...) //slicetricks
@@ -84,14 +87,26 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 							OrdersToBeAssignedByAll[posInSlice].ElevList = append(OrdersToBeAssignedByAll[posInSlice].ElevList[:i], OrdersToBeAssignedByAll[posInSlice].ElevList[i+1:]...)
 							if len(OrdersToBeAssignedByAll[posInSlice].ElevList) == 0 {
 								OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...)
-								newOrderAssignedChan <- newOrdAss
+								AddOrderAssignedToElevStateChan <- newOrdAss
+								if newOrdAss.AssignedTo == communication.GetLocalIP() {
+									NewOrderToLocalElevChan <- newOrdAss.Order
+								}
+
 							}
 						}
 					}
 				}
 				fmt.Println("ENDOF:    newOrdAss := <-FromNetworkOrderAssignedToChan ")
 			}
-		case <-resetAssignFuncChan:
+		case <-networkErrorChan:
+			fmt.Println("                                                               <-resetassignfuncchan")
+			ordersNotTaken := make([]Order, len(OrdersToBeAssignedByAll))
+			for i, v := range OrdersToBeAssignedByAll {
+				ordersNotTaken[i] = v.OrdAss.Order
+			}
+			untakenOrdersChan <- ordersNotTaken
+			OrdersToBeAssignedByAll = nil
+		case <-newElevChan:
 			OrdersToBeAssignedByAll = nil
 		}
 	}
@@ -143,11 +158,12 @@ func orderIsInQueue(orderQueue []Order, newOrder Order) bool {
 
 func TopLogicNeedBetterName() {
 	var internalArray [NUM_FLOORS]int
-	resetAssignFuncChan := make(chan bool)
+	toAssignFuncNetworkErrorChan := make(chan bool)
 	newOrderToBeAssignedChan := make(chan Order)
-	orderDoneAssignedChan := make(chan OrderAssigned)
-	go ResendOrdersWhenError(resetAssignFuncChan)
-	go AssignOrdersAndWaitForAgreement(newOrderToBeAssignedChan, resetAssignFuncChan, orderDoneAssignedChan)
+	untakenOrdersChan := make(chan []Order)
+	toAssignFuncNewElevChan := make(chan bool)
+	go ResendOrdersWhenError(toAssignFuncNetworkErrorChan, untakenOrdersChan)
+	go AssignOrdersAndWaitForAgreement(newOrderToBeAssignedChan, toAssignFuncNetworkErrorChan, untakenOrdersChan, toAssignFuncNewElevChan)
 
 	fmt.Println(commonExternalArray)
 	for {
@@ -177,24 +193,25 @@ func TopLogicNeedBetterName() {
 			fmt.Println("TOPLOGIC: to assign func")
 			newOrderToBeAssignedChan <- newOrder //the receiver will handle duplicates
 			driver.SetButtonLight(newOrder, true)
-
-		case newOrdAss := <-orderDoneAssignedChan:
-			fmt.Println("newOrdAss := <-orderDoneAssignedChan:")
-			AddOrderAssignedToElevStateChan <- newOrdAss
-			for i, v := range externalOrdersNotTaken {
-				if v == newOrdAss.Order {
-					externalOrdersNotTaken = append(externalOrdersNotTaken[:i], externalOrdersNotTaken[i+1:]...)
-				}
-			}
-			if newOrdAss.AssignedTo == communication.GetLocalIP() {
-				NewOrderToLocalElevChan <- newOrdAss.Order
-			}
+			/*
+				case newOrdAss := <-orderDoneAssignedChan:
+					fmt.Println("newOrdAss := <-orderDoneAssignedChan:")
+					AddOrderAssignedToElevStateChan <- newOrdAss
+					for i, v := range externalOrdersNotTaken {
+						if v == newOrdAss.Order {
+							externalOrdersNotTaken = append(externalOrdersNotTaken[:i], externalOrdersNotTaken[i+1:]...)
+						}
+					}
+					if newOrdAss.AssignedTo == communication.GetLocalIP() {
+						NewOrderToLocalElevChan <- newOrdAss.Order
+					}
+			*/
 
 		case servedOrder := <-OrderServedLocallyChan:
 			//Denne tar imot alle ordre. Hvis nettet er oppe, skal man også sende videre til nett.
-			if(servedOrder.Direction == 0){
+			if servedOrder.Direction == 0 {
 				internalArray[servedOrder.Floor] = 0
-			}else{
+			} else {
 				dir := UP
 				if servedOrder.Direction == DOWN {
 					dir = 0
@@ -216,19 +233,19 @@ func TopLogicNeedBetterName() {
 			driver.SetButtonLight(servedOrder, false)
 
 		case <-FromNetworkNewElevChan:
-			resetAssignFuncChan <- true
+			toAssignFuncNewElevChan <- true
 			stateMachine.SendElevStateToNetwork(ToNetworkNewElevStateChan)
-			ToNetworkExternalArrayChan<-commonExternalArray
+			ToNetworkExternalArrayChan <- commonExternalArray
 		case newExternalArray := <-FromNetworkExternalArrayChan:
-			for i := 0; i < NUM_FLOORS; i++{
-				for j:=0; j < NUM_BUTTONS-1; j++{
-					if newExternalArray[i][j] == 1{
+			for i := 0; i < NUM_FLOORS; i++ {
+				for j := 0; j < NUM_BUTTONS-1; j++ {
+					if newExternalArray[i][j] == 1 {
 						commonExternalArray[i][j] = 1
 						dir := UP
-						if j == 0{
+						if j == 0 {
 							dir = DOWN
 						}
-						driver.SetButtonLight(Order{Floor: i, Direction: dir},true)
+						driver.SetButtonLight(Order{Floor: i, Direction: dir}, true)
 					}
 				}
 			}
@@ -240,14 +257,14 @@ func TopLogicNeedBetterName() {
 //MULIG VI MÅ FLYTTE DE SOM TAR IMOT NYE ORDRE OG DE SOM SENDER NYE ORDRE I FORSKJELLIGE LOOPS
 //PROBLEM NÅR MANGE ORDRE BLIR SENDT PÅ NYTT
 
-
 //CHANGE THIS FUCKING NAME
-func ResendOrdersWhenError(resetAssignFuncChan chan bool) {
+func ResendOrdersWhenError(resetAssignFuncChan chan bool, untakenOrdersChan chan []Order) {
+	var externalOrdersNotTaken []Order
 	for {
 		select {
 		case <-FromNetworkNetworkDownChan:
 			resetAssignFuncChan <- true
-			externalOrdersNotTaken = nil
+			<-untakenOrdersChan
 			for i := 0; i < NUM_FLOORS; i++ {
 				for j := 0; j < NUM_BUTTONS-1; j++ {
 					if commonExternalArray[i][j] == 1 {
@@ -256,7 +273,7 @@ func ResendOrdersWhenError(resetAssignFuncChan chan bool) {
 							dir = DOWN
 						}
 						NewOrderToLocalElevChan <- Order{Floor: i, Direction: dir}
-						time.Sleep(time.Millisecond*200)
+						time.Sleep(time.Millisecond * 200)
 					}
 				}
 			}
@@ -264,18 +281,22 @@ func ResendOrdersWhenError(resetAssignFuncChan chan bool) {
 			fmt.Println("ResendOrdersWhenError: elevGone")
 			deadElevOrders := optalg.GetOrderQueueOfDeadElev(elevGone)
 			fmt.Println("Orders of dead elev:")
-			for _, v := range deadElevOrders{
+			for _, v := range deadElevOrders {
 				stateMachine.PrintOrder(v)
 			}
 			ToOptAlgDeleteElevChan <- elevGone
+			fmt.Println("                                                 get here ")
 			resetAssignFuncChan <- true
+			fmt.Println("                                                 get here also ")
+			externalOrdersNotTaken = <-untakenOrdersChan
+			fmt.Println("                                                 get here also2 ")
 			for _, v := range deadElevOrders {
 				ExternalButtonPressedChan <- v
-				time.Sleep(time.Millisecond*40)
+				time.Sleep(time.Millisecond * 40)
 			}
 			for _, v := range externalOrdersNotTaken {
 				ExternalButtonPressedChan <- v
-				time.Sleep(time.Millisecond*40)
+				time.Sleep(time.Millisecond * 40)
 			}
 		}
 	}
