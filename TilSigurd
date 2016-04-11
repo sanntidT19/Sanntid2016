@@ -14,3 +14,8 @@ Hvis den sender ack, men meldingene fortsetter å bryte deadline, er det trolig 
 Sjekk om listen over IP-er som den bruker ikke blir monga av at en heis dør.
 
 Lykke til!
+
+Sigurd: Jeg fikk kjørt på to heiser et par ganger. Den ene gangen jeg fikk forsøkt å rekreere feilen fra tidligere, fungerte det som det skulle
+Når jeg skrudde den opprinnelige heisen på igjen, hadde den allikevel dens egne bestillingslys opplyst.
+Etter dette sluttet den andre heisen å virke (stoppet i init-funksjonene. Ser at den mangler to kabler så mulig det er noe forskjeliig med den) 
+Må gå til fluidlab nå, men alle andre pcer er opptatt så får vel kanskje ikke testa noe mer før i kveld eller i morgen. 
