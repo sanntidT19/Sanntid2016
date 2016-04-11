@@ -247,7 +247,6 @@ func isOrderInQueue(order_queue []Order, newOrder Order) bool {
 	return false
 }
 
-
 //UTKAST TIL REFORMATERT HEIS ER UNDER HER. KOM MED GODE NAVN PÅ TING ALLEREDE NÅ
 func MoveElevatorAndOpenDoor(floorWithOrderReachedChan chan Order, orderServedChan chan Order, sendElevInDirectionChan chan int) {
 	//CAN BE: IDLE, OPEN_DOOR, GO_TO_FLOOR (evt can G_T_F be go_up, and go_down)
@@ -274,7 +273,6 @@ func MoveElevatorAndOpenDoor(floorWithOrderReachedChan chan Order, orderServedCh
 		}
 	}
 }
-
 
 //
 func UpdateNewFloorReached() {
@@ -336,7 +334,7 @@ func NewTopLoop() {
 	//Her kan man anta at man står stille i en etasje
 	StateOfElev.CurrentFloor = driver.ElevGetFloorSensorSignal()
 	StateOfElev.Direction = DOWN
-	StateOfElev.IP = communication.GetLocalIP()
+	StateOfElev.IP = communication.FindLocalIP()
 	SendElevStateToNetwork(ToNetworkNewElevStateChan)
 
 	targetFloorReachedChan := make(chan Order)
@@ -366,11 +364,9 @@ func NewTopLoop() {
 				fmt.Println("Error! Couldnt find served order in local queue")
 			} else {
 				StateOfElev.OrderQueue = append(StateOfElev.OrderQueue[:indexOfServedOrder], StateOfElev.OrderQueue[indexOfServedOrder+1:]...)
-				
 
 				orderQueueChangeChan <- true
 
-			
 				OrderServedLocallyChan <- servedOrder
 
 				fmt.Println("order served")
@@ -389,32 +385,29 @@ func NewTopLoop() {
 
 }
 
-func SendElevStateToNetwork(toNetworkChan chan ElevatorState){
+func SendElevStateToNetwork(toNetworkChan chan ElevatorState) {
 	copyOfElevState := StateOfElev
 	copyOfOrderList := make([]Order, len(StateOfElev.OrderQueue))
-	copy(copyOfOrderList,StateOfElev.OrderQueue)
+	copy(copyOfOrderList, StateOfElev.OrderQueue)
 	copyOfElevState.OrderQueue = copyOfOrderList
-	toNetworkChan <-copyOfElevState
+	toNetworkChan <- copyOfElevState
 }
 
-func SpamCurrentQueue(){
-	for{
-		for _, v := range StateOfElev.OrderQueue{
+func SpamCurrentQueue() {
+	for {
+		for _, v := range StateOfElev.OrderQueue {
 			PrintOrder(v)
 		}
 		fmt.Println()
-		time.Sleep(time.Second*1)
+		time.Sleep(time.Second * 1)
 	}
 }
-
-
 
 func insertOrderIntoQueue(newOrder Order, currentState ElevatorState) []Order {
 	common_current_order_queue := currentState.OrderQueue
 	orderQueueCopy := make([]Order, len(common_current_order_queue))
 	copy(orderQueueCopy, common_current_order_queue)
 	var placeInQueue int
-	fmt.Println("Current order queue at start of sort", orderQueueCopy)
 	//if queue is empty
 	if len(orderQueueCopy) == 0 {
 		newOrderQueue := []Order{newOrder}
@@ -430,22 +423,16 @@ func insertOrderIntoQueue(newOrder Order, currentState ElevatorState) []Order {
 			fmt.Println("Elevator not in current floor, simulate past current floor")
 			firstFloorToVisit = currentState.CurrentFloor + currentDirection //er dette riktig?
 		}
-		placeInQueue = SimulateElevDrivingFindOrderIndex(firstFloorToVisit,currentDirection, orderQueueCopy, newOrder)
+		placeInQueue = SimulateElevDrivingFindOrderIndex(firstFloorToVisit, currentDirection, orderQueueCopy, newOrder)
 	}
 	newOrderQueue := append(orderQueueCopy[:placeInQueue], append([]Order{newOrder}, orderQueueCopy[placeInQueue:]...)...)
-	fmt.Println("Order queue after sort")
-	for _, v := range newOrderQueue {
-		PrintOrder(v)
-	}
 	return newOrderQueue
 }
-
-
 
 /*
 Simulate driving the elevator from current floor and serve all possible orders.
 */
-func SimulateElevDrivingFindOrderIndex(startingFloor int,startingDirection int,orderQueue []Order, newOrder Order) int{
+func SimulateElevDrivingFindOrderIndex(startingFloor int, startingDirection int, orderQueue []Order, newOrder Order) int {
 	simulatedFloor := startingFloor
 	simulatedDirection := startingDirection
 	placeInQueue := 0
@@ -461,13 +448,13 @@ func SimulateElevDrivingFindOrderIndex(startingFloor int,startingDirection int,o
 				return placeInQueue
 			}
 		}
-			simulatedFloor += simulatedDirection
+		simulatedFloor += simulatedDirection
 	}
 
 	simulatedFloor -= simulatedDirection
-	if simulatedDirection == UP{
+	if simulatedDirection == UP {
 		simulatedDirection = DOWN
-	}else{
+	} else {
 		simulatedDirection = UP
 	}
 	for simulatedFloor >= 0 && simulatedFloor < NUM_FLOORS {
@@ -485,24 +472,24 @@ func SimulateElevDrivingFindOrderIndex(startingFloor int,startingDirection int,o
 	}
 
 	simulatedFloor -= simulatedDirection //bounds were exceeded and you take one step back
-	
-	if simulatedDirection == UP{
+
+	if simulatedDirection == UP {
 		simulatedDirection = DOWN
-	}else{
+	} else {
 		simulatedDirection = UP
 	}
 	for simulatedFloor != (current_state.CurrentFloor + simulatedDirection) {
 		if newOrder.Floor == simulatedFloor && (simulatedDirection == newOrder.Direction || newOrder.Direction == COMMAND) {
 			placeInQueue = i
-				return placeInQueue
-			} else if orderQueue[i].Floor == simulatedFloor && (simulatedDirection == orderQueue[i].Direction || orderQueue[i].Direction == COMMAND) {
-				//order was theoretically served and next element in the current queue is up for evaluation
-				i++
-				if i == len(orderQueue) {
-					//all orders in queue evaluated. put new order at end
-					placeInQueue = i
-				}
+			return placeInQueue
+		} else if orderQueue[i].Floor == simulatedFloor && (simulatedDirection == orderQueue[i].Direction || orderQueue[i].Direction == COMMAND) {
+			//order was theoretically served and next element in the current queue is up for evaluation
+			i++
+			if i == len(orderQueue) {
+				//all orders in queue evaluated. put new order at end
+				placeInQueue = i
 			}
+		}
 		simulatedFloor += simulatedDirection
 	}
 	return placeInQueue

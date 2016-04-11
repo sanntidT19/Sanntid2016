@@ -29,7 +29,7 @@ var commonExternalArray [NUM_FLOORS][NUM_BUTTONS - 1]int
 func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, networkErrorChan chan bool, untakenOrdersChan chan []Order, newElevChan chan bool) {
 
 	var OrdersToBeAssignedByAll []AssignedOrderAndElevList
-	localAddr := communication.GetLocalIP()
+	localAddr := communication.FindLocalIP()
 
 	for {
 		select {
@@ -46,7 +46,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, network
 			if !orderIsRegistered {
 				//ad external order to queue here
 				//for now, the elevator states are all globally known. May send copy or something else later.
-				assignedElevAddr := optalg.OptAlg(newOrder)
+				assignedElevAddr := localAddr //optalg.OptAlg(newOrder)
 				fmt.Println("optalg complete")
 				NewOrderToBeAssigned := OrderAssigned{Order: newOrder, AssignedTo: assignedElevAddr, SentFrom: localAddr}
 				//Elevlist should be copied, global or maybe everyone that uses it should be in the same module
@@ -71,9 +71,12 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, network
 				fmt.Println("Old/garbage order")
 				stateMachine.PrintOrder(newOrdAss.Order)
 			} else {
-				fmt.Println("posInSlice: ", posInSlice)
+				stateMachine.PrintOrder(newOrdAss.Order)
+				fmt.Println("This order is assigned to: ", newOrdAss.AssignedTo)
+				fmt.Println("my ip is :", localAddr)
+				fmt.Println("elevator that decided this is: ", newOrdAss.SentFrom)
 				if newOrdAss.AssignedTo != OrdersToBeAssignedByAll[posInSlice].OrdAss.AssignedTo {
-					fmt.Println("Disagreement, recalculate with optalg")
+					fmt.Println("                              Disagreement, recalculate with optalg")
 					OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...) //slicetricks
 					assignedElevAddr := optalg.OptAlg(newOrdAss.Order)
 					NewOrderToBeAssigned := OrderAssigned{Order: newOrdAss.Order, AssignedTo: assignedElevAddr, SentFrom: localAddr}
@@ -86,11 +89,12 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, network
 						if newOrdAss.SentFrom == v {
 							OrdersToBeAssignedByAll[posInSlice].ElevList = append(OrdersToBeAssignedByAll[posInSlice].ElevList[:i], OrdersToBeAssignedByAll[posInSlice].ElevList[i+1:]...)
 							if len(OrdersToBeAssignedByAll[posInSlice].ElevList) == 0 {
-								OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...)
 								AddOrderAssignedToElevStateChan <- newOrdAss
-								if newOrdAss.AssignedTo == communication.GetLocalIP() {
+								if newOrdAss.AssignedTo == localAddr {
+									fmt.Println("im taking this order!")
 									NewOrderToLocalElevChan <- newOrdAss.Order
 								}
+								OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...)
 
 							}
 						}

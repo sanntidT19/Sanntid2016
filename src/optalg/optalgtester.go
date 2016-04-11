@@ -41,7 +41,7 @@ func OptAlg(newOrder Order) string {
 	for i, v := range elevStatesCopy {
 		queueLenList[i] = len(v.OrderQueue)
 		if len(v.OrderQueue) == 0 {
-			IPCostList[i] -= (NUM_FLOORS - 1)
+			IPCostList[i] -= 3 //DENNE MÅ NOK FINJUSTERES ELLER ENDRES EN GANG
 		}
 		if v.CurrentFloor < newOrder.Floor {
 			if v.Direction == DOWN {
@@ -110,7 +110,7 @@ func UpdateElevatorStateList() {
 	for {
 		select {
 		case updatedElevState := <-FromNetworkNewElevStateChan:
-			fmt.Println("New state received!")
+			//fmt.Println("New state received!")
 			elevInList := false
 			for i, v := range allElevStates {
 				if updatedElevState.IP == v.IP {
