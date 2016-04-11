@@ -2,7 +2,7 @@ Til sigurds morgentesting:
 
 --I variousfuncs--
 Jeg har erstattet sortOrderQueue med insertOrderInQueue. Test en heis alene med normalt bruk og sjekk at jeg ikke har gjort noen mongofeil.
-
+Sigurd: virker som det funker greit. Den sorterer hvertfall riktig når programmet fungerer. Noen ganger fungerer ikke programmet.
 --I communication--
 Jeg har lagt til og kommentert ut en ting som kan vise deg hva som blir sendt over nett i encodedfunc (rundt linje 309)
 Dette sjekker kun orderassigned (som er hovedmistenkt). Du kan endre hvis du vil sjekke andre type meldinger
