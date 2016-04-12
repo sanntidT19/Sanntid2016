@@ -19,3 +19,32 @@ Sigurd: Jeg fikk kjørt på to heiser et par ganger. Den ene gangen jeg fikk for
 Når jeg skrudde den opprinnelige heisen på igjen, hadde den allikevel dens egne bestillingslys opplyst.
 Etter dette sluttet den andre heisen å virke (stoppet i init-funksjonene. Ser at den mangler to kabler så mulig det er noe forskjeliig med den) 
 Må gå til fluidlab nå, men alle andre pcer er opptatt så får vel kanskje ikke testa noe mer før i kveld eller i morgen. 
+
+
+
+
+
+func DistributeOrdersToNetwork(){
+  var ordersWaitingToBesent []Order
+  var cooldownTimer time.Time = time.Now() //Eller tidenes morgen ved initialisering.
+  for{
+    select{
+      case newOrder :=<-newOrderFromLocal:
+        if !isOrderInQueue(newOrder, ordersWaitingToBeSent){
+          ordersWaitingToBeSent = append(ordersWaitingToBeSent, newOrder)
+          }
+    default:
+    if time.Now().After(cooldownTimer){
+      if len(ordersWaitingToBeSent) > 0{
+        ToNetworkNewOrder <- ordersWaitingToBeSent[0]
+        coolDownTimer = time.Now().Add(time.Millisecond * 200)
+        ordersWaitingToBeSent = ordersWaitingToBeSent[1:]
+      }
+    }
+    time.Sleep(time.MilliSecond*50)
+    }
+  }
+}
+
+
+
