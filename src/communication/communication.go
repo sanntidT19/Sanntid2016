@@ -81,7 +81,7 @@ func CommNeedBetterName() {
 	go decodeMessagesFromNetwork(messageFromNetworkChan, newAckFromNetworkChan, sendNetworkMessageChan)
 	go encodeMessagesToNetwork(sendNetworkMessageChan, newAckStartChan, resendMessageChan)
 	go setDeadlinesForAcks(resendMessageChan, ackdByAllChan, newAckStartChan, newAckFromNetworkChan, elevatorListChangedChan, networkDownRemoveAcksChan)
-
+	//go DistributeOrdersToNetwork()
 	go func() {
 		for {
 			select {
@@ -136,6 +136,14 @@ func CommNeedBetterName() {
 
 		}
 	}
+}
+func isOrderInQueue(order_queue []Order, newOrder Order) bool {
+	for _, queueElements := range order_queue {
+		if queueElements == newOrder {
+			return true
+		}
+	}
+	return false
 }
 
 func readUpdateElevatorOverview(newShoutFromElevatorChan chan string, newElevatorChan chan string, elevatorGoneChan chan string) {
@@ -295,7 +303,30 @@ func SendMessagesToAllElevators(sendNetworkMessageChan chan []byte, newConnectio
 //AssignedTo string
 //SentFrom   string
 //Order      Order
-
+/*
+func DistributeOrdersToNetwork() {
+	var ordersWaitingToBeSent []Order
+	var cooldownTimer time.Time = time.Now() //Eller tidenes morgen ved initialisering.
+	for {
+		select {
+		case newOrder := <-ToNetworkExternalButtonPressedChan:
+			fmt.Print("werwerwerwerwerwrwer")
+			if !isOrderInQueue(ordersWaitingToBeSent, newOrder) {
+				ordersWaitingToBeSent = append(ordersWaitingToBeSent, newOrder)
+			}
+		default:
+			if time.Now().After(cooldownTimer) {
+				if len(ordersWaitingToBeSent) > 0 {
+					ExternalButtonPressedChan <- ordersWaitingToBeSent[0]
+					cooldownTimer = time.Now().Add(time.Millisecond * 200)
+					ordersWaitingToBeSent = ordersWaitingToBeSent[1:]
+				}
+			}
+			time.Sleep(time.Millisecond * 50)
+		}
+	}
+}
+*/
 //Not completely tested yet
 func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan chan MessageWithHeader, resendMessageChan chan MessageWithHeader) {
 	go func() {
@@ -310,7 +341,7 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 			if err != nil {
 				fmt.Println("error when encoding: ", err)
 			}
-			fmt.Println("Ack expired, resend.")
+			fmt.Println("Ack expired, resend: ", expiredMessage.Tag)
 
 			/*if expiredMessage.Tag == "ordTo"{
 				var orderAss OrderAssigned

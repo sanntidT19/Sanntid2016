@@ -33,23 +33,25 @@ func OptAlg(newOrder Order) string {
 	numOfElevs := len(elevStatesCopy)
 
 	IPCostList := make([]int, numOfElevs)
-	queueLenList := make([]int, numOfElevs)
 	var elevNmr int = -1
 	var lowestCost int = 100
 	var optimalIP string = "0"
 	fmt.Println("optalg: number of elevs seen: ", numOfElevs)
 	for i, v := range elevStatesCopy {
-		queueLenList[i] = len(v.OrderQueue)
-		if len(v.OrderQueue) == 0 {
-			IPCostList[i] -= 3 //DENNE MÅ NOK FINJUSTERES ELLER ENDRES EN GANG
-		}
 		if v.CurrentFloor < newOrder.Floor {
 			if v.Direction == DOWN {
-				IPCostList[i] += 1
+				if len(v.OrderQueue) > 0 {
+					lastFloorInOrderQueue := v.OrderQueue[len(v.OrderQueue)-1].Floor
+
+					floorsToBeVisited := int(math.Abs(float64(v.CurrentFloor-lastFloorInOrderQueue)) + math.Abs(float64(newOrder.Floor-lastFloorInOrderQueue)))
+
+					IPCostList[i] += floorsToBeVisited
+					fmt.Println("LENGTH OF QUEUE IS LONGER THAN 0")
+				}
+
 			}
 		} else if v.CurrentFloor > newOrder.Floor {
 			if v.Direction == UP {
-				IPCostList[i] += 1
 				//Add distance to last order in queue and distance from last order to new order, only if there are orders
 				if len(v.OrderQueue) > 0 {
 					lastFloorInOrderQueue := v.OrderQueue[len(v.OrderQueue)-1].Floor
@@ -57,6 +59,7 @@ func OptAlg(newOrder Order) string {
 					floorsToBeVisited := int(math.Abs(float64(v.CurrentFloor-lastFloorInOrderQueue)) + math.Abs(float64(newOrder.Floor-lastFloorInOrderQueue)))
 
 					IPCostList[i] += floorsToBeVisited
+					fmt.Println("LENGTH OF QUEUE IS LONGER THAN 0")
 				}
 			}
 		}
@@ -65,7 +68,7 @@ func OptAlg(newOrder Order) string {
 		IPCostList[i] += int(math.Abs(floatDifference))
 		IPCostList[i] += len(v.OrderQueue)
 	}
-	for k := 0; k < len(IPCostList); k += 1 {
+	for k := 0; k < len(IPCostList); k++ {
 		if IPCostList[k] < lowestCost {
 			optimalIP = elevStatesCopy[k].IP
 			lowestCost = IPCostList[k]

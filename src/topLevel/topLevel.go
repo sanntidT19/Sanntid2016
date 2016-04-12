@@ -46,7 +46,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, network
 			if !orderIsRegistered {
 				//ad external order to queue here
 				//for now, the elevator states are all globally known. May send copy or something else later.
-				assignedElevAddr := localAddr //optalg.OptAlg(newOrder)
+				assignedElevAddr := optalg.OptAlg(newOrder)
 				fmt.Println("optalg complete")
 				NewOrderToBeAssigned := OrderAssigned{Order: newOrder, AssignedTo: assignedElevAddr, SentFrom: localAddr}
 				//Elevlist should be copied, global or maybe everyone that uses it should be in the same module
@@ -54,7 +54,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, network
 				OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, AssignedOrderAndElevList{NewOrderToBeAssigned, elevList})
 				time.Sleep(time.Millisecond * 200) //This is to make sure you get to make the list before
 				ToNetworkOrderAssignedToChan <- NewOrderToBeAssigned
-				fmt.Println("                                                              SENT TO NETWORK WAWAWAWAWAAW")
+				fmt.Println("                                   LENGTH OF QUEUE: ", len(OrdersToBeAssignedByAll))
 			} else {
 				fmt.Println("Order already registered. Discard message.")
 			}
@@ -72,11 +72,11 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, network
 				stateMachine.PrintOrder(newOrdAss.Order)
 			} else {
 				stateMachine.PrintOrder(newOrdAss.Order)
-				fmt.Println("This order is assigned to: ", newOrdAss.AssignedTo)
-				fmt.Println("my ip is :", localAddr)
-				fmt.Println("elevator that decided this is: ", newOrdAss.SentFrom)
+				fmt.Println("                    This order is assigned to: ", newOrdAss.AssignedTo)
+				fmt.Println("                            my ip is :", localAddr)
+				fmt.Println("                   elevator that decided this is: ", newOrdAss.SentFrom)
 				if newOrdAss.AssignedTo != OrdersToBeAssignedByAll[posInSlice].OrdAss.AssignedTo {
-					fmt.Println("                              Disagreement, recalculate with optalg")
+					fmt.Println("                               disagreement, recalculate with optalg")
 					OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...) //slicetricks
 					assignedElevAddr := optalg.OptAlg(newOrdAss.Order)
 					NewOrderToBeAssigned := OrderAssigned{Order: newOrdAss.Order, AssignedTo: assignedElevAddr, SentFrom: localAddr}
@@ -91,7 +91,9 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, network
 							if len(OrdersToBeAssignedByAll[posInSlice].ElevList) == 0 {
 								AddOrderAssignedToElevStateChan <- newOrdAss
 								if newOrdAss.AssignedTo == localAddr {
-									fmt.Println("im taking this order!")
+									fmt.Println("X")
+									fmt.Println("                                    im taking this order!")
+									fmt.Println("X")
 									NewOrderToLocalElevChan <- newOrdAss.Order
 								}
 								OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...)
@@ -296,11 +298,11 @@ func ResendOrdersWhenError(resetAssignFuncChan chan bool, untakenOrdersChan chan
 			fmt.Println("                                                 get here also2 ")
 			for _, v := range deadElevOrders {
 				ExternalButtonPressedChan <- v
-				time.Sleep(time.Millisecond * 40)
+				time.Sleep(time.Millisecond * 300)
 			}
 			for _, v := range externalOrdersNotTaken {
 				ExternalButtonPressedChan <- v
-				time.Sleep(time.Millisecond * 40)
+				time.Sleep(time.Millisecond * 300)
 			}
 		}
 	}
