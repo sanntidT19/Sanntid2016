@@ -9,23 +9,6 @@ import (
 	"time"
 )
 
-/*0
-,State{MyIP: "123.123.123.123",
-	CurrentFloor: 3,
-	LastFloor:    2,
-	Direction:    -1}
-var el_state2 ElevatorState = ElevatorState{MyIP: "123.123.123.124",
-	CurrentFloor: 2,
-	LastFloor:    1,
-	Direction:    1,
-	OrderQueue:       []Button{Button{3, -1, false}, {2, 0, false}}}
-
-var el_state3 ElevatorState = ElevatorState{MyIP: "123.123.123.125",
-	CurrentFloor: 3,
-	LastFloor:    3,
-	Direction:    1,
-	OrderQueue:       []Button{Button{2, -1, false}}}
-*/
 var allElevStates []ElevatorState
 
 func OptAlg(newOrder Order) string {
@@ -67,7 +50,7 @@ func OptAlg(newOrder Order) string {
 		floatDifference := float64(v.CurrentFloor - newOrder.Floor)
 
 		IPCostList[i] += int(math.Abs(floatDifference))
-		IPCostList[i] += len(v.OrderQueue)
+		IPCostList[i] += len(v.OrderQueue)*2
 	}
 	for k := 0; k < len(IPCostList); k++ {
 		if IPCostList[k] < lowestCost {

@@ -52,7 +52,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, network
 				//Elevlist should be copied, global or maybe everyone that uses it should be in the same module
 				elevList := network.ElevsSeen()
 				OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, AssignedOrderAndElevList{NewOrderToBeAssigned, elevList})
-				time.Sleep(time.Millisecond * 200) //This is to make sure you get to make the list before
+				time.Sleep(time.Millisecond * 100) //This is to make sure you get to make the list before
 				ToNetworkOrderAssignedToChan <- NewOrderToBeAssigned
 				fmt.Println("                                   LENGTH OF QUEUE: ", len(OrdersToBeAssignedByAll))
 			} else {
@@ -82,7 +82,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, network
 					NewOrderToBeAssigned := OrderAssigned{Order: newOrdAss.Order, AssignedTo: assignedElevAddr, SentFrom: localAddr}
 					elevList := network.ElevsSeen()
 					OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, AssignedOrderAndElevList{NewOrderToBeAssigned, elevList})
-					time.Sleep(time.Millisecond * 20) //This is to make sure you get to make the list before
+					time.Sleep(time.Millisecond * 100) //This is to make sure you get to make the list before
 					ToNetworkOrderAssignedToChan <- NewOrderToBeAssigned
 				} else {
 					for i, v := range OrdersToBeAssignedByAll[posInSlice].ElevList {
