@@ -6,6 +6,7 @@ import (
 	"../stateMachine"
 	"fmt"
 	"math"
+	"time"
 )
 
 /*0
@@ -117,7 +118,10 @@ func UpdateElevatorStateList() {
 			elevInList := false
 			for i, v := range allElevStates {
 				if updatedElevState.IP == v.IP {
-					allElevStates[i] = updatedElevState
+					var newestStateTime time.Time = allElevStates[i].Timestamp
+					if updatedElevState.Timestamp.After(newestStateTime){
+						allElevStates[i] = updatedElevState
+					}
 					elevInList = true
 					break
 				}

@@ -18,9 +18,6 @@ var LocalAddr string
 var connectionList map[string]*net.UDPConn
 
 const (
-	arrayX             = 7
-	arrayY             = 7
-	arrayZ             = 7
 	ACK_DEADLINE       = 4
 	BROADCAST_DEADLINE = 3
 )
@@ -31,9 +28,9 @@ type ackTimer struct {
 	IpList   []string
 }
 
-type addrAndTimer struct {
+type addrAndDeadline struct {
 	DeadLine    time.Time
-	NetWorkAddr string
+	Addr string
 }
 
 type MessageWithHeader struct {
@@ -44,13 +41,8 @@ type MessageWithHeader struct {
 }
 
 //Test udpSize by sending this on the network.
-type HugeStruct struct {
-	HugeNumber int
-	HugeBool   bool
-	HugeArray  [arrayX][arrayY][arrayZ]int
-	HugeName   string
-}
 
+//Topp-funksjonen. Goer alle funksjoner i denne modulen. Tar imot endringer i nettverkslista. Sier ifra til local
 func CommNeedBetterName() {
 	newShoutFromElevatorChan := make(chan string)
 	newElevatorChan := make(chan string)
@@ -75,9 +67,9 @@ func CommNeedBetterName() {
 	go broadcastPrecense(broadcastPort)
 	go listenForBroadcast(broadcastPort, newShoutFromElevatorChan)
 
-	go readUpdateElevatorOverview(newShoutFromElevatorChan, newElevatorChan, elevatorGoneChan)
-	go SendMessagesToAllElevators(sendNetworkMessageChan, newConnectionChan, endConnectionChan)
-	go readMessagesFromNetwork(LocalAddr, commonPort, messageFromNetworkChan)
+	go detectNewAndDeadElevs(newShoutFromElevatorChan, newElevatorChan, elevatorGoneChan)
+	go sendMessagesOverNetwork(sendNetworkMessageChan, newConnectionChan, endConnectionChan)
+	go receiveMessagesFromNetwork(LocalAddr, commonPort, messageFromNetworkChan)
 	go decodeMessagesFromNetwork(messageFromNetworkChan, newAckFromNetworkChan, sendNetworkMessageChan)
 	go encodeMessagesToNetwork(sendNetworkMessageChan, newAckStartChan, resendMessageChan)
 	go setDeadlinesForAcks(resendMessageChan, ackdByAllChan, newAckStartChan, newAckFromNetworkChan, elevatorListChangedChan, networkDownRemoveAcksChan)
@@ -137,8 +129,9 @@ func CommNeedBetterName() {
 		}
 	}
 }
-func isOrderInQueue(order_queue []Order, newOrder Order) bool {
-	for _, queueElements := range order_queue {
+//Hjelpefunksjon. Kopier til global
+func isOrderInQueue(orderQueue []Order, newOrder Order) bool {
+	for _, queueElements := range orderQueue {
 		if queueElements == newOrder {
 			return true
 		}
@@ -146,32 +139,34 @@ func isOrderInQueue(order_queue []Order, newOrder Order) bool {
 	return false
 }
 
-func readUpdateElevatorOverview(newShoutFromElevatorChan chan string, newElevatorChan chan string, elevatorGoneChan chan string) {
-	elevatorTimerList := []addrAndTimer{}
+//This function sets a deadline every time a new broadcast-shout is received. It detects if an elevator appears or dissappears from the network.
+//Detects changes in the network
+//
+func detectNewAndDeadElevs(newShoutFromElevChan chan string, newElevChan chan string, elevDeadChan chan string) {
+	elevDeadlineList := []addrAndDeadline{}
 	for {
 		select {
-		case newShout := <-newShoutFromElevatorChan:
-			elevatorInList := false
-			index := 0
-			//Index might be invalid if list is altered somewhere else during the for loop.
-			for i, v := range elevatorTimerList {
-				if v.NetWorkAddr == newShout {
-					elevatorInList = true
-					index = i
+		case newShout := <-newShoutFromElevChan:
+			elevIsInList := false
+			placeInList := 0
+			for i, v := range elevDeadlineList {
+				if v.Addr == newShout {
+					elevIsInList = true
+					placeInList = i
 					break
 				}
 			}
-			if elevatorInList {
-				elevatorTimerList[index].DeadLine = time.Now().Add(time.Second * BROADCAST_DEADLINE)
+			if elevIsInList {
+				elevDeadlineList[placeInList].DeadLine = time.Now().Add(time.Second * BROADCAST_DEADLINE)
 			} else {
-				elevatorTimerList = append(elevatorTimerList, addrAndTimer{DeadLine: time.Now().Add(time.Second * BROADCAST_DEADLINE), NetWorkAddr: newShout})
-				newElevatorChan <- newShout
+				elevDeadlineList = append(elevDeadlineList, addrAndDeadline{DeadLine: time.Now().Add(time.Second * BROADCAST_DEADLINE), Addr: newShout})
+				newElevChan <- newShout
 			}
 		default:
-			for i, v := range elevatorTimerList {
+			for i, v := range elevDeadlineList {
 				if time.Now().After(v.DeadLine) {
-					elevatorGoneChan <- v.NetWorkAddr
-					elevatorTimerList = append(elevatorTimerList[:i], elevatorTimerList[i+1:]...) //From slicetricks. Remove element.
+					elevDeadChan <- v.Addr
+					elevDeadlineList = append(elevDeadlineList[:i], elevDeadlineList[i+1:]...) //From slicetricks. Remove element.
 				}
 			}
 		}
@@ -179,15 +174,15 @@ func readUpdateElevatorOverview(newShoutFromElevatorChan chan string, newElevato
 	}
 }
 
+//Returns a connection with an elevator.
 func connectToElevator(remoteIp string, remotePort string) *net.UDPConn {
 	fullAddr := remoteIp + ":" + remotePort
 	remoteUDPAddr, _ := net.ResolveUDPAddr("udp4", fullAddr)
 	connection, _ := net.DialUDP("udp4", nil, remoteUDPAddr)
-
 	return connection
 
 }
-
+//Acquires the local ip
 func FindLocalIP() string {
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -216,18 +211,19 @@ func FindLocalIP() string {
 	return ""
 }
 
+//Broadcasts to network "i am here"
 func broadcastPrecense(broadcastPort string) {
 	broadcastAddr := "255.255.255.255" + ":" + broadcastPort
 	broadcastUDPAddr, _ := net.ResolveUDPAddr("udp", broadcastAddr)
 	connection, err := net.DialUDP("udp", nil, broadcastUDPAddr)
 	if err != nil {
-		fmt.Println("You messed up in spam presence")
+		fmt.Println(err)
 	}
 	defer connection.Close()
 	for {
 		_, err := connection.Write([]byte("I am here"))
 		if err != nil {
-			fmt.Println("error in bcastpres: ", err)
+			fmt.Println(err)
 		}
 		time.Sleep(time.Millisecond * 500)
 	}
@@ -242,7 +238,7 @@ func listenForBroadcast(broadcastPort string, newShoutFromElevatorChan chan stri
 	for {
 		_, senderAddr, err := connection.ReadFromUDP(buffer)
 		if err != nil {
-			fmt.Println("Error reading msg in listenForElevators, discard message")
+			fmt.Println("Error receiving broadcast, discard message")
 		} else {
 			newShoutFromElevatorChan <- senderAddr.IP.String()
 		}
@@ -250,10 +246,8 @@ func listenForBroadcast(broadcastPort string, newShoutFromElevatorChan chan stri
 
 }
 
-/* I think you only need to listen on one port */
-/* test to iterate through connections if this doesnt work*/
-
-func readMessagesFromNetwork(localAddr string, commonPort string, messageFromNetworkChan chan []byte) {
+//Receives messages from network. Sends to decode.
+func receiveMessagesFromNetwork(localAddr string, commonPort string, messageFromNetworkChan chan []byte) {
 	buffer := make([]byte, 2048)
 	fullAddr := localAddr + ":" + commonPort
 	listenConnAddress, _ := net.ResolveUDPAddr("udp4", fullAddr)
@@ -274,12 +268,9 @@ func readMessagesFromNetwork(localAddr string, commonPort string, messageFromNet
 	}
 }
 
-//
-func SendMessagesToAllElevators(sendNetworkMessageChan chan []byte, newConnectionChan chan string, endConnectionChan chan string) {
+//It also maintains the list of connections
+func sendMessagesOverNetwork(sendNetworkMessageChan chan []byte, newConnectionChan chan string, endConnectionChan chan string) {
 	connectionList := make(map[string]*net.UDPConn)
-	for _, deferConn := range connectionList {
-		defer deferConn.Close()
-	}
 	for {
 		select {
 		case newElevator := <-newConnectionChan:
@@ -292,8 +283,7 @@ func SendMessagesToAllElevators(sendNetworkMessageChan chan []byte, newConnectio
 			for _, conn := range connectionList {
 				_, err := conn.Write(newMessage)
 				if err != nil {
-					fmt.Println("Error in sending func, maybe some error handling later")
-					fmt.Println("Err: ", err)
+					fmt.Println("Error sending message to network: ", err)
 				}
 			}
 		}
@@ -327,7 +317,8 @@ func DistributeOrdersToNetwork() {
 	}
 }
 */
-//Not completely tested yet
+
+//Encodes messages to be sent over network. Also encodes expired messages.
 func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan chan MessageWithHeader, resendMessageChan chan MessageWithHeader) {
 	go func() {
 		for {
@@ -337,22 +328,12 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 			copy(copyOfData, expiredMessage.Data)
 			expiredMessage.Data = copyOfData
 			expiredMessage.SenderAddr = LocalAddr
-			encodedPacket, err := json.Marshal(expiredMessage)
+			encodedMessage, err := json.Marshal(expiredMessage)
 			if err != nil {
 				fmt.Println("error when encoding: ", err)
 			}
 			fmt.Println("Ack expired, resend: ", expiredMessage.Tag)
-
-			/*if expiredMessage.Tag == "ordTo"{
-				var orderAss OrderAssigned
-				_ := json.Unmarshal(message.Data, &orderAss)
-				fmt.Println("Content of expired orderAss message.: ")
-				fmt.Println("assigned to: ",orderAss.AssignedTo)
-				fmt.Println("sent from", orderAss.SentFrom)
-				fmt.Println("order", orderAss.Order)
-
-			}*/
-			sendToNetworkChan <- encodedPacket
+			sendToNetworkChan <- encodedMessage
 		}
 
 	}()
@@ -399,17 +380,17 @@ func encodeMessagesToNetwork(sendToNetworkChan chan []byte, sendToAckTimerChan c
 		}
 		//alt felles gjøres her
 		var newPacket MessageWithHeader = MessageWithHeader{Data: encodedData, Tag: tag, Ack: false, SenderAddr: LocalAddr}
-		encodedPacket, err := json.Marshal(newPacket)
+		encodedMessage, err := json.Marshal(newPacket)
 		if err != nil {
 			fmt.Println("error when encoding: ", err)
 		}
 		//Send packet to network. Send copy to local center that keeps track of Ack's
 		//Better names needed all over the place
-		sendToNetworkChan <- encodedPacket
+		sendToNetworkChan <- encodedMessage
 		sendToAckTimerChan <- newPacket
 	}
 }
-
+//Takes a message and sends out an ack
 func sendAck(message MessageWithHeader, sendToNetworkChan chan []byte) {
 	ackMessage := MessageWithHeader{}
 	ackMessage.Ack = true
@@ -417,14 +398,16 @@ func sendAck(message MessageWithHeader, sendToNetworkChan chan []byte) {
 	ackMessage.SenderAddr = LocalAddr
 	ackMessage.Data = make([]byte, len(message.Data))
 	copy(ackMessage.Data, message.Data)
-	encodedPacket, err := json.Marshal(ackMessage)
+	encodedMessage, err := json.Marshal(ackMessage)
 	if err != nil {
 		fmt.Println("error encoding resend message")
 	}
 	//fmt.Println("Ack sent")
-	sendToNetworkChan <- encodedPacket
+	sendToNetworkChan <- encodedMessage
 }
 
+
+//It decodes messages from the network AND sends an ack for each message
 func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNetworkChan chan MessageWithHeader, sendToNetworkChan chan []byte) {
 	//If no ack. Respond immediately somewhere with ack.
 	//Switch on tag
@@ -490,8 +473,9 @@ func decodeMessagesFromNetwork(messageFromNetworkChan chan []byte, newAckFromNet
 
 /*
 Ting skal helst kun sendes en gang over nett. Det er greit å discarde meldinger, men
-
 */
+
+//This function starts a timer for each message sent and resends unackd messages if they expire or the network configuration changes
 func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, ackdByAllChan chan MessageWithHeader, newMessageSentChan chan MessageWithHeader, newAckChan chan MessageWithHeader, elevatorListChangedChan chan bool, networkDownResetAckListChan chan bool) {
 	var unAckdMessages []ackTimer
 	var networkIsDown bool
@@ -575,33 +559,6 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, ackdByAllChan
 	}
 }
 
-func printHugeStruct(bigAssMessage HugeStruct) {
-	fmt.Println("HugeBool: ", bigAssMessage.HugeBool)
-	fmt.Println("HugeName aka localAddr: ", bigAssMessage.HugeName)
-	fmt.Println("HugeNumber: ", bigAssMessage.HugeNumber)
-	for i := 0; i < arrayX; i++ {
-		for j := 0; j < arrayY; j++ {
-			for k := 0; k < arrayZ; k++ {
-				fmt.Println(bigAssMessage.HugeArray[i][j][k])
-			}
-		}
-	}
-}
-
-func makeHugeStruct(localAddr string) HugeStruct {
-	hugeS := HugeStruct{}
-	hugeS.HugeBool = true
-	hugeS.HugeNumber = 322322
-	hugeS.HugeName = localAddr
-	for i := 0; i < arrayX; i++ {
-		for j := 0; j < arrayY; j++ {
-			for k := 0; k < arrayZ; k++ {
-				hugeS.HugeArray[i][j][k] = i*100 + j*10 + k
-			}
-		}
-	}
-	return hugeS
-}
 
 func GetElevList() []string {
 	copyElevList := make([]string, len(listOfElevatorsInNetwork))

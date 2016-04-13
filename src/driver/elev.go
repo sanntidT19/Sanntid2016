@@ -19,7 +19,7 @@ import (
 var lamp_channel_matrix [][]int
 var button_channel_matrix [][]int
 
-func ElevMakeStdLMatrix() [][]int { //stupid name? we need to agree on a stanard name convention
+func MakeStdLMatrix() [][]int { //stupid name? we need to agree on a stanard name convention
 	std_matrix := make([][]int, 4, 8)
 	std_matrix[0] = make([]int, NUM_BUTTONS)
 	std_matrix[0] = []int{LIGHT_UP1, LIGHT_DOWN1, LIGHT_COMMAND1}
@@ -32,7 +32,7 @@ func ElevMakeStdLMatrix() [][]int { //stupid name? we need to agree on a stanard
 	return std_matrix
 }
 
-func ElevMakeStdBMatrix() [][]int {
+func MakeStdBMatrix() [][]int {
 	std_matrix := make([][]int, 4, 8) //Find out if the capacity here is valid
 	std_matrix[0] = make([]int, NUM_BUTTONS)
 	std_matrix[0] = []int{BUTTON_UP1, BUTTON_DOWN1, BUTTON_COMMAND1}
@@ -45,24 +45,24 @@ func ElevMakeStdBMatrix() [][]int {
 	return std_matrix
 }
 
-func ElevInit() {
+func InitAndGoToSafeState() {
 	C.elev_init()
-	lamp_channel_matrix = ElevMakeStdLMatrix()
-	button_channel_matrix = ElevMakeStdBMatrix()
+	lamp_channel_matrix = MakeStdLMatrix()
+	button_channel_matrix = MakeStdBMatrix()
 	fmt.Println("i get here")
-	ElevDriveElevator(0)
-	if ElevGetFloorSensorSignal() == -1 {
-		ElevDriveElevator(-1)
-		for ElevGetFloorSensorSignal() == -1 {
+	DriveElevator(0)
+	if GetFloorSensorSignal() == -1 {
+		DriveElevator(-1)
+		for GetFloorSensorSignal() == -1 {
 			time.Sleep(50 * time.Millisecond)
 		}
-		ElevDriveElevator(0)
+		DriveElevator(0)
 	}
 	fmt.Printf("Initialization of elevator complete.\n")
 
 }
 
-func ElevDriveElevator(dirn int) {
+func DriveElevator(dirn int) {
 	if dirn == 0 {
 		IoWriteAnalog(MOTOR, 0)
 	} else if dirn > 0 {
@@ -74,7 +74,7 @@ func ElevDriveElevator(dirn int) {
 	}
 }
 
-func ElevSetDoorOpenLamp(turn_on bool) {
+func SetDoorOpenLamp(turn_on bool) {
 	if turn_on {
 		IoSetBit(LIGHT_DOOR_OPEN)
 	} else {
@@ -82,7 +82,7 @@ func ElevSetDoorOpenLamp(turn_on bool) {
 	}
 }
 
-func ElevSetStopLamp(turn_on bool) {
+func SetStopLamp(turn_on bool) {
 	if turn_on {
 		IoSetBit(STOP)
 	} else {
@@ -90,17 +90,8 @@ func ElevSetStopLamp(turn_on bool) {
 	}
 }
 
-func ElevSetButtonLight(button int, floor int, value bool) {
-	if value {
-		IoSetBit(lamp_channel_matrix[floor][button])
-	} else {
-		IoClearBit(lamp_channel_matrix[floor][button])
-	}
-	return
-}
-
 //Vurder senere om bool eller int er best her
-func ElevGetButtonSignal(button int, floor int) bool {
+func GetButtonSignal(button int, floor int) bool {
 	if IoReadBit(button_channel_matrix[floor][button]) {
 		return true
 	} else {
@@ -108,12 +99,12 @@ func ElevGetButtonSignal(button int, floor int) bool {
 	}
 }
 
-func ElevGetFloorSensorSignal() int {
+func GetFloorSensorSignal() int {
 	return int(C.elev_get_floor_sensor_signal())
 
 }
 
-func ElevSetFloorLight(floor int) {
+func SetFloorLight(floor int) {
 	C.elev_set_floor_indicator(C.int(floor))
 	return
 }
@@ -177,24 +168,24 @@ func SetButtonLight(ButtonLight Order, turnOn bool) {
 }
 
 //Rename
-func ElevMainTesterFunction() {
+func Init() {
 	fmt.Println("starting tester function")
 	IoInit()
-	ElevInit()
+	InitAndGoToSafeState()
 	fmt.Println("finished initializing elev")
-	go ElevFloorLightUpdater()
+	go UpdateFloorLights()
 	go CheckForButtonsPressed()
 	return
 }
 
 //Use of last_floor may need to be exported og gotten somewhere else
-func ElevFloorLightUpdater() {
+func UpdateFloorLights() {
 	current_floor := -1
 	for {
 		time.Sleep(200 * time.Millisecond)
-		current_floor = ElevGetFloorSensorSignal()
+		current_floor = GetFloorSensorSignal()
 		if current_floor != -1 {
-			ElevSetFloorLight(current_floor)
+			SetFloorLight(current_floor)
 		}
 	}
 }

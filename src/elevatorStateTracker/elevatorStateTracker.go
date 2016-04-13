@@ -4,7 +4,7 @@ import (
 	"../driver"
 	. "../globalChans"
 	. "../globalStructs"
-	"../communication"
+	"../network"
 	"encoding/gob"
 	"fmt"
 	"os"
@@ -28,7 +28,7 @@ func send_updated_elevator_state(){
 	//call this whenever its updated. write to channels
 }
 */
-
+//endre navn
 func WriteCurrentOrdersToFile(currentState AllOrders) {
 	//temp for testing
 	//update this whenever the local elevator gets an order/command
@@ -132,7 +132,7 @@ func StartupDraft() {
 			//networkIsUp := readNetwork()//something like this           CHECK IF NETWORK IS UP HERE
 			time.Sleep(time.Millisecond * 300)
 			networkIsUp := false
-			currentElevList := communication.GetElevList()
+			currentElevList := network.ElevsSeen()
 			if len(currentElevList) > 0{
 				networkIsUp = true
 			}
@@ -160,13 +160,6 @@ func SendAllExternalOrdersToLocalElev(currentState AllOrders){
 */
 
 //Assume network is up. If its not, it will be detected and a different function will be called
-func ResendOrdersOfLostElev(orderQueue []Order, sendOrderToNetworkChan chan Order) {
-	for _, v := range orderQueue {
-		if v.Direction != COMMAND {
-			sendOrderToNetworkChan <- v
-		}
-	}
-}
 
 /*
 What is needed to save to make sure no orders are lost.

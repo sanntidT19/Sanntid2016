@@ -1,5 +1,7 @@
 package globalStructs
-
+import(
+	"time"
+)
 const (
 	UP          = 1
 	DOWN        = -1
@@ -27,13 +29,14 @@ type Order struct {
 }
 
 //This is a struct you could send to all other elevators
+//Remember to set timestamp. And check the timestamp when a new state comes to optalgtester
 type ElevatorState struct {
 	IP            string //not an int, always useful to have
 	CurrentFloor  int
 	PreviousFloor int
 	Direction     int
-	OrderQueue    []Order //This is an array or something of all orders currently active for this elevator.
-
+	OrderQueue    []Order //This is an array or something of all orders currently active for this elevator
+	Timestamp time.Time 
 }
 
 type AllOrders struct {

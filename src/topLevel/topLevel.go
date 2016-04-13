@@ -1,7 +1,6 @@
 package topLevel
 
 import (
-	"../communication"
 	"../driver"
 	"../elevatorStateTracker"
 	. "../globalChans"
@@ -9,6 +8,7 @@ import (
 	"../optalg"
 	"../stateMachine"
 	"fmt"
+	"../network"
 	"time"
 )
 
@@ -29,7 +29,7 @@ var commonExternalArray [NUM_FLOORS][NUM_BUTTONS - 1]int
 func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, networkErrorChan chan bool, untakenOrdersChan chan []Order, newElevChan chan bool) {
 
 	var OrdersToBeAssignedByAll []AssignedOrderAndElevList
-	localAddr := communication.FindLocalIP()
+	localAddr := network.FindLocalIP()
 
 	for {
 		select {
@@ -50,7 +50,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, network
 				fmt.Println("optalg complete")
 				NewOrderToBeAssigned := OrderAssigned{Order: newOrder, AssignedTo: assignedElevAddr, SentFrom: localAddr}
 				//Elevlist should be copied, global or maybe everyone that uses it should be in the same module
-				elevList := communication.GetElevList()
+				elevList := network.ElevsSeen()
 				OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, AssignedOrderAndElevList{NewOrderToBeAssigned, elevList})
 				time.Sleep(time.Millisecond * 200) //This is to make sure you get to make the list before
 				ToNetworkOrderAssignedToChan <- NewOrderToBeAssigned
@@ -80,7 +80,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, network
 					OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...) //slicetricks
 					assignedElevAddr := optalg.OptAlg(newOrdAss.Order)
 					NewOrderToBeAssigned := OrderAssigned{Order: newOrdAss.Order, AssignedTo: assignedElevAddr, SentFrom: localAddr}
-					elevList := communication.GetElevList()
+					elevList := network.ElevsSeen()
 					OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, AssignedOrderAndElevList{NewOrderToBeAssigned, elevList})
 					time.Sleep(time.Millisecond * 20) //This is to make sure you get to make the list before
 					ToNetworkOrderAssignedToChan <- NewOrderToBeAssigned
@@ -161,7 +161,7 @@ func orderIsInQueue(orderQueue []Order, newOrder Order) bool {
 	}
 	return false
 }
-
+//Kanskje dele denne opp i to hvis man er sikker på at de ikke deler en variabel av no slag
 func TopLogicNeedBetterName() {
 	var internalArray [NUM_FLOORS]int
 	toAssignFuncNetworkErrorChan := make(chan bool)

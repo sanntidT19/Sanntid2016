@@ -38,6 +38,10 @@ var ToNetworkExternalArrayChan chan [globalStructs.NUM_FLOORS][globalStructs.NUM
 
 //var ToNetworkExternalButtonPressedChan chan globalStructs.Order
 
+var ToMessagesNewElevChan chan string
+var ToMessagesDeadElevChan chan string
+var ToMessagesNetworkDownChan chan bool
+
 func InitChans() {
 	fmt.Println("initializing chans")
 	FromNetworkNewOrderChan = make(chan globalStructs.Order)
@@ -70,6 +74,10 @@ func InitChans() {
 	ToNetworkExternalArrayChan = make(chan [globalStructs.NUM_FLOORS][globalStructs.NUM_BUTTONS - 1]int)
 
 	//ToNetworkExternalButtonPressedChan = make(chan globalStructs.Order)
+
+	ToMessagesNewElevChan = make(chan string)
+	ToMessagesDeadElevChan = make (chan string)
+	ToMessagesNetworkDownChan = make(chan bool)
 
 	fmt.Println("finished initializing chans")
 }

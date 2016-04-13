@@ -1,7 +1,7 @@
 package stateMachine
 
 import (
-	"../communication"
+	"../network"
 	"../driver"
 	. "../globalChans"
 	. "../globalStructs"
@@ -49,16 +49,16 @@ func MoveElevatorAndOpenDoor(floorWithOrderReachedChan chan Order, orderServedCh
 			if newestOrder.Direction != COMMAND {
 				StateOfElev.Direction = newestOrder.Direction
 			}
-			driver.ElevDriveElevator(0)
+			driver.DriveElevator(0)
 			driver.OpenDoor()
 			//After door is closed. Tell someone above
 			orderServedChan <- newestOrder
 		case goInDirection := <-sendElevInDirectionChan:
 			if goInDirection == UP {
-				driver.ElevDriveElevator(UP)
+				driver.DriveElevator(UP)
 				StateOfElev.Direction = UP
 			} else {
-				driver.ElevDriveElevator(DOWN)
+				driver.DriveElevator(DOWN)
 				StateOfElev.Direction = DOWN
 			}
 			SendElevStateToNetwork(ToNetworkNewElevStateChan)
@@ -69,9 +69,9 @@ func MoveElevatorAndOpenDoor(floorWithOrderReachedChan chan Order, orderServedCh
 
 //
 func UpdateNewFloorReached() {
-	mostRecentFloorVisited := driver.ElevGetFloorSensorSignal()
+	mostRecentFloorVisited := driver.GetFloorSensorSignal()
 	for {
-		if sensor_result := driver.ElevGetFloorSensorSignal(); sensor_result != -1 && sensor_result != mostRecentFloorVisited {
+		if sensor_result := driver.GetFloorSensorSignal(); sensor_result != -1 && sensor_result != mostRecentFloorVisited {
 			mostRecentFloorVisited = sensor_result
 			StateOfElev.PreviousFloor = StateOfElev.CurrentFloor
 			StateOfElev.CurrentFloor = sensor_result
@@ -80,6 +80,7 @@ func UpdateNewFloorReached() {
 		time.Sleep(time.Millisecond * 50)
 	}
 }
+
 
 /*
 func SetButtonLights(){
@@ -96,7 +97,7 @@ func feedDirectionCommandsToElev(orderQueueChangeChan chan bool, sendElevInDirec
 	go func() {
 		for {
 			if len(StateOfElev.OrderQueue) > 0 {
-				if StateOfElev.OrderQueue[0].Floor == driver.ElevGetFloorSensorSignal() {
+				if StateOfElev.OrderQueue[0].Floor == driver.GetFloorSensorSignal() {
 					if !stopSignalSent {
 						targetFloorReachedChan <- StateOfElev.OrderQueue[0]
 						stopSignalSent = true
@@ -125,9 +126,9 @@ func feedDirectionCommandsToElev(orderQueueChangeChan chan bool, sendElevInDirec
 
 func NewTopLoop() {
 	//Her kan man anta at man står stille i en etasje
-	StateOfElev.CurrentFloor = driver.ElevGetFloorSensorSignal()
+	StateOfElev.CurrentFloor = driver.GetFloorSensorSignal()
 	StateOfElev.Direction = DOWN
-	StateOfElev.IP = communication.FindLocalIP()
+	StateOfElev.IP = network.FindLocalIP()
 	SendElevStateToNetwork(ToNetworkNewElevStateChan)
 
 	targetFloorReachedChan := make(chan Order)
@@ -180,6 +181,7 @@ func NewTopLoop() {
 
 func SendElevStateToNetwork(toNetworkChan chan ElevatorState) {
 	copyOfElevState := StateOfElev
+	copyOfElevState.Timestamp = time.Now()
 	copyOfOrderList := make([]Order, len(StateOfElev.OrderQueue))
 	copy(copyOfOrderList, StateOfElev.OrderQueue)
 	copyOfElevState.OrderQueue = copyOfOrderList
@@ -205,14 +207,14 @@ func insertOrderIntoQueue(newOrder Order, currentState ElevatorState) []Order {
 	if len(orderQueueCopy) == 0 {
 		newOrderQueue := []Order{newOrder}
 		return newOrderQueue
-	} else if (newOrder.Direction == currentState.Direction || newOrder.Direction == COMMAND) && newOrder.Floor == driver.ElevGetFloorSensorSignal() {
+	} else if (newOrder.Direction == currentState.Direction || newOrder.Direction == COMMAND) && newOrder.Floor == driver.GetFloorSensorSignal() {
 		//check if you are in the actual floor in correct direction and should stop immediately
 		placeInQueue = 0
 	} else {
 		//Perform a simulation of what the elevator will do with current queue and find out where the new order belongs
 		currentDirection := currentState.Direction
 		firstFloorToVisit := currentState.CurrentFloor
-		if driver.ElevGetFloorSensorSignal() == -1 {
+		if driver.GetFloorSensorSignal() == -1 {
 			fmt.Println("Elevator not in current floor, simulate past current floor")
 			firstFloorToVisit = currentState.CurrentFloor + currentDirection //er dette riktig?
 		}
