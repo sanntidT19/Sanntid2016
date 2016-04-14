@@ -5,10 +5,10 @@ import (
 	"../elevatorStateTracker"
 	. "../globalChans"
 	. "../globalStructs"
+	"../network"
 	"../optalg"
 	"../stateMachine"
 	"fmt"
-	"../network"
 	"time"
 )
 
@@ -72,9 +72,11 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, network
 				stateMachine.PrintOrder(newOrdAss.Order)
 			} else {
 				stateMachine.PrintOrder(newOrdAss.Order)
-				fmt.Println("                    This order is assigned to: ", newOrdAss.AssignedTo)
-				fmt.Println("                            my ip is :", localAddr)
-				fmt.Println("                   elevator that decided this is: ", newOrdAss.SentFrom)
+				/*
+					fmt.Println("                    This order is assigned to: ", newOrdAss.AssignedTo)
+					fmt.Println("                            my ip is :", localAddr)
+					fmt.Println("                   elevator that decided this is: ", newOrdAss.SentFrom)
+				*/
 				if newOrdAss.AssignedTo != OrdersToBeAssignedByAll[posInSlice].OrdAss.AssignedTo {
 					fmt.Println("                               disagreement, recalculate with optalg")
 					OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...) //slicetricks
@@ -161,6 +163,7 @@ func orderIsInQueue(orderQueue []Order, newOrder Order) bool {
 	}
 	return false
 }
+
 //Kanskje dele denne opp i to hvis man er sikker på at de ikke deler en variabel av no slag
 func TopLogicNeedBetterName() {
 	var internalArray [NUM_FLOORS]int
@@ -182,6 +185,7 @@ func TopLogicNeedBetterName() {
 				NewOrderToLocalElevChan <- newButton
 			}
 		case newOrder := <-FromNetworkNewOrderChan:
+			fmt.Println("new order incoming")
 			dir := UP
 			if newOrder.Direction == DOWN {
 				dir = 0

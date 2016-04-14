@@ -1,20 +1,20 @@
 package network
 
-import(
-	."../globalChans"
-	"time"
+import (
+	. "../globalChans"
+	"bytes"
 	"fmt"
 	"net"
-	"bytes"
+	"time"
 )
 
-
 type addrAndDeadline struct {
-	DeadLine    time.Time
-	Addr string
+	DeadLine time.Time
+	Addr     string
 }
 
 const BROADCAST_DEADLINE = 3
+
 var broadcastPort string = "30059"
 var listOfElevsInNetwork []string
 
@@ -33,48 +33,47 @@ func InitNetworkAndAlertChanges() {
 	go listenForBroadcast(broadcastPort, newShoutFromElevatorChan)
 	go detectNewAndDeadElevs(newShoutFromElevatorChan, newElevChan, elevDeadChan)
 	for {
-			select {
-			case elevGone := <-elevDeadChan:
-				fmt.Println("ip list before going through the list. Case: elevgone", listOfElevsInNetwork)
-				pos := -1
-				for i, v := range listOfElevsInNetwork {
-					if v == elevGone {
-						pos = i
-						break
-					}
-				}
-				if pos == -1 {
-					fmt.Println("main go func: elevator not found, pos == -1")
-				} else {
-					fmt.Println("position in list", pos)
-					fmt.Println("list before change: ", listOfElevsInNetwork)
-					listOfElevsInNetwork = append(listOfElevsInNetwork[:pos], listOfElevsInNetwork[pos+1:]...)
-					fmt.Println("list after change: ", listOfElevsInNetwork)
-
-				}
-				fmt.Println("Elevator gone, address: ", elevGone)
-				ToMessagesDeadElevChan<-elevGone
-				FromNetworkElevGoneChan <- elevGone
-				if len(listOfElevsInNetwork) == 0 {
-					fmt.Println("Network is gone!")
-						FromNetworkNetworkDownChan <- true
-						ToMessagesNetworkDownChan <- true
-				}
-
-			case newElev := <-newElevChan:
-				fmt.Println("New elevator, address: ", newElev)
-				fmt.Println("list before change: ", listOfElevsInNetwork)
-				listOfElevsInNetwork = append(listOfElevsInNetwork, newElev)
-				fmt.Println("after appending ip to list : ", listOfElevsInNetwork)
-				ToMessagesNewElevChan<-newElev
-				FromNetworkNewElevChan <- newElev //send to somewhere else
-				if len(listOfElevsInNetwork) == 1 {
-					FromNetworkNetworkUpChan <- true
+		select {
+		case elevGone := <-elevDeadChan:
+			fmt.Println("ip list before going through the list. Case: elevgone", listOfElevsInNetwork)
+			pos := -1
+			for i, v := range listOfElevsInNetwork {
+				if v == elevGone {
+					pos = i
+					break
 				}
 			}
-		}
-}
+			if pos == -1 {
+				fmt.Println("main go func: elevator not found, pos == -1")
+			} else {
+				fmt.Println("position in list", pos)
+				fmt.Println("list before change: ", listOfElevsInNetwork)
+				listOfElevsInNetwork = append(listOfElevsInNetwork[:pos], listOfElevsInNetwork[pos+1:]...)
+				fmt.Println("list after change: ", listOfElevsInNetwork)
 
+			}
+			fmt.Println("Elevator gone, address: ", elevGone)
+			ToMessagesDeadElevChan <- elevGone
+			FromNetworkElevGoneChan <- elevGone
+			if len(listOfElevsInNetwork) == 0 {
+				fmt.Println("Network is gone!")
+				FromNetworkNetworkDownChan <- true
+				ToMessagesNetworkDownChan <- true
+			}
+
+		case newElev := <-newElevChan:
+			fmt.Println("New elevator, address: ", newElev)
+			fmt.Println("list before change: ", listOfElevsInNetwork)
+			listOfElevsInNetwork = append(listOfElevsInNetwork, newElev)
+			fmt.Println("after appending ip to list : ", listOfElevsInNetwork)
+			fmt.Println("                           NewMessages is receiving")
+			ToMessagesNewElevChan <- newElev
+			fmt.Println("                           NewMessages is reading")
+			FromNetworkNewElevChan <- newElev //send to somewhere else
+		}
+		fmt.Println("end of network-select")
+	}
+}
 
 //tenk litt gjennom om/hvordan denne bør lages
 /*
@@ -94,7 +93,6 @@ func ConnectToElevator(remoteIp string, remotePort string) *net.UDPConn {
 	return connection
 
 }
-
 
 func FindLocalIP() string {
 	ifaces, err := net.Interfaces()
@@ -124,10 +122,9 @@ func FindLocalIP() string {
 	return ""
 }
 
-
 //Broadcasts to network "i am here"
 func broadcastPrecense(broadcastPort string) {
-	broadcastAddr := "255.255.255.255" + ":" + broadcastPort
+	broadcastAddr := "129.241.187.255" + ":" + broadcastPort
 	broadcastUDPAddr, _ := net.ResolveUDPAddr("udp", broadcastAddr)
 	connection, err := net.DialUDP("udp", nil, broadcastUDPAddr)
 	if err != nil {
@@ -145,9 +142,9 @@ func broadcastPrecense(broadcastPort string) {
 
 func listenForBroadcast(broadcastPort string, newShoutFromElevatorChan chan string) {
 	buffer := make([]byte, 2048)
-	listenBroadcastAddress := "0.0.0.0" + ":" + broadcastPort
-	broadcastUDPAddr, _ := net.ResolveUDPAddr("udp4", listenBroadcastAddress)
-	connection, _ := net.ListenUDP("udp4", broadcastUDPAddr)
+	listenBroadcastAddress := ":" + broadcastPort
+	broadcastUDPAddr, _ := net.ResolveUDPAddr("udp", listenBroadcastAddress)
+	connection, _ := net.ListenUDP("udp", broadcastUDPAddr)
 	defer connection.Close()
 	for {
 		_, senderAddr, err := connection.ReadFromUDP(buffer)
@@ -159,13 +156,13 @@ func listenForBroadcast(broadcastPort string, newShoutFromElevatorChan chan stri
 	}
 
 }
+
 //Navnet på denne må endres, slik at man skjønner hva man får av den
 func ElevsSeen() []string {
 	copyElevList := make([]string, len(listOfElevsInNetwork))
 	copy(copyElevList, listOfElevsInNetwork)
 	return copyElevList
 }
-
 
 func detectNewAndDeadElevs(newShoutFromElevChan chan string, newElevChan chan string, elevDeadChan chan string) {
 	elevDeadlineList := []addrAndDeadline{}
@@ -185,11 +182,13 @@ func detectNewAndDeadElevs(newShoutFromElevChan chan string, newElevChan chan st
 				elevDeadlineList[placeInList].DeadLine = time.Now().Add(time.Second * BROADCAST_DEADLINE)
 			} else {
 				elevDeadlineList = append(elevDeadlineList, addrAndDeadline{DeadLine: time.Now().Add(time.Second * BROADCAST_DEADLINE), Addr: newShout})
+				fmt.Println("newElevChan <- newShout")
 				newElevChan <- newShout
 			}
 		default:
 			for i, v := range elevDeadlineList {
 				if time.Now().After(v.DeadLine) {
+					fmt.Println("elevDeadChan <- v.Addr")
 					elevDeadChan <- v.Addr
 					elevDeadlineList = append(elevDeadlineList[:i], elevDeadlineList[i+1:]...) //From slicetricks. Remove element.
 				}

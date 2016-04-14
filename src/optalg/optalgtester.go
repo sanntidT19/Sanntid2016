@@ -17,7 +17,6 @@ func OptAlg(newOrder Order) string {
 	numOfElevs := len(elevStatesCopy)
 
 	IPCostList := make([]int, numOfElevs)
-	var elevNmr int = -1
 	var lowestCost int = 100
 	var optimalIP string = "0"
 	fmt.Println("optalg: number of elevs seen: ", numOfElevs)
@@ -50,22 +49,15 @@ func OptAlg(newOrder Order) string {
 		floatDifference := float64(v.CurrentFloor - newOrder.Floor)
 
 		IPCostList[i] += int(math.Abs(floatDifference))
-		IPCostList[i] += len(v.OrderQueue)*2
+		IPCostList[i] += len(v.OrderQueue) * 2
 	}
 	for k := 0; k < len(IPCostList); k++ {
 		if IPCostList[k] < lowestCost {
 			optimalIP = elevStatesCopy[k].IP
 			lowestCost = IPCostList[k]
-			elevNmr = k
 		} else if IPCostList[k] == lowestCost {
-			if len(elevStatesCopy[k].OrderQueue) < len(elevStatesCopy[elevNmr].OrderQueue) {
+			if elevStatesCopy[k].IP > optimalIP {
 				optimalIP = elevStatesCopy[k].IP
-				elevNmr = k
-			} else if len(elevStatesCopy[k].OrderQueue) == len(elevStatesCopy[elevNmr].OrderQueue) {
-				if elevStatesCopy[k].IP > optimalIP {
-					optimalIP = elevStatesCopy[k].IP
-					elevNmr = k
-				}
 			}
 		}
 	}
@@ -102,7 +94,7 @@ func UpdateElevatorStateList() {
 			for i, v := range allElevStates {
 				if updatedElevState.IP == v.IP {
 					var newestStateTime time.Time = allElevStates[i].Timestamp
-					if updatedElevState.Timestamp.After(newestStateTime){
+					if updatedElevState.Timestamp.After(newestStateTime) {
 						allElevStates[i] = updatedElevState
 					}
 					elevInList = true

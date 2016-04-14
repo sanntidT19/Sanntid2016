@@ -48,35 +48,37 @@ func InitChans() {
 	FromNetworkOrderAssignedToChan = make(chan globalStructs.OrderAssigned)
 	FromNetworkOrderServedChan = make(chan globalStructs.Order)
 	FromNetworkNewElevStateChan = make(chan globalStructs.ElevatorState)
-
+	FromNetworkExternalArrayChan = make(chan [globalStructs.NUM_FLOORS][globalStructs.NUM_BUTTONS - 1]int)
 	FromNetworkNewElevChan = make(chan string)
 	FromNetworkElevGoneChan = make(chan string)
 	FromNetworkNetworkDownChan = make(chan bool)
 	FromNetworkNetworkUpChan = make(chan bool)
 
+	ToMessagesNewElevChan = make(chan string)
+	ToMessagesDeadElevChan = make(chan string)
+	ToMessagesNetworkDownChan = make(chan bool)
+
+	ExternalButtonPressedChan = make(chan globalStructs.Order)
+
 	ToNetworkNewOrderChan = make(chan globalStructs.Order)
 	ToNetworkOrderAssignedToChan = make(chan globalStructs.OrderAssigned)
 	ToNetworkOrderServedChan = make(chan globalStructs.Order)
 	ToNetworkNewElevStateChan = make(chan globalStructs.ElevatorState)
+	ToNetworkExternalArrayChan = make(chan [globalStructs.NUM_FLOORS][globalStructs.NUM_BUTTONS - 1]int)
+
+	ExternalButtonPressedChan = make(chan globalStructs.Order)
 
 	NewOrderToLocalElevChan = make(chan globalStructs.Order)
-
-	//To optalg for now
+	OrderServedLocallyChan = make(chan globalStructs.Order)
 	ToOptAlgDeleteElevChan = make(chan string)
 	AddOrderAssignedToElevStateChan = make(chan globalStructs.OrderAssigned)
 
-	OrderServedLocallyChan = make(chan globalStructs.Order)
-
-	ExternalButtonPressedChan = make(chan globalStructs.Order)
 	InternalButtonPressedChan = make(chan globalStructs.Order)
-
-	FromNetworkExternalArrayChan = make(chan [globalStructs.NUM_FLOORS][globalStructs.NUM_BUTTONS - 1]int)
-	ToNetworkExternalArrayChan = make(chan [globalStructs.NUM_FLOORS][globalStructs.NUM_BUTTONS - 1]int)
 
 	//ToNetworkExternalButtonPressedChan = make(chan globalStructs.Order)
 
 	ToMessagesNewElevChan = make(chan string)
-	ToMessagesDeadElevChan = make (chan string)
+	ToMessagesDeadElevChan = make(chan string)
 	ToMessagesNetworkDownChan = make(chan bool)
 
 	fmt.Println("finished initializing chans")

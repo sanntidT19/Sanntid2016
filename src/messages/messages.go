@@ -1,13 +1,14 @@
 package messages
-import(
-	"fmt"
-	."../globalStructs"
-	."../globalChans"
-	"time"
-	"bytes"
-	"net"
+
+import (
+	. "../globalChans"
+	. "../globalStructs"
 	"../network"
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"net"
+	"time"
 )
 
 type MessageWithHeader struct {
@@ -23,16 +24,17 @@ type ackTimer struct {
 	IpList   []string
 }
 
-const ACK_DEADLINE       = 4
-var commonPort string = "20059"
-var localAddr string 
+const ACK_DEADLINE = 4
 
-func MessagesTopAndWaitForNetworkChanges(){
+var commonPort string = "20059"
+var localAddr string
+
+func MessagesTopAndWaitForNetworkChanges() {
 	newEncodedMessageChan := make(chan []byte)
-	newConnectionChan:= make(chan string)
-	endConnectionChan:= make(chan string)
+	newConnectionChan := make(chan string)
+	endConnectionChan := make(chan string)
 	messageFromNetworkChan := make(chan []byte)
-	newAckReceivedChan := make (chan MessageWithHeader)
+	newAckReceivedChan := make(chan MessageWithHeader)
 	resendLostMessageChan := make(chan MessageWithHeader)
 	newMessageDeadlineChan := make(chan MessageWithHeader)
 	resendUnAckdMessagesChan := make(chan bool)
@@ -45,17 +47,17 @@ func MessagesTopAndWaitForNetworkChanges(){
 	go encodeMessages(newEncodedMessageChan, newMessageDeadlineChan, resendLostMessageChan)
 	go decodeMessages(messageFromNetworkChan, newAckReceivedChan, newEncodedMessageChan) //FÅ ACKEN UT HERIFRA
 	go setDeadlinesForAcks(resendLostMessageChan, newMessageDeadlineChan, newAckReceivedChan, resendUnAckdMessagesChan, networkDownResetAckListChan)
-	
-	for{
-		select{
-			case elevAddr:= <-ToMessagesDeadElevChan:
-				resendUnAckdMessagesChan<-true
-				endConnectionChan <-elevAddr
-			case elevAddr:=<-ToMessagesNewElevChan:
-				resendUnAckdMessagesChan <-true
-				newConnectionChan <- elevAddr
-			case <-ToMessagesNetworkDownChan:
-				networkDownResetAckListChan<-true
+
+	for {
+		select {
+		case elevAddr := <-ToMessagesDeadElevChan:
+			resendUnAckdMessagesChan <- true
+			endConnectionChan <- elevAddr
+		case elevAddr := <-ToMessagesNewElevChan:
+			resendUnAckdMessagesChan <- true
+			newConnectionChan <- elevAddr
+		case <-ToMessagesNetworkDownChan:
+			networkDownResetAckListChan <- true
 		}
 
 	}
@@ -102,7 +104,6 @@ func receiveMessagesFromNetwork(localAddr string, commonPort string, messageFrom
 		}
 	}
 }
-
 
 func encodeMessages(sendToNetworkChan chan []byte, sendToAckTimerChan chan MessageWithHeader, resendMessageChan chan MessageWithHeader) {
 	go func() {
@@ -175,8 +176,6 @@ func encodeMessages(sendToNetworkChan chan []byte, sendToAckTimerChan chan Messa
 		sendToAckTimerChan <- newPacket
 	}
 }
-
-
 
 //Takes a message and sends out an ack
 func sendAck(message MessageWithHeader, sendToNetworkChan chan []byte) {
@@ -257,8 +256,7 @@ func decodeMessages(messageFromNetworkChan chan []byte, newAckFromNetworkChan ch
 	}
 }
 
-
-/* 
+/*
 there is no need for ackdbyallchan
 
 
@@ -333,6 +331,7 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, newMessageSen
 					resendMessageChan <- v.Message
 					unAckdMessages[i].DeadLine = time.Now().Add(time.Second * ACK_DEADLINE)
 					localIPlist := network.ElevsSeen()
+					fmt.Println("localiplist: ", localIPlist)
 					unAckdMessages[i].IpList = localIPlist
 					fmt.Println("on element number ", i)
 				}
