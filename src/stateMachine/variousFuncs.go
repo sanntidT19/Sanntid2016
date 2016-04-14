@@ -1,10 +1,10 @@
 package stateMachine
 
 import (
-	"../network"
 	"../driver"
 	. "../globalChans"
 	. "../globalStructs"
+	"../network"
 	"fmt"
 	"time"
 )
@@ -80,7 +80,6 @@ func UpdateNewFloorReached() {
 		time.Sleep(time.Millisecond * 50)
 	}
 }
-
 
 /*
 func SetButtonLights(){
@@ -194,7 +193,7 @@ func SpamCurrentQueue() {
 			PrintOrder(v)
 		}
 		fmt.Println()
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 200)
 	}
 }
 

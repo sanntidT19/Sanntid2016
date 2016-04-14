@@ -2,13 +2,14 @@ package topLevel
 
 import (
 	"../driver"
-	"../elevatorStateTracker"
 	. "../globalChans"
 	. "../globalStructs"
 	"../network"
 	"../optalg"
 	"../stateMachine"
+	"encoding/gob"
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -16,144 +17,10 @@ import (
 TOP LEVEL FUNCTIONS GO HERE. WE WILL RENAME AND MOVE FUNCTIONS ONCE WE HAVE AN OVERVIEW OF HOW MUCH WE WILL END UP WITH
 */
 
-type AssignedOrderAndElevList struct {
-	OrdAss   OrderAssigned
-	ElevList []string
-}
-
 var externalOrdersNotTaken []Order
 var commonExternalArray [NUM_FLOORS][NUM_BUTTONS - 1]int
 
 //ElevatorAssignedToNetworkChan OrderAssigned chan , ElevatorAssignedFromNetworkChan OrderAssigned chan
-
-func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, networkErrorChan chan bool, untakenOrdersChan chan []Order, newElevChan chan bool) {
-
-	var OrdersToBeAssignedByAll []AssignedOrderAndElevList
-	localAddr := network.FindLocalIP()
-
-	for {
-		select {
-		case newOrder := <-newOrderFromNetworkChan:
-			fmt.Println("Order received from above:")
-			orderIsRegistered := false
-			fmt.Println("Iterating..")
-			for _, v := range OrdersToBeAssignedByAll {
-				if v.OrdAss.Order == newOrder {
-					orderIsRegistered = true
-				}
-			}
-			fmt.Println("done searching for order")
-			if !orderIsRegistered {
-				//ad external order to queue here
-				//for now, the elevator states are all globally known. May send copy or something else later.
-				assignedElevAddr := optalg.OptAlg(newOrder)
-				fmt.Println("optalg complete")
-				NewOrderToBeAssigned := OrderAssigned{Order: newOrder, AssignedTo: assignedElevAddr, SentFrom: localAddr}
-				//Elevlist should be copied, global or maybe everyone that uses it should be in the same module
-				elevList := network.ElevsSeen()
-				OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, AssignedOrderAndElevList{NewOrderToBeAssigned, elevList})
-				time.Sleep(time.Millisecond * 100) //This is to make sure you get to make the list before
-				ToNetworkOrderAssignedToChan <- NewOrderToBeAssigned
-				fmt.Println("                                   LENGTH OF QUEUE: ", len(OrdersToBeAssignedByAll))
-			} else {
-				fmt.Println("Order already registered. Discard message.")
-			}
-		case newOrdAss := <-FromNetworkOrderAssignedToChan:
-			fmt.Println("newOrdAss := <-FromNetworkOrderAssignedToChan")
-			posInSlice := -1
-			for i, v := range OrdersToBeAssignedByAll {
-				if newOrdAss.Order == v.OrdAss.Order {
-					posInSlice = i
-					break
-				}
-			}
-			if posInSlice == -1 {
-				fmt.Println("Old/garbage order")
-				stateMachine.PrintOrder(newOrdAss.Order)
-			} else {
-				stateMachine.PrintOrder(newOrdAss.Order)
-				/*
-					fmt.Println("                    This order is assigned to: ", newOrdAss.AssignedTo)
-					fmt.Println("                            my ip is :", localAddr)
-					fmt.Println("                   elevator that decided this is: ", newOrdAss.SentFrom)
-				*/
-				if newOrdAss.AssignedTo != OrdersToBeAssignedByAll[posInSlice].OrdAss.AssignedTo {
-					fmt.Println("                               disagreement, recalculate with optalg")
-					OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...) //slicetricks
-					assignedElevAddr := optalg.OptAlg(newOrdAss.Order)
-					NewOrderToBeAssigned := OrderAssigned{Order: newOrdAss.Order, AssignedTo: assignedElevAddr, SentFrom: localAddr}
-					elevList := network.ElevsSeen()
-					OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, AssignedOrderAndElevList{NewOrderToBeAssigned, elevList})
-					time.Sleep(time.Millisecond * 100) //This is to make sure you get to make the list before
-					ToNetworkOrderAssignedToChan <- NewOrderToBeAssigned
-				} else {
-					for i, v := range OrdersToBeAssignedByAll[posInSlice].ElevList {
-						if newOrdAss.SentFrom == v {
-							OrdersToBeAssignedByAll[posInSlice].ElevList = append(OrdersToBeAssignedByAll[posInSlice].ElevList[:i], OrdersToBeAssignedByAll[posInSlice].ElevList[i+1:]...)
-							if len(OrdersToBeAssignedByAll[posInSlice].ElevList) == 0 {
-								AddOrderAssignedToElevStateChan <- newOrdAss
-								if newOrdAss.AssignedTo == localAddr {
-									fmt.Println("X")
-									fmt.Println("                                    im taking this order!")
-									fmt.Println("X")
-									NewOrderToLocalElevChan <- newOrdAss.Order
-								}
-								OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...)
-
-							}
-						}
-					}
-				}
-				fmt.Println("ENDOF:    newOrdAss := <-FromNetworkOrderAssignedToChan ")
-			}
-		case <-networkErrorChan:
-			fmt.Println("                                                               <-resetassignfuncchan")
-			ordersNotTaken := make([]Order, len(OrdersToBeAssignedByAll))
-			for i, v := range OrdersToBeAssignedByAll {
-				ordersNotTaken[i] = v.OrdAss.Order
-			}
-			untakenOrdersChan <- ordersNotTaken
-			OrdersToBeAssignedByAll = nil
-		case <-newElevChan:
-			OrdersToBeAssignedByAll = nil
-		}
-	}
-}
-
-/*
-func UpdateNetworkCondition() {
-	networkIsUp := false
-	for {
-		select {
-		case <-FromNetworkNetworkUpChan:
-			networkIsUp = true
-		case <-FromNetworkNetworkDownChan:
-			networkIsUp = false
-		}
-
-	}
-}/*
-
-//This may not be used, yo
-/*
-func SendAllOrdersOfQueueToNetwork(commonExternalArray [][] int){
-	for i := 0; i < NUM_FLOORS; i++{
-		for j := 0; j < NUM_BUTTONS -1; j++{
-			if commonExternalArray[i][j] == 1 {
-				direction := UP
-				if j != 0{
-					direction = DOWN
-				}
-				newOrder := ExternalOrder{Floor: i, Direction: direction}
-				//Rename channel
-				newExternalOrderToNetwork <- newOrder
-				//Maybe a tiny sleep here, maybe not
-			}
-			commonExternalArray[i][j] = 0
-		}
-	}
-}
-*/
 
 func orderIsInQueue(orderQueue []Order, newOrder Order) bool {
 	for _, v := range orderQueue {
@@ -165,14 +32,10 @@ func orderIsInQueue(orderQueue []Order, newOrder Order) bool {
 }
 
 //Kanskje dele denne opp i to hvis man er sikker på at de ikke deler en variabel av no slag
-func TopLogicNeedBetterName() {
+func TopLogicNeedBetterName(newOrderToBeAssignedChan chan Order, resetAssignFuncChan chan bool) {
 	var internalArray [NUM_FLOORS]int
-	toAssignFuncNetworkErrorChan := make(chan bool)
-	newOrderToBeAssignedChan := make(chan Order)
-	untakenOrdersChan := make(chan []Order)
-	toAssignFuncNewElevChan := make(chan bool)
-	go ResendOrdersWhenError(toAssignFuncNetworkErrorChan, untakenOrdersChan)
-	go AssignOrdersAndWaitForAgreement(newOrderToBeAssignedChan, toAssignFuncNetworkErrorChan, untakenOrdersChan, toAssignFuncNewElevChan)
+
+	go ResendOrdersWhenError(resetAssignFuncChan)
 
 	fmt.Println(commonExternalArray)
 	for {
@@ -180,7 +43,7 @@ func TopLogicNeedBetterName() {
 		case newButton := <-InternalButtonPressedChan:
 			if internalArray[newButton.Floor] == 0 {
 				internalArray[newButton.Floor] = 1 //Reset when order served. Tell that total state is changed?
-				elevatorStateTracker.WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
+				WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
 				driver.SetButtonLight(newButton, true)
 				NewOrderToLocalElevChan <- newButton
 			}
@@ -193,7 +56,7 @@ func TopLogicNeedBetterName() {
 			if commonExternalArray[newOrder.Floor][dir] == 0 {
 				commonExternalArray[newOrder.Floor][dir] = 1
 			}
-			elevatorStateTracker.WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
+			WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
 
 			if !orderIsInQueue(externalOrdersNotTaken, newOrder) {
 				externalOrdersNotTaken = append(externalOrdersNotTaken, newOrder)
@@ -229,7 +92,7 @@ func TopLogicNeedBetterName() {
 				commonExternalArray[servedOrder.Floor][dir] = 0
 				ToNetworkOrderServedChan <- servedOrder
 			}
-			elevatorStateTracker.WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
+			WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
 			driver.SetButtonLight(servedOrder, false)
 
 		case servedOrder := <-FromNetworkOrderServedChan:
@@ -239,11 +102,10 @@ func TopLogicNeedBetterName() {
 				dir = 0
 			}
 			commonExternalArray[servedOrder.Floor][dir] = 0
-			elevatorStateTracker.WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
+			WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
 			driver.SetButtonLight(servedOrder, false)
 
 		case <-FromNetworkNewElevChan:
-			toAssignFuncNewElevChan <- true
 			stateMachine.SendElevStateToNetwork(ToNetworkNewElevStateChan)
 			ToNetworkExternalArrayChan <- commonExternalArray
 		case newExternalArray := <-FromNetworkExternalArrayChan:
@@ -259,7 +121,7 @@ func TopLogicNeedBetterName() {
 					}
 				}
 			}
-			elevatorStateTracker.WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
+			WriteCurrentOrdersToFile(AllOrders{InternalOrders: internalArray, ExternalOrders: commonExternalArray})
 		}
 	}
 }
@@ -268,13 +130,11 @@ func TopLogicNeedBetterName() {
 //PROBLEM NÅR MANGE ORDRE BLIR SENDT PÅ NYTT
 
 //CHANGE THIS FUCKING NAME
-func ResendOrdersWhenError(resetAssignFuncChan chan bool, untakenOrdersChan chan []Order) {
-	var externalOrdersNotTaken []Order
+func ResendOrdersWhenError(resetAssignFuncChan chan bool) {
 	for {
 		select {
 		case <-FromNetworkNetworkDownChan:
 			resetAssignFuncChan <- true
-			<-untakenOrdersChan
 			for i := 0; i < NUM_FLOORS; i++ {
 				for j := 0; j < NUM_BUTTONS-1; j++ {
 					if commonExternalArray[i][j] == 1 {
@@ -295,19 +155,149 @@ func ResendOrdersWhenError(resetAssignFuncChan chan bool, untakenOrdersChan chan
 				stateMachine.PrintOrder(v)
 			}
 			ToOptAlgDeleteElevChan <- elevGone
-			fmt.Println("                                                 get here ")
+
 			resetAssignFuncChan <- true
-			fmt.Println("                                                 get here also ")
-			externalOrdersNotTaken = <-untakenOrdersChan
-			fmt.Println("                                                 get here also2 ")
+
+			externalOrdersNotTaken := optalg.GetUnassignedOrders()
 			for _, v := range deadElevOrders {
 				ExternalButtonPressedChan <- v
+				fmt.Println("                              dead order sent to network ")
 				time.Sleep(time.Millisecond * 300)
 			}
 			for _, v := range externalOrdersNotTaken {
 				ExternalButtonPressedChan <- v
+				fmt.Println("                             unassigned order sent to network")
 				time.Sleep(time.Millisecond * 300)
 			}
+		}
+	}
+}
+
+const PATH_OF_SAVED_ORDER_STATE = "elevState.gob"
+
+/*
+func initalize_state_tracker(){
+	//read from file to check if system was killed
+	//easy solution: if thats the case, set current state to that (may serve same order twice, but sverre wont die and its avoiding complicated solutions)
+	//if not, initialize normally
+	// get floor and all that shit from other modules
+	//send the current state to everybody
+}*/
+
+/*
+func send_updated_elevator_state(){
+	//call this whenever its updated. write to channels
+}
+*/
+//endre navn
+func WriteCurrentOrdersToFile(currentState AllOrders) {
+	//temp for testing
+	//update this whenever the local elevator gets an order/command
+	dataFile, err := os.Create(PATH_OF_SAVED_ORDER_STATE)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	dataEncoder := gob.NewEncoder(dataFile)
+	dataEncoder.Encode(currentState)
+	dataFile.Close()
+}
+
+func ReadOrdersStateBeforeShutdown() AllOrders {
+	//start with reading it
+	var formerState AllOrders
+
+	if _, err := os.Stat(PATH_OF_SAVED_ORDER_STATE); os.IsNotExist(err) {
+		fmt.Println("Local save of elevator state not detected. It has been cleared/this is the first run on current PC")
+		return formerState
+	}
+	dataFile, err := os.Open(PATH_OF_SAVED_ORDER_STATE)
+
+	dataDecoder := gob.NewDecoder(dataFile)
+	err = dataDecoder.Decode(&formerState)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	dataFile.Close()
+
+	return formerState
+}
+
+func PrematureShutdownOccured(formerState AllOrders) bool {
+	for i := 0; i < NUM_FLOORS; i++ {
+		if formerState.InternalOrders[i] != 0 {
+			return true
+		}
+		for j := 0; j < NUM_BUTTONS-1; j++ {
+			if formerState.ExternalOrders[i][j] != 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+//CHANNEL NAMES MIGHT BE WRONG. MIGHT NEED TO SWAP UP AND DOWN VALUES IN INNER FOR LOOP
+//Make sure to update networkisup
+func ReassignOrdersAfterShutdown(formerState AllOrders, networkIsUp bool) {
+	for i := 0; i < NUM_FLOORS; i++ {
+		if formerState.InternalOrders[i] == 1 {
+			NewOrderToLocalElevChan <- Order{Floor: i, Direction: COMMAND}
+			time.Sleep(time.Millisecond * 100)
+		}
+	}
+	for i := 0; i < NUM_FLOORS; i++ {
+		for j := 0; j < NUM_BUTTONS-1; j++ {
+			if formerState.ExternalOrders[i][j] == 1 {
+				direction := UP
+				if j == 0 {
+					direction = DOWN
+				}
+				if networkIsUp {
+					ExternalButtonPressedChan <- Order{Floor: i, Direction: direction}
+				} else {
+					NewOrderToLocalElevChan <- Order{Floor: i, Direction: direction}
+				}
+				time.Sleep(time.Millisecond * 100)
+			}
+		}
+	}
+
+}
+func StartupDraft() {
+	formerState := ReadOrdersStateBeforeShutdown()
+	var emptyState AllOrders = AllOrders{} //sleep to make sure network reads if its up
+
+	if formerState != emptyState {
+		if PrematureShutdownOccured(formerState) {
+
+			//Set lights!
+			for i := 0; i < NUM_FLOORS; i++ {
+				if formerState.InternalOrders[i] == 1 {
+					driver.SetButtonLight(Order{Floor: i, Direction: COMMAND}, true)
+				}
+			}
+			for i := 0; i < NUM_FLOORS; i++ {
+				for j := 0; j < NUM_BUTTONS-1; j++ {
+					if formerState.ExternalOrders[i][j] == 1 {
+						direction := UP
+						if j == 0 {
+							direction = DOWN
+						}
+						driver.SetButtonLight(Order{Floor: i, Direction: direction}, true)
+					}
+				}
+			}
+			//networkIsUp := readNetwork()//something like this           CHECK IF NETWORK IS UP HERE
+			time.Sleep(time.Millisecond * 300)
+			networkIsUp := false
+			currentElevList := network.ElevsSeen()
+			if len(currentElevList) > 0 {
+				networkIsUp = true
+			}
+			ReassignOrdersAfterShutdown(formerState, networkIsUp) //FOR NOW TEMPFIX
 		}
 	}
 }

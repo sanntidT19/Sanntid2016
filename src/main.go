@@ -2,26 +2,28 @@ package main
 
 import (
 	"./driver"
-	"./elevatorStateTracker"
 	"./globalChans"
-	//. "./globalStructs"
+	. "./globalStructs"
+	"./messages"
+	"./network"
 	"./optalg"
 	"./stateMachine"
 	"./topLevel"
-	"./network"
-	"./messages"
 	"fmt"
 	"time"
-	//"encoding/gob"
-	//"os"
 )
 
 func main() {
 	globalChans.InitChans()
 	driver.Init()
-	go elevatorStateTracker.StartupDraft()
-	go topLevel.TopLogicNeedBetterName()
-	go optalg.UpdateElevatorStateList()
+
+	//global chans here
+	newOrderToBeAssignedChan := make(chan Order)
+	resetAssignFuncChan := make(chan bool)
+
+	go topLevel.StartupDraft()
+	go topLevel.TopLogicNeedBetterName(newOrderToBeAssignedChan, resetAssignFuncChan)
+	go optalg.UpdateElevatorStateList(newOrderToBeAssignedChan, resetAssignFuncChan)
 	go network.InitNetworkAndAlertChanges()
 	go messages.MessagesTopAndWaitForNetworkChanges()
 	go stateMachine.NewTopLoop()

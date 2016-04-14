@@ -13,7 +13,7 @@ type addrAndDeadline struct {
 	Addr     string
 }
 
-const BROADCAST_DEADLINE = 3
+const BROADCAST_DEADLINE = 2
 
 var broadcastPort string = "30059"
 var listOfElevsInNetwork []string
@@ -187,10 +187,13 @@ func detectNewAndDeadElevs(newShoutFromElevChan chan string, newElevChan chan st
 			}
 		default:
 			for i, v := range elevDeadlineList {
+				fmt.Println("Now: ", time.Now())
+				fmt.Println("Deadline: ", v.DeadLine)
 				if time.Now().After(v.DeadLine) {
-					fmt.Println("elevDeadChan <- v.Addr")
+					fmt.Println("                            elevDeadChan <- v.Addr")
 					elevDeadChan <- v.Addr
 					elevDeadlineList = append(elevDeadlineList[:i], elevDeadlineList[i+1:]...) //From slicetricks. Remove element.
+					break
 				}
 			}
 		}

@@ -58,8 +58,6 @@ func InitChans() {
 	ToMessagesDeadElevChan = make(chan string)
 	ToMessagesNetworkDownChan = make(chan bool)
 
-	ExternalButtonPressedChan = make(chan globalStructs.Order)
-
 	ToNetworkNewOrderChan = make(chan globalStructs.Order)
 	ToNetworkOrderAssignedToChan = make(chan globalStructs.OrderAssigned)
 	ToNetworkOrderServedChan = make(chan globalStructs.Order)
@@ -70,16 +68,13 @@ func InitChans() {
 
 	NewOrderToLocalElevChan = make(chan globalStructs.Order)
 	OrderServedLocallyChan = make(chan globalStructs.Order)
+
 	ToOptAlgDeleteElevChan = make(chan string)
 	AddOrderAssignedToElevStateChan = make(chan globalStructs.OrderAssigned)
 
 	InternalButtonPressedChan = make(chan globalStructs.Order)
 
 	//ToNetworkExternalButtonPressedChan = make(chan globalStructs.Order)
-
-	ToMessagesNewElevChan = make(chan string)
-	ToMessagesDeadElevChan = make(chan string)
-	ToMessagesNetworkDownChan = make(chan bool)
 
 	fmt.Println("finished initializing chans")
 }

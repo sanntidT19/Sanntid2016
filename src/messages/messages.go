@@ -24,7 +24,7 @@ type ackTimer struct {
 	IpList   []string
 }
 
-const ACK_DEADLINE = 4
+const ACK_DEADLINE = 2
 
 var commonPort string = "20059"
 var localAddr string
@@ -209,6 +209,7 @@ func decodeMessages(messageFromNetworkChan chan []byte, newAckFromNetworkChan ch
 		} else {
 			//Maybe have this ack-echo somewhere else. For now its here
 			sendAck(message, sendToNetworkChan)
+			//fmt.Println("Tag before check: ", message.Tag)
 			switch message.Tag {
 			case "newOr":
 				var newOrder Order
@@ -252,7 +253,7 @@ func decodeMessages(messageFromNetworkChan chan []byte, newAckFromNetworkChan ch
 				}
 			}
 		}
-		//fmt.Println("Message ackd and sent to local")
+		//fmt.Println("Message ackd and sent to local: ", message.Tag)
 	}
 }
 
