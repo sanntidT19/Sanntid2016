@@ -38,35 +38,36 @@ func OptAlg(newOrder Order) string {
 	var optimalIP string = "0"
 	fmt.Println("optalg: number of elevs seen: ", numOfElevs)
 	for i, v := range elevStatesCopy {
-		if v.CurrentFloor < newOrder.Floor {
-			if v.Direction == DOWN {
-				if len(v.OrderQueue) > 0 {
-					lastFloorInOrderQueue := v.OrderQueue[len(v.OrderQueue)-1].Floor
+			if v.CurrentFloor < newOrder.Floor {
+				if v.Direction == DOWN {
+					if len(v.OrderQueue) > 0 {
+						lastFloorInOrderQueue := v.OrderQueue[len(v.OrderQueue)-1].Floor
 
-					floorsToBeVisited := int(math.Abs(float64(v.CurrentFloor-lastFloorInOrderQueue)) + math.Abs(float64(newOrder.Floor-lastFloorInOrderQueue)))
+						floorsToBeVisited := int(math.Abs(float64(v.CurrentFloor-lastFloorInOrderQueue)) + math.Abs(float64(newOrder.Floor-lastFloorInOrderQueue)))
 
-					IPCostList[i] += floorsToBeVisited
-					fmt.Println("LENGTH OF QUEUE IS LONGER THAN 0")
+						IPCostList[i] += floorsToBeVisited
+						fmt.Println("LENGTH OF QUEUE IS LONGER THAN 0")
+					}
+
 				}
+			} else if v.CurrentFloor > newOrder.Floor {
+				if v.Direction == UP {
+					//Add distance to last order in queue and distance from last order to new order, only if there are orders
+					if len(v.OrderQueue) > 0 {
+						lastFloorInOrderQueue := v.OrderQueue[len(v.OrderQueue)-1].Floor
 
-			}
-		} else if v.CurrentFloor > newOrder.Floor {
-			if v.Direction == UP {
-				//Add distance to last order in queue and distance from last order to new order, only if there are orders
-				if len(v.OrderQueue) > 0 {
-					lastFloorInOrderQueue := v.OrderQueue[len(v.OrderQueue)-1].Floor
+						floorsToBeVisited := int(math.Abs(float64(v.CurrentFloor-lastFloorInOrderQueue)) + math.Abs(float64(newOrder.Floor-lastFloorInOrderQueue)))
 
-					floorsToBeVisited := int(math.Abs(float64(v.CurrentFloor-lastFloorInOrderQueue)) + math.Abs(float64(newOrder.Floor-lastFloorInOrderQueue)))
-
-					IPCostList[i] += floorsToBeVisited
-					fmt.Println("LENGTH OF QUEUE IS LONGER THAN 0")
+						IPCostList[i] += floorsToBeVisited
+						fmt.Println("LENGTH OF QUEUE IS LONGER THAN 0")
+					}
 				}
 			}
-		}
 		floatDifference := float64(v.CurrentFloor - newOrder.Floor)
 
 		IPCostList[i] += int(math.Abs(floatDifference))
 		IPCostList[i] += len(v.OrderQueue)
+
 	}
 	for k := 0; k < len(IPCostList); k++ {
 		if IPCostList[k] < lowestCost {
@@ -74,17 +75,14 @@ func OptAlg(newOrder Order) string {
 			lowestCost = IPCostList[k]
 			elevNmr = k
 		} else if IPCostList[k] == lowestCost {
-			if len(elevStatesCopy[k].OrderQueue) < len(elevStatesCopy[elevNmr].OrderQueue) {
-				optimalIP = elevStatesCopy[k].IP
-				elevNmr = k
-			} else if len(elevStatesCopy[k].OrderQueue) == len(elevStatesCopy[elevNmr].OrderQueue) {
 				if elevStatesCopy[k].IP > optimalIP {
 					optimalIP = elevStatesCopy[k].IP
 					elevNmr = k
 				}
-			}
+			
 		}
 	}
+
 	fmt.Println("For this order: ")
 	stateMachine.PrintOrder(newOrder)
 	fmt.Println("My choice: ", optimalIP)
