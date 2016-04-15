@@ -2,8 +2,7 @@ package stateMachine
 
 import (
 	"../driver"
-	. "../globalChans"
-	. "../globalStructs"
+	."../globalStructs"
 	"../network"
 	"fmt"
 	"time"
@@ -31,17 +30,8 @@ func PrintOrder(order Order) {
 	fmt.Println("Floor: ", order.Floor+1, " Type :", x)
 }
 
-func isOrderInQueue(order_queue []Order, newOrder Order) bool {
-	for _, queueElements := range order_queue {
-		if queueElements == newOrder {
-			return true
-		}
-	}
-	return false
-}
-
 //UTKAST TIL REFORMATERT HEIS ER UNDER HER. KOM MED GODE NAVN PÅ TING ALLEREDE NÅ
-func MoveElevatorAndOpenDoor(floorWithOrderReachedChan chan Order, orderServedChan chan Order, sendElevInDirectionChan chan int) {
+func MoveElevatorAndOpenDoor(floorWithOrderReachedChan chan Order, orderServedChan chan Order, sendElevInDirectionChan chan int, sendElevStateChan chan ElevatorState) {
 	//CAN BE: IDLE, OPEN_DOOR, GO_TO_FLOOR (evt can G_T_F be go_up, and go_down)
 	for {
 		select {
@@ -61,32 +51,25 @@ func MoveElevatorAndOpenDoor(floorWithOrderReachedChan chan Order, orderServedCh
 				driver.DriveElevator(DOWN)
 				StateOfElev.Direction = DOWN
 			}
-			SendElevStateToNetwork(ToNetworkNewElevStateChan)
+			SendElevStateToNetwork(sendElevStateChan)
 			//go to floor, if below, go up. if above, go down. This is only needed when the elevator is idle.
 		}
 	}
 }
 
 //
-func UpdateNewFloorReached() {
+func UpdateNewFloorReached(sendElevStateChan chan ElevatorState) {
 	mostRecentFloorVisited := driver.GetFloorSensorSignal()
 	for {
 		if sensor_result := driver.GetFloorSensorSignal(); sensor_result != -1 && sensor_result != mostRecentFloorVisited {
 			mostRecentFloorVisited = sensor_result
 			StateOfElev.PreviousFloor = StateOfElev.CurrentFloor
 			StateOfElev.CurrentFloor = sensor_result
-			SendElevStateToNetwork(ToNetworkNewElevStateChan)
+			SendElevStateToNetwork(sendElevStateChan)
 		}
 		time.Sleep(time.Millisecond * 50)
 	}
 }
-
-/*
-func SetButtonLights(){
-	Need to set lights for all elevators.
-	Maybe separate one for internal.
-}
-*/
 
 //split into two: need to control shared var stopSignalSent
 func feedDirectionCommandsToElev(orderQueueChangeChan chan bool, sendElevInDirectionChan chan int, targetFloorReachedChan chan Order) {
@@ -123,20 +106,20 @@ func feedDirectionCommandsToElev(orderQueueChangeChan chan bool, sendElevInDirec
 	}
 }
 
-func NewTopLoop() {
+func NewTopLoop(sendElevStateChan chan ElevatorState,newLocalOrderChan chan Order, localOrderServedChan chan Order) {
 	//Her kan man anta at man står stille i en etasje
 	StateOfElev.CurrentFloor = driver.GetFloorSensorSignal()
 	StateOfElev.Direction = DOWN
 	StateOfElev.IP = network.FindLocalIP()
-	SendElevStateToNetwork(ToNetworkNewElevStateChan)
+	SendElevStateToNetwork(sendElevStateChan)
 
 	targetFloorReachedChan := make(chan Order)
 	orderServedChan := make(chan Order)
 	sendElevInDirectionChan := make(chan int)
 	orderQueueChangeChan := make(chan bool)
 	//go SpamCurrentQueue()
-	go UpdateNewFloorReached()
-	go MoveElevatorAndOpenDoor(targetFloorReachedChan, orderServedChan, sendElevInDirectionChan)
+	go UpdateNewFloorReached(sendElevStateChan)
+	go MoveElevatorAndOpenDoor(targetFloorReachedChan, orderServedChan, sendElevInDirectionChan,sendElevStateChan)
 	go feedDirectionCommandsToElev(orderQueueChangeChan, sendElevInDirectionChan, targetFloorReachedChan)
 	fmt.Println("Statemachine: ready")
 	for {
@@ -160,31 +143,31 @@ func NewTopLoop() {
 
 				orderQueueChangeChan <- true
 
-				OrderServedLocallyChan <- servedOrder
+				localOrderServedChan <- servedOrder
 
 				fmt.Println("order served")
 			}
-			SendElevStateToNetwork(ToNetworkNewElevStateChan)
-		case newOrder := <-NewOrderToLocalElevChan: //newOrderToElevChan when we have mothership ready
-			if isOrderInQueue(StateOfElev.OrderQueue, newOrder) {
+			SendElevStateToNetwork(sendElevStateChan)
+		case newOrder := <-newLocalOrderChan: //newOrderToElevChan when we have mothership ready
+			if orderIsInList(StateOfElev.OrderQueue, newOrder) {
 				break
 			} else {
 				StateOfElev.OrderQueue = insertOrderIntoQueue(newOrder, StateOfElev)
 				orderQueueChangeChan <- true
 			}
-			SendElevStateToNetwork(ToNetworkNewElevStateChan)
+			SendElevStateToNetwork(sendElevStateChan)
 		}
 	}
 
 }
 
-func SendElevStateToNetwork(toNetworkChan chan ElevatorState) {
+func SendElevStateToNetwork(sendElevStateChan chan ElevatorState) {
 	copyOfElevState := StateOfElev
 	copyOfElevState.Timestamp = time.Now()
 	copyOfOrderList := make([]Order, len(StateOfElev.OrderQueue))
 	copy(copyOfOrderList, StateOfElev.OrderQueue)
 	copyOfElevState.OrderQueue = copyOfOrderList
-	toNetworkChan <- copyOfElevState
+	sendElevStateChan <- copyOfElevState
 }
 
 func SpamCurrentQueue() {
@@ -288,4 +271,14 @@ func SimulateElevDrivingFindOrderIndex(startingFloor int, startingDirection int,
 		simulatedFloor += simulatedDirection
 	}
 	return placeInQueue
+}
+
+
+func orderIsInList(orderQueue []Order, newOrder Order) bool {
+	for _, v := range orderQueue {
+		if v == newOrder {
+			return true
+		}
+	}
+	return false
 }

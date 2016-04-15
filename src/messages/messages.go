@@ -1,7 +1,6 @@
 package messages
 
 import (
-	. "../globalChans"
 	. "../globalStructs"
 	"../network"
 	"bytes"
@@ -29,38 +28,20 @@ const ACK_DEADLINE = 2
 var commonPort string = "20059"
 var localAddr string
 
-func MessagesTopAndWaitForNetworkChanges() {
+func MessagesTopAndWaitForNetworkChanges(fromDecode MessageChans,toEncode MessageChans, newConnectionChan chan string, endConnectionChan chan string, resendUnAckdMessagesChan chan bool) {
 	newEncodedMessageChan := make(chan []byte)
-	newConnectionChan := make(chan string)
-	endConnectionChan := make(chan string)
 	messageFromNetworkChan := make(chan []byte)
 	newAckReceivedChan := make(chan MessageWithHeader)
 	resendLostMessageChan := make(chan MessageWithHeader)
 	newMessageDeadlineChan := make(chan MessageWithHeader)
-	resendUnAckdMessagesChan := make(chan bool)
-	networkDownResetAckListChan := make(chan bool)
 
 	localAddr = network.FindLocalIP()
 
 	go sendMessagesOverNetwork(newEncodedMessageChan, newConnectionChan, endConnectionChan)
 	go receiveMessagesFromNetwork(localAddr, commonPort, messageFromNetworkChan)
-	go encodeMessages(newEncodedMessageChan, newMessageDeadlineChan, resendLostMessageChan)
-	go decodeMessages(messageFromNetworkChan, newAckReceivedChan, newEncodedMessageChan) //FÅ ACKEN UT HERIFRA
-	go setDeadlinesForAcks(resendLostMessageChan, newMessageDeadlineChan, newAckReceivedChan, resendUnAckdMessagesChan, networkDownResetAckListChan)
-
-	for {
-		select {
-		case elevAddr := <-ToMessagesDeadElevChan:
-			resendUnAckdMessagesChan <- true
-			endConnectionChan <- elevAddr
-		case elevAddr := <-ToMessagesNewElevChan:
-			resendUnAckdMessagesChan <- true
-			newConnectionChan <- elevAddr
-		case <-ToMessagesNetworkDownChan:
-			networkDownResetAckListChan <- true
-		}
-
-	}
+	go encodeMessages(newEncodedMessageChan, newMessageDeadlineChan, resendLostMessageChan, toEncode)
+	go decodeMessages(messageFromNetworkChan, newAckReceivedChan, newEncodedMessageChan, fromDecode) //FÅ ACKEN UT HERIFRA
+	go setDeadlinesForAcks(resendLostMessageChan, newMessageDeadlineChan, newAckReceivedChan, resendUnAckdMessagesChan)
 }
 
 func sendMessagesOverNetwork(sendNetworkMessageChan chan []byte, newConnectionChan chan string, endConnectionChan chan string) {
@@ -105,7 +86,7 @@ func receiveMessagesFromNetwork(localAddr string, commonPort string, messageFrom
 	}
 }
 
-func encodeMessages(sendToNetworkChan chan []byte, sendToAckTimerChan chan MessageWithHeader, resendMessageChan chan MessageWithHeader) {
+func encodeMessages(sendToNetworkChan chan []byte, sendToAckTimerChan chan MessageWithHeader, resendMessageChan chan MessageWithHeader, encode MessageChans) {
 	go func() {
 		for {
 			expiredMessage := <-resendMessageChan
@@ -128,35 +109,35 @@ func encodeMessages(sendToNetworkChan chan []byte, sendToAckTimerChan chan Messa
 		var encodedData []byte = nil
 		var err error
 		select {
-		case newOrder := <-ExternalButtonPressedChan:
+		case newOrder := <-encode.NewOrderChan:
 			tag = "newOr"
 			encodedData, err = json.Marshal(newOrder)
 			//fmt.Println("encodeMessagesToNetwork: order encoded1")
 			if err != nil {
 				fmt.Println("Error when encoding: ", err)
 			}
-		case orderTo := <-ToNetworkOrderAssignedToChan:
+		case orderTo := <-encode.OrderAssChan:
 			tag = "ordTo"
 			encodedData, err = json.Marshal(orderTo)
 			//fmt.Println("encodeMessagesToNetwork: order encoded2")
 			if err != nil {
 				fmt.Println("Error when encoding: ", err)
 			}
-		case orderServed := <-ToNetworkOrderServedChan:
+		case orderServed := <-encode.OrderServedChan:
 			tag = "ordSe"
 			encodedData, err = json.Marshal(orderServed)
 			//fmt.Println("encodeMessagesToNetwork: order encoded3")
 			if err != nil {
 				fmt.Println("Error when encoding: ", err)
 			}
-		case elevState := <-ToNetworkNewElevStateChan:
+		case elevState := <-encode.ElevStateChan:
 			tag = "elSta"
 			encodedData, err = json.Marshal(elevState)
 			//fmt.Println("encodeMessagesToNetwork: order encoded4")
 			if err != nil {
 				fmt.Println("Error when encoding: ", err)
 			}
-		case externalArray := <-ToNetworkExternalArrayChan:
+		case externalArray := <-encode.ExternalArrayChan:
 			tag = "extAr"
 			encodedData, err = json.Marshal(externalArray)
 			//fmt.Println("encodeMessagesToNetwork: order encoded5")
@@ -193,7 +174,7 @@ func sendAck(message MessageWithHeader, sendToNetworkChan chan []byte) {
 	sendToNetworkChan <- encodedMessage
 }
 
-func decodeMessages(messageFromNetworkChan chan []byte, newAckFromNetworkChan chan MessageWithHeader, sendToNetworkChan chan []byte) {
+func decodeMessages(messageFromNetworkChan chan []byte, newAckFromNetworkChan chan MessageWithHeader, sendToNetworkChan chan []byte, decode MessageChans) {
 	//If no ack. Respond immediately somewhere with ack.
 	//Switch on tag
 	for {
@@ -207,8 +188,8 @@ func decodeMessages(messageFromNetworkChan chan []byte, newAckFromNetworkChan ch
 			newAckFromNetworkChan <- message
 			//Things will happen here
 		} else {
+			//Burde kun acke hvis ting går bra
 			//Maybe have this ack-echo somewhere else. For now its here
-			sendAck(message, sendToNetworkChan)
 			//fmt.Println("Tag before check: ", message.Tag)
 			switch message.Tag {
 			case "newOr":
@@ -217,7 +198,8 @@ func decodeMessages(messageFromNetworkChan chan []byte, newAckFromNetworkChan ch
 				if err != nil {
 					fmt.Println(err)
 				} else {
-					FromNetworkNewOrderChan <- newOrder
+					sendAck(message, sendToNetworkChan)
+					decode.NewOrderChan <- newOrder
 				}
 			case "ordSe":
 				var orderServed Order
@@ -225,7 +207,8 @@ func decodeMessages(messageFromNetworkChan chan []byte, newAckFromNetworkChan ch
 				if err != nil {
 					fmt.Println(err)
 				} else {
-					FromNetworkOrderServedChan <- orderServed
+					sendAck(message, sendToNetworkChan)
+					decode.OrderServedChan <- orderServed
 				}
 			case "ordTo":
 				var orderAss OrderAssigned
@@ -233,7 +216,8 @@ func decodeMessages(messageFromNetworkChan chan []byte, newAckFromNetworkChan ch
 				if err != nil {
 					fmt.Println(err)
 				} else {
-					FromNetworkOrderAssignedToChan <- orderAss
+					sendAck(message, sendToNetworkChan)
+					decode.OrderAssChan <- orderAss
 				}
 			case "elSta":
 				var newState ElevatorState
@@ -241,7 +225,8 @@ func decodeMessages(messageFromNetworkChan chan []byte, newAckFromNetworkChan ch
 				if err != nil {
 					fmt.Println(err)
 				} else {
-					FromNetworkNewElevStateChan <- newState
+					sendAck(message, sendToNetworkChan)
+					decode.ElevStateChan <- newState
 				}
 			case "extAr":
 				var newExternalArray [NUM_FLOORS][NUM_BUTTONS - 1]int
@@ -249,7 +234,8 @@ func decodeMessages(messageFromNetworkChan chan []byte, newAckFromNetworkChan ch
 				if err != nil {
 					fmt.Println(err)
 				} else {
-					FromNetworkExternalArrayChan <- newExternalArray
+					sendAck(message, sendToNetworkChan)
+					decode.ExternalArrayChan <- newExternalArray
 				}
 			}
 		}
@@ -262,9 +248,9 @@ there is no need for ackdbyallchan
 
 
 */
-func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, newMessageSentChan chan MessageWithHeader, newAckChan chan MessageWithHeader, elevatorListChangedChan chan bool, networkDownResetAckListChan chan bool) {
+func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, newMessageSentChan chan MessageWithHeader, newAckChan chan MessageWithHeader, resendUnAckdMessagesChan chan bool) {
 	var unAckdMessages []ackTimer
-	var networkIsDown bool
+	var resendUnackd bool
 	/*
 		NEED HERE:
 		-A structure that contains deadlines for all the elevators for each message
@@ -274,15 +260,15 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, newMessageSen
 	*/
 	for {
 		select {
-		case <-elevatorListChangedChan:
-			networkIsDown = false
-			for i, v := range unAckdMessages {
-				unAckdMessages[i].DeadLine = time.Now().Add(time.Second * ACK_DEADLINE)
-				localIPlist := network.ElevsSeen()
-				unAckdMessages[i].IpList = localIPlist
-				resendMessageChan <- v.Message //With nil entry in senderaddress, Maybe not though.
+		case resendUnackd = <-resendUnAckdMessagesChan:
+			if resendUnackd{
+				for i, v := range unAckdMessages {
+					unAckdMessages[i].DeadLine = time.Now().Add(time.Second * ACK_DEADLINE)
+					localIPlist := network.ElevsSeen()
+					unAckdMessages[i].IpList = localIPlist
+					resendMessageChan <- v.Message //With nil entry in senderaddress, Maybe not though.
+				}
 			}
-
 			//fmt.Println("listOfElevatorsInNetwork when elevator change: ", listOfElevatorsInNetwork)
 		case newAck := <-newAckChan:
 			senderOfAck := newAck.SenderAddr
@@ -321,10 +307,8 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, newMessageSen
 				newAckTimer := ackTimer{Message: newMessage, DeadLine: time.Now().Add(time.Second * ACK_DEADLINE), IpList: localIPlist}
 				unAckdMessages = append(unAckdMessages, newAckTimer)
 			}
-		case <-networkDownResetAckListChan:
-			networkIsDown = true
 		default:
-			if networkIsDown {
+			if !resendUnackd {
 				unAckdMessages = nil
 			}
 			for i, v := range unAckdMessages {

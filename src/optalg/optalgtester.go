@@ -1,7 +1,6 @@
 package optalg
 
 import (
-	. "../globalChans"
 	. "../globalStructs"
 	"../network"
 	"../stateMachine"
@@ -27,7 +26,7 @@ func GetUnassignedOrders() []Order {
 }
 
 //Har denne tre steder, gjør den global
-func orderIsInQueue(orderQueue []Order, newOrder Order) bool {
+func orderIsInList(orderQueue []Order, newOrder Order) bool {
 	for _, v := range orderQueue {
 		if v == newOrder {
 			return true
@@ -121,12 +120,12 @@ func GetOrderQueueOfDeadElev(deadIP string) []Order {
 
 //may not need channels, think about if its better to just call it from somewhere else
 //INSIDENAMING=GOOD
-func UpdateElevatorStateList(newOrderToBeAssignedChan chan Order, resetAssignFuncChan chan bool) {
+func UpdateElevatorStateList(newOrderToBeAssignedChan chan Order, resetAssignFuncChan chan bool, sendOrderAssChan chan OrderAssigned, receiveOrderAssChan chan OrderAssigned, receiveElevStateChan chan ElevatorState, newLocalOrderChan chan Order,removeElevChan chan string) {
 
-	go AssignOrdersAndWaitForAgreement(newOrderToBeAssignedChan, resetAssignFuncChan)
+	go AssignOrdersAndWaitForAgreement(newOrderToBeAssignedChan, resetAssignFuncChan, sendOrderAssChan, receiveOrderAssChan, newLocalOrderChan)
 	for {
 		select {
-		case updatedElevState := <-FromNetworkNewElevStateChan:
+		case updatedElevState := <-receiveElevStateChan:
 			//fmt.Println("New state received!")
 			elevInList := false
 			for i, v := range allElevStates {
@@ -135,7 +134,7 @@ func UpdateElevatorStateList(newOrderToBeAssignedChan chan Order, resetAssignFun
 					if updatedElevState.Timestamp.After(newestStateTime) {
 						allElevStates[i] = updatedElevState
 						for _, v := range allElevStates[i].OrderQueue {
-							if orderIsInQueue(unassignedOrders, v) {
+							if orderIsInList(unassignedOrders, v) {
 								removeOrder(unassignedOrders, v)
 							}
 						}
@@ -147,7 +146,7 @@ func UpdateElevatorStateList(newOrderToBeAssignedChan chan Order, resetAssignFun
 			if !elevInList {
 				allElevStates = append(allElevStates, updatedElevState)
 			}
-		case deadElev := <-ToOptAlgDeleteElevChan:
+		case deadElev := <-removeElevChan:
 			for i, v := range allElevStates {
 				if v.IP == deadElev {
 					allElevStates = append(allElevStates[:i], allElevStates[i+1:]...)
@@ -159,7 +158,7 @@ func UpdateElevatorStateList(newOrderToBeAssignedChan chan Order, resetAssignFun
 }
 
 //INSIDENAMING=GOOD
-func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAssignFuncChan chan bool) {
+func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAssignFuncChan chan bool, sendOrderAssChan chan OrderAssigned, receiveOrderAssChan chan OrderAssigned,newLocalOrderChan chan Order) {
 
 	var OrdersToBeAssignedByAll []ElevsToAgreeOnAssignedOrder
 	localAddr := network.FindLocalIP()
@@ -185,17 +184,17 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 				//Elevlist should be copied, global or maybe everyone that uses it should be in the same module
 				elevList := network.ElevsSeen()
 				OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, ElevsToAgreeOnAssignedOrder{NewOrderToBeAssigned, elevList})
-				if !orderIsInQueue(unassignedOrders, newOrder) {
+				if !orderIsInList(unassignedOrders, newOrder) {
 
 					unassignedOrders = append(unassignedOrders, newOrder)
 				}
 
 				time.Sleep(time.Millisecond * 200) //This is to make sure you get to make the list before
-				ToNetworkOrderAssignedToChan <- NewOrderToBeAssigned
+				sendOrderAssChan <- NewOrderToBeAssigned
 			} else {
 				fmt.Println("Order already registered. Discard message.")
 			}
-		case newOrdAss := <-FromNetworkOrderAssignedToChan:
+		case newOrdAss := <-receiveOrderAssChan:
 			fmt.Println("newOrdAss := <-FromNetworkOrderAssignedToChan")
 			posInSlice := -1
 			for i, v := range OrdersToBeAssignedByAll {
@@ -222,7 +221,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 					elevList := network.ElevsSeen()
 					OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, ElevsToAgreeOnAssignedOrder{NewOrderToBeAssigned, elevList})
 					time.Sleep(time.Millisecond * 200) //This is to make sure you get to make the list before
-					ToNetworkOrderAssignedToChan <- NewOrderToBeAssigned
+					sendOrderAssChan <- NewOrderToBeAssigned
 				} else {
 					for i, v := range OrdersToBeAssignedByAll[posInSlice].ElevList {
 						if newOrdAss.SentFrom == v {
@@ -232,7 +231,7 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 									fmt.Println("X")
 									fmt.Println("                                    im taking this order!")
 									fmt.Println("X")
-									NewOrderToLocalElevChan <- newOrdAss.Order
+									newLocalOrderChan <- newOrdAss.Order
 								}
 								OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll[:posInSlice], OrdersToBeAssignedByAll[posInSlice+1:]...)
 							}

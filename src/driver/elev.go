@@ -7,7 +7,6 @@ import "C"
 
 import (
 	//"errors"
-	. "../globalChans"
 	. "../globalStructs"
 	"fmt"
 	"time"
@@ -122,7 +121,7 @@ func ElevNotMoving() bool {
 		return false
 	}
 }
-func CheckForButtonsPressed() { //denne stopper ved trykk på en knapp. Hvorfor?
+func CheckForButtonsPressed(sendNewOrderChan chan Order, internalButtonChan chan Order) { //denne stopper ved trykk på en knapp. Hvorfor?
 	for {
 		for i := 0; i < NUM_FLOORS; i++ {
 			for j := 0; j < NUM_BUTTONS; j++ {
@@ -137,10 +136,10 @@ func CheckForButtonsPressed() { //denne stopper ved trykk på en knapp. Hvorfor?
 					}
 					if button_type == COMMAND {
 						fmt.Println("CheckForButtonsPressed: internal button pressed")
-						InternalButtonPressedChan <- Order{i, button_type} //funksjonen stopper her
+						internalButtonChan <- Order{i, button_type} //funksjonen stopper her
 					} else {
 						fmt.Println("CheckForButtonsPressed: external button pressed")
-						ExternalButtonPressedChan <- Order{i, button_type} // og her
+						sendNewOrderChan <- Order{i, button_type} // og her
 					}
 				}
 			}
@@ -168,13 +167,13 @@ func SetButtonLight(ButtonLight Order, turnOn bool) {
 }
 
 //Rename
-func Init() {
+func Init(sendNewOrderChan chan Order, internalButtonChan chan Order) {
 	fmt.Println("starting tester function")
 	IoInit()
 	InitAndGoToSafeState()
 	fmt.Println("finished initializing elev")
 	go UpdateFloorLights()
-	go CheckForButtonsPressed()
+	go CheckForButtonsPressed(sendNewOrderChan, internalButtonChan)
 	return
 }
 

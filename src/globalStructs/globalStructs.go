@@ -43,3 +43,20 @@ type AllOrders struct {
 	ExternalOrders [NUM_FLOORS][NUM_BUTTONS - 1]int
 	InternalOrders [NUM_FLOORS]int
 }
+
+type MessageChans struct{
+	NewOrderChan chan Order
+	OrderAssChan chan OrderAssigned
+	OrderServedChan chan Order
+	ElevStateChan chan ElevatorState
+	ExternalArrayChan chan [NUM_FLOORS][NUM_BUTTONS -1] int
+}
+
+func orderIsInList(orderQueue []Order, newOrder Order) bool {
+	for _, v := range orderQueue {
+		if v == newOrder {
+			return true
+		}
+	}
+	return false
+}

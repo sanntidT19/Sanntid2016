@@ -1,7 +1,6 @@
 package network
 
 import (
-	. "../globalChans"
 	"bytes"
 	"fmt"
 	"net"
@@ -25,7 +24,7 @@ SØRG FOR AT ALLE KANALER SOM TRENGER Å VITE AT LISTEN HAR ENDRET SEG, FÅR VIT
 FOR ØYEBLIKKET ER DET KUN Å GJØRE DEN ENE KANALEN TIL MESSAGES GLOBAL
 SPØR OM EN LUR MÅTE Å BRUKE GLOBALE KANALER PÅ I MORRA
 */
-func InitNetworkAndAlertChanges() {
+func InitNetworkAndAlertChanges(newConnectionChan chan string, endConnectionChan chan string, resendUnackdMessagesChan chan bool, alertNewElevChan chan string, alertDeadElevChan chan string, alertNetworkDownChan chan bool) {
 	newShoutFromElevatorChan := make(chan string)
 	newElevChan := make(chan string)
 	elevDeadChan := make(chan string)
@@ -53,12 +52,13 @@ func InitNetworkAndAlertChanges() {
 
 			}
 			fmt.Println("Elevator gone, address: ", elevGone)
-			ToMessagesDeadElevChan <- elevGone
-			FromNetworkElevGoneChan <- elevGone
+			endConnectionChan <- elevGone
+			resendUnackdMessagesChan <- true
+			alertDeadElevChan <- elevGone
 			if len(listOfElevsInNetwork) == 0 {
 				fmt.Println("Network is gone!")
-				FromNetworkNetworkDownChan <- true
-				ToMessagesNetworkDownChan <- true
+				alertNetworkDownChan <- true
+				resendUnackdMessagesChan <-false
 			}
 
 		case newElev := <-newElevChan:
@@ -67,9 +67,10 @@ func InitNetworkAndAlertChanges() {
 			listOfElevsInNetwork = append(listOfElevsInNetwork, newElev)
 			fmt.Println("after appending ip to list : ", listOfElevsInNetwork)
 			fmt.Println("                           NewMessages is receiving")
-			ToMessagesNewElevChan <- newElev
+			newConnectionChan <- newElev
+			resendUnackdMessagesChan <-true
 			fmt.Println("                           NewMessages is reading")
-			FromNetworkNewElevChan <- newElev //send to somewhere else
+			alertNewElevChan <- newElev //send to somewhere else
 		}
 		fmt.Println("end of network-select")
 	}
