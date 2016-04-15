@@ -12,7 +12,7 @@ type addrAndDeadline struct {
 	Addr     string
 }
 
-const BROADCAST_DEADLINE = 2
+const BROADCAST_DEADLINE = 100
 
 var broadcastPort string = "30059"
 var listOfElevsInNetwork []string
@@ -137,7 +137,7 @@ func broadcastPrecense(broadcastPort string) {
 		if err != nil {
 			fmt.Println(err)
 		}
-		time.Sleep(time.Millisecond * 500)
+		time.Sleep(time.Millisecond * 20)
 	}
 }
 
@@ -180,16 +180,14 @@ func detectNewAndDeadElevs(newShoutFromElevChan chan string, newElevChan chan st
 				}
 			}
 			if elevIsInList {
-				elevDeadlineList[placeInList].DeadLine = time.Now().Add(time.Second * BROADCAST_DEADLINE)
+				elevDeadlineList[placeInList].DeadLine = time.Now().Add(time.Millisecond * BROADCAST_DEADLINE)
 			} else {
-				elevDeadlineList = append(elevDeadlineList, addrAndDeadline{DeadLine: time.Now().Add(time.Second * BROADCAST_DEADLINE), Addr: newShout})
+				elevDeadlineList = append(elevDeadlineList, addrAndDeadline{DeadLine: time.Now().Add(time.Millisecond * BROADCAST_DEADLINE), Addr: newShout})
 				fmt.Println("newElevChan <- newShout")
 				newElevChan <- newShout
 			}
 		default:
 			for i, v := range elevDeadlineList {
-				fmt.Println("Now: ", time.Now())
-				fmt.Println("Deadline: ", v.DeadLine)
 				if time.Now().After(v.DeadLine) {
 					fmt.Println("                            elevDeadChan <- v.Addr")
 					elevDeadChan <- v.Addr
@@ -198,6 +196,7 @@ func detectNewAndDeadElevs(newShoutFromElevChan chan string, newElevChan chan st
 				}
 			}
 		}
-		time.Sleep(time.Millisecond * 200)
+		time.Sleep(time.Millisecond * 20)
 	}
 }
+

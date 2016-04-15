@@ -36,10 +36,10 @@ func orderIsInList(orderQueue []Order, newOrder Order) bool {
 }
 
 //INSIDENAMING=GOOD
-func removeOrder(orderList []Order, order Order) {
-	for i, v := range orderList {
+func removeOrderFromUnassigned(order Order) {
+	for i, v := range unassignedOrders {
 		if v == order {
-			orderList = append(orderList[:i], orderList[i+1:]...)
+			unassignedOrders = append(unassignedOrders[:i], unassignedOrders[i+1:]...)
 			return
 		}
 	}
@@ -135,7 +135,8 @@ func UpdateElevatorStateList(newOrderToBeAssignedChan chan Order, resetAssignFun
 						allElevStates[i] = updatedElevState
 						for _, v := range allElevStates[i].OrderQueue {
 							if orderIsInList(unassignedOrders, v) {
-								removeOrder(unassignedOrders, v)
+								fmt.Println("removing order from unassigned orders")
+								removeOrderFromUnassigned(v)
 							}
 						}
 					}
@@ -185,7 +186,6 @@ func AssignOrdersAndWaitForAgreement(newOrderFromNetworkChan chan Order, resetAs
 				elevList := network.ElevsSeen()
 				OrdersToBeAssignedByAll = append(OrdersToBeAssignedByAll, ElevsToAgreeOnAssignedOrder{NewOrderToBeAssigned, elevList})
 				if !orderIsInList(unassignedOrders, newOrder) {
-
 					unassignedOrders = append(unassignedOrders, newOrder)
 				}
 

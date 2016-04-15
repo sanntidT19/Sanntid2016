@@ -2,7 +2,6 @@ package main
 
 import (
 	"./driver"
-	"./globalChans"
 	. "./globalStructs"
 	"./messages"
 	"./network"
@@ -14,7 +13,6 @@ import (
 )
 
 func main() {
-	globalChans.InitChans()
 
 	//Make all global channels
 	newOrderToBeAssignedChan := make(chan Order) //rename slightly

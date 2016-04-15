@@ -23,7 +23,7 @@ type ackTimer struct {
 	IpList   []string
 }
 
-const ACK_DEADLINE = 2
+const ACK_DEADLINE = 500
 
 var commonPort string = "20059"
 var localAddr string
@@ -263,7 +263,7 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, newMessageSen
 		case resendUnackd = <-resendUnAckdMessagesChan:
 			if resendUnackd{
 				for i, v := range unAckdMessages {
-					unAckdMessages[i].DeadLine = time.Now().Add(time.Second * ACK_DEADLINE)
+					unAckdMessages[i].DeadLine = time.Now().Add(time.Millisecond * ACK_DEADLINE)
 					localIPlist := network.ElevsSeen()
 					unAckdMessages[i].IpList = localIPlist
 					resendMessageChan <- v.Message //With nil entry in senderaddress, Maybe not though.
@@ -304,7 +304,7 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, newMessageSen
 			}
 			if notInUnackdMessages {
 				localIPlist := network.ElevsSeen()
-				newAckTimer := ackTimer{Message: newMessage, DeadLine: time.Now().Add(time.Second * ACK_DEADLINE), IpList: localIPlist}
+				newAckTimer := ackTimer{Message: newMessage, DeadLine: time.Now().Add(time.Millisecond * ACK_DEADLINE), IpList: localIPlist}
 				unAckdMessages = append(unAckdMessages, newAckTimer)
 			}
 		default:
@@ -314,7 +314,7 @@ func setDeadlinesForAcks(resendMessageChan chan MessageWithHeader, newMessageSen
 			for i, v := range unAckdMessages {
 				if time.Now().After(v.DeadLine) {
 					resendMessageChan <- v.Message
-					unAckdMessages[i].DeadLine = time.Now().Add(time.Second * ACK_DEADLINE)
+					unAckdMessages[i].DeadLine = time.Now().Add(time.Millisecond * ACK_DEADLINE)
 					localIPlist := network.ElevsSeen()
 					fmt.Println("localiplist: ", localIPlist)
 					unAckdMessages[i].IpList = localIPlist
