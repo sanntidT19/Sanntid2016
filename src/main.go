@@ -5,19 +5,17 @@ import (
 	. "./globalStructs"
 	"./messages"
 	"./network"
-	"./optalg"
-	"./stateMachine"
-	"./topLevel"
+	"./orderAssignment"
+	"./localElev"
+	"./orderStorage"
 	"fmt"
 	"time"
 )
 
 func main() {
-
 	//Make all global channels
-	newOrderToBeAssignedChan := make(chan Order) //rename slightly
+	newOrderToBeAssignedChan := make(chan Order)
 	resetAssignFuncChan := make(chan bool)
-
 	internalButtonChan := make(chan Order)
 	newLocalOrderChan := make(chan Order)
 	localOrderServedChan := make(chan Order)
@@ -29,7 +27,6 @@ func main() {
 	newElevChan := make(chan string)
 	deadElevChan := make(chan string)
 	networkDownChan := make(chan bool)
-
 	removeElevChan := make(chan string)
 
 	receiveNewOrderChan := make(chan Order)
@@ -58,15 +55,17 @@ func main() {
 		ElevStateChan : sendElevStateChan,
 		ExternalArrayChan : sendExternalArrayChan}
 
-	driver.Init(sendNewOrderChan,internalButtonChan)
-	go topLevel.StartupDraft(sendNewOrderChan,newLocalOrderChan)
-	//hvis tid: samle de i toplogic i en struct (newOrderToBeAssignedChan, sendNewOrderChan, receiveNewOrderChan, sendOrderServedChan, receiveOrderServedChan, sendElevStateChan, sendExternalArrayChan, receiveExternalArrayChan, internalButtonChan, newLocalOrderChan, localOrderServedChan, newElevChan)
-	go topLevel.TopLogicNeedBetterName(newOrderToBeAssignedChan, sendNewOrderChan, receiveNewOrderChan, sendOrderServedChan, receiveOrderServedChan, sendElevStateChan, sendExternalArrayChan, receiveExternalArrayChan, internalButtonChan, newLocalOrderChan,localOrderServedChan, newElevChan)
-	go topLevel.ResendOrdersIfNetworkError(resetAssignFuncChan, sendNewOrderChan,newLocalOrderChan,deadElevChan,networkDownChan,removeElevChan)
-	go optalg.UpdateElevatorStateList(newOrderToBeAssignedChan, resetAssignFuncChan, sendOrderAssChan, receiveOrderAssChan, receiveElevStateChan,newLocalOrderChan,removeElevChan)
-	go network.InitNetworkAndAlertChanges(newConnectionChan, endConnectionChan, resendUnackdMessagesChan, newElevChan, deadElevChan, networkDownChan)
-	go messages.MessagesTopAndWaitForNetworkChanges(fromDecodeChans,toEncodeChans, newConnectionChan, endConnectionChan,resendUnackdMessagesChan)
-	go stateMachine.NewTopLoop(sendElevStateChan, newLocalOrderChan, localOrderServedChan)
+	driver.InitAndRun(sendNewOrderChan,internalButtonChan)
+	go orderStorage.RestoreOrderStateBeforeShutdown(sendNewOrderChan,newLocalOrderChan)
+	go orderStorage.RegisterNewAndServedOrders(newOrderToBeAssignedChan, sendNewOrderChan, receiveNewOrderChan, sendOrderServedChan, receiveOrderServedChan, sendElevStateChan, sendExternalArrayChan, receiveExternalArrayChan, internalButtonChan, newLocalOrderChan,localOrderServedChan, newElevChan)
+	go orderStorage.ResendOrdersIfNetworkError(resetAssignFuncChan, sendNewOrderChan,newLocalOrderChan,deadElevChan,networkDownChan,removeElevChan)
+	go orderAssignment.UpdateElevatorStateList(newOrderToBeAssignedChan, resetAssignFuncChan, sendOrderAssChan, receiveOrderAssChan, receiveElevStateChan,newLocalOrderChan,removeElevChan)
+	go network.InitAndAlertNetworkChanges(newConnectionChan, endConnectionChan, resendUnackdMessagesChan, newElevChan, deadElevChan, networkDownChan)
+	go messages.InitAndRun(fromDecodeChans,toEncodeChans, newConnectionChan, endConnectionChan,resendUnackdMessagesChan)
+	go localElev.RunElevAndManageOrderQueue(sendElevStateChan, newLocalOrderChan, localOrderServedChan)
 	fmt.Println("Main: sleeping")
-	time.Sleep(time.Second * 1000)
+	for{
+		time.Sleep(time.Second * 1000)
+	}
+
 }

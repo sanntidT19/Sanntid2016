@@ -52,11 +52,3 @@ type MessageChans struct{
 	ExternalArrayChan chan [NUM_FLOORS][NUM_BUTTONS -1] int
 }
 
-func orderIsInList(orderQueue []Order, newOrder Order) bool {
-	for _, v := range orderQueue {
-		if v == newOrder {
-			return true
-		}
-	}
-	return false
-}
